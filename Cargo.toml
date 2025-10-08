@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+
+members = ["acta_deployer_contract", "acta_did_contract", "acta_vault_contract", "acta_issuance_contract"]
+
+[workspace.package]
+version = "0.20.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/ACTA/ACTA-Contracts"
+
+[workspace.dependencies]
+soroban-sdk = { version = "=20.5.0" }
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
+
+[profile.release-with-logs]
+inherits = "release"
+debug-assertions = true

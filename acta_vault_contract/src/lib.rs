@@ -1,0 +1,15 @@
+#![no_std]
+mod contract;
+mod error;
+mod issuer;
+mod storage;
+mod vault_trait;
+mod verifiable_credential;
+mod did_contract {
+    soroban_sdk::contractimport!(
+        file = "../target/wasm32-unknown-unknown/release/acta_did_contract.wasm"
+    );
+}
+
+#[cfg(test)]
+mod test;
