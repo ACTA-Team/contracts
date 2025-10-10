@@ -45,6 +45,26 @@ impl VaultTrait for VaultContract {
         (did_contract_address, did_document.into_val(&e))
     }
 
+    fn initialize_with_did(
+        e: Env,
+        admin: Address,
+        did_contract: Address,
+        did_uri: String,
+        did_document: Val,
+    ) -> (Address, Val) {
+        if storage::has_admin(&e) {
+            panic_with_error!(e, ContractError::AlreadyInitialized);
+        }
+
+        storage::write_admin(&e, &admin);
+        storage::write_did(&e, &did_uri);
+        storage::write_did_contract(&e, &did_contract);
+        storage::write_revoked(&e, &false);
+        storage::write_issuers(&e, &Vec::new(&e));
+
+        (did_contract, did_document)
+    }
+
     fn authorize_issuers(e: Env, issuers: Vec<Address>) {
         validate_admin(&e);
         validate_vault_revoked(&e);

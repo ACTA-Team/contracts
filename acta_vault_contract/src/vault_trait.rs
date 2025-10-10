@@ -11,6 +11,16 @@ pub trait VaultTrait {
         salt: BytesN<32>,
     ) -> (Address, Val);
 
+    /// Initializes the vault with a pre-deployed DID contract.
+    /// This is a fallback path when in-tx DID deployment+init is not possible.
+    fn initialize_with_did(
+        e: Env,
+        admin: Address,
+        did_contract: Address,
+        did_uri: String,
+        did_document: Val,
+    ) -> (Address, Val);
+
     /// Authorizes a list of issuers.
     fn authorize_issuers(e: Env, issuers: Vec<Address>);
 
