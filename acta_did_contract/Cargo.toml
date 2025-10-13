@@ -1,18 +1,19 @@
 [package]
-name = "acta-did-contract"
-version = "0.6.1"
+name = "stellar-did-registry"
+version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-soroban-sdk = "20.5.0"
+soroban-sdk = "20.0.0"
 
 [dev_dependencies]
-soroban-sdk = { version = "20.5.0", features = ["testutils"] }
+soroban-sdk = { version = "20.0.0", features = ["testutils"] }
+
+[features]
+testutils = ["soroban-sdk/testutils"]
 
 [profile.release]
 opt-level = "z"
