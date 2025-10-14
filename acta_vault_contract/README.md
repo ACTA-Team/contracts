@@ -3,7 +3,7 @@
 Secure repository for storing encrypted Verifiable Credential (VC) payloads and managing authorized issuers.
 
 ## Features
-- `initialize(admin, did_wasm_hash, did_init_args, salt)`: deploys the holder’s DID and registers its `did_uri`.
+- `initialize(admin, did_uri)`: registers the holder’s DID URI directly (no DID contract).
 - `authorize_issuers(issuers)` / `authorize_issuer(issuer)`: manage authorized issuers.
 - `store_vc(vc_id, vc_data, issuer, issuer_did, issuance_contract)`: store encrypted VC payload.
 - `revoke_vault()`: mark the vault as revoked.

@@ -20,12 +20,6 @@ soroban contract install \
   --source acta_sc_source \
   --network testnet
 
-echo "DID contract WASM ID:"
-soroban contract install \
-  --wasm target/wasm32-unknown-unknown/release/acta_did_contract.optimized.wasm \
-  --source acta_sc_source \
-  --network testnet
-
 echo "Deployer contract Address:"
 soroban contract deploy \
   --wasm target/wasm32-unknown-unknown/release/acta_deployer_contract.optimized.wasm \

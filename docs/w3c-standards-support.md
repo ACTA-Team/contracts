@@ -6,8 +6,8 @@ This document describes how the ACTA smart contracts integrate with W3C standard
 
 - The ACTA contract suite includes:
   - `VCIssuanceContract` — issues and manages VC status (valid/invalid/revoked) and exposes `issue`, `verify`, and `revoke` operations.
-  - `VaultContract` — stores VC data by ID, enforces issuer authorization, and holds DID metadata for the vault owner.
-  - `DIDContract` (deployed and initialized by `VaultContract`) — represents the DID Document of the vault owner and related cryptographic material and services.
+- `VaultContract` — stores VC data by ID, enforces issuer authorization, and holds DID metadata for the vault owner.
+  - (Optional off-chain DID resolution) — the vault stores a DID URI string and does not deploy a DID contract.
 
 - The design is aligned with W3C DID Core (v1.0) and W3C Verifiable Credentials Data Model (v1.1) concepts:
   - DID Document fields (verification methods, services, context).
@@ -20,8 +20,7 @@ The `VaultContract` initializes and maintains DID-related metadata:
 
 - During `initialize`, the contract:
   - Sets an `admin` address (DID controller/owner).
-  - Deploys and initializes a `DIDContract` using a `salt`, `did_wasm_hash`, and `did_init_args`.
-  - Persists the **DID URI** and the **DID contract address**.
+  - Accepts a generative `did_uri` string and persists the **DID URI**.
 
 - DID Document content (as constructed in tests and initialization args):
   - `@context`: includes standard entries such as `https://www.w3.org/ns/did/v1` and security suite contexts, e.g. `https://w3id.org/security/suites/ed25519-2020/v1` and `https://w3id.org/security/suites/x25519-2020/v1`.

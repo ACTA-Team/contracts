@@ -1,15 +1,9 @@
-use soroban_sdk::{Address, BytesN, Env, String, Val, Vec};
+use soroban_sdk::{Address, BytesN, Env, String, Vec};
 
 #[allow(dead_code)]
 pub trait VaultTrait {
     /// Initializes the vault contract by setting the admin and deploying the DID.
-    fn initialize(
-        e: Env,
-        admin: Address,
-        did_wasm_hash: BytesN<32>,
-        did_init_args: Vec<Val>,
-        salt: BytesN<32>,
-    ) -> (Address, Val);
+    fn initialize(e: Env, admin: Address, did_uri: String);
 
     /// Authorizes a list of issuers.
     fn authorize_issuers(e: Env, issuers: Vec<Address>);

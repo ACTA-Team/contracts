@@ -1,12 +1,10 @@
-use crate::did_contract::DIDDocument;
 use crate::error::ContractError;
 use crate::issuer;
 use crate::storage;
 use crate::vault_trait::VaultTrait;
 use crate::verifiable_credential;
 use soroban_sdk::{
-    contract, contractimpl, contractmeta, panic_with_error, Address, BytesN, Env, IntoVal, String,
-    Symbol, Val, Vec,
+    contract, contractimpl, contractmeta, panic_with_error, Address, BytesN, Env, String, Vec,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -22,27 +20,15 @@ pub struct VaultContract;
 
 #[contractimpl]
 impl VaultTrait for VaultContract {
-    fn initialize(
-        e: Env,
-        admin: Address,
-        did_wasm_hash: BytesN<32>,
-        did_init_args: Vec<Val>,
-        salt: BytesN<32>,
-    ) -> (Address, Val) {
+    fn initialize(e: Env, admin: Address, did_uri: String) {
         if storage::has_admin(&e) {
             panic_with_error!(e, ContractError::AlreadyInitialized);
         }
-        let (did_contract_address, did_document) =
-            deploy_and_initialize_did(&e, salt, did_wasm_hash, did_init_args);
-        let did_uri = did_document.id.clone();
 
         storage::write_admin(&e, &admin);
         storage::write_did(&e, &did_uri);
-        storage::write_did_contract(&e, &did_contract_address);
         storage::write_revoked(&e, &false);
         storage::write_issuers(&e, &Vec::new(&e));
-
-        (did_contract_address, did_document.into_val(&e))
     }
 
     fn authorize_issuers(e: Env, issuers: Vec<Address>) {
@@ -149,19 +135,4 @@ fn validate_vault_revoked(e: &Env) {
     }
 }
 
-fn deploy_and_initialize_did(
-    e: &Env,
-    salt: BytesN<32>,
-    did_wasm_hash: BytesN<32>,
-    did_init_args: Vec<Val>,
-) -> (Address, DIDDocument) {
-    let init_fn = Symbol::new(e, "initialize");
-    let did_contract_address = e
-        .deployer()
-        .with_current_contract(salt)
-        .deploy(did_wasm_hash);
-    let did_document: DIDDocument =
-        e.invoke_contract(&did_contract_address, &init_fn, did_init_args);
-
-    (did_contract_address, did_document)
-}
+// DID generativo: ya no se despliega contrato DID ni se invoca.

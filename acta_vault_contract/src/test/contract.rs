@@ -1,31 +1,17 @@
-use super::setup::{did_context, get_vc_setup, VCVaultContractTest};
-use crate::did_contract;
+use super::setup::{get_vc_setup, VCVaultContractTest};
 use crate::test::setup::VaultContractTest;
 use soroban_sdk::{testutils::Address as _, vec, Address, String};
 
 #[test]
 fn test_initialize() {
     let VaultContractTest {
-        env,
+        env: _env,
         admin,
         issuer: _issuer,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
-
-    let context = did_context(&env);
-
-    let (contract_id, did_document_val) =
-        contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
-
-    let client = did_contract::Client::new(&env, &contract_id);
-    let did_document = client.get_did();
-
-    assert!(did_document_val.is_object());
-    assert!(did_document.context == context);
-    assert!(contract_id.to_string().len() > 0)
+    contract.initialize(&admin, &did_uri);
 }
 
 #[test]
@@ -35,14 +21,11 @@ fn test_initialize_an_already_initialized_contract() {
         env: _,
         admin,
         issuer: _issuer,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
-
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
+    contract.initialize(&admin, &did_uri);
 }
 
 #[test]
@@ -51,13 +34,10 @@ fn test_authorize_issuer() {
         env: _env,
         admin,
         issuer,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
-
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
     contract.authorize_issuer(&issuer);
 }
 
@@ -68,13 +48,10 @@ fn test_authorize_issuer_with_already_authorized_issuer() {
         env: _,
         admin,
         issuer,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
-
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
     contract.authorize_issuer(&issuer);
     contract.authorize_issuer(&issuer);
 }
@@ -86,13 +63,10 @@ fn test_authorize_issuer_with_revoked_vault() {
         env: _,
         admin,
         issuer,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
-
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
     contract.revoke_vault();
     contract.authorize_issuer(&issuer);
 }
@@ -103,14 +77,11 @@ fn test_authorize_issuers() {
         env,
         admin,
         issuer,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
     let issuers = vec![&env, issuer.clone()];
-
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
     contract.authorize_issuers(&issuers);
 }
 
@@ -121,14 +92,11 @@ fn test_authorize_issuers_with_revoked_vault() {
         env,
         admin,
         issuer,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
     let issuers = vec![&env, issuer.clone()];
-
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
     contract.revoke_vault();
     contract.authorize_issuers(&issuers);
 }
@@ -139,13 +107,10 @@ fn test_revoke_issuer() {
         env: _env,
         admin,
         issuer,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
-
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
     contract.authorize_issuer(&issuer);
     contract.revoke_issuer(&issuer);
 }
@@ -157,13 +122,10 @@ fn test_revoke_issuer_when_issuer_is_not_found() {
         env,
         admin,
         issuer,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
-
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
     contract.authorize_issuer(&issuer);
 
     let invalid_issuer = Address::generate(&env);
@@ -177,13 +139,10 @@ fn test_revoke_issuer_with_revoked_vault() {
         env: _,
         admin,
         issuer,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
-
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
     contract.revoke_vault();
     contract.revoke_issuer(&issuer);
 }
@@ -194,9 +153,7 @@ fn test_store_vc() {
         env,
         admin,
         issuer,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
 
@@ -207,7 +164,7 @@ fn test_store_vc() {
         issuer_did,
     } = get_vc_setup(&env);
 
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
     contract.authorize_issuer(&issuer);
     contract.store_vc(
         &vc_id,
@@ -238,7 +195,7 @@ fn test_store_vc_with_empty_issuers() {
         issuer_did,
     } = get_vc_setup(&env);
 
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
     contract.store_vc(
         &vc_id,
         &vc_data,
@@ -255,9 +212,7 @@ fn test_store_vc_with_issuer_not_found() {
         env,
         admin,
         issuer,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
 
@@ -270,7 +225,7 @@ fn test_store_vc_with_issuer_not_found() {
         issuer_did,
     } = get_vc_setup(&env);
 
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
     contract.authorize_issuer(&issuer);
     contract.store_vc(
         &vc_id,
@@ -320,13 +275,11 @@ fn test_revoke_vault() {
         env: _,
         admin,
         issuer: _,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
 
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
     contract.revoke_vault();
 }
 
@@ -337,13 +290,11 @@ fn test_migrate_should_fail_without_vcs() {
         env: _,
         admin,
         issuer: _,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
 
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
     contract.migrate();
 }
 
@@ -353,13 +304,11 @@ fn test_set_admin() {
         env,
         admin,
         issuer: _issuer,
-        did_init_args,
-        did_wasm_hash,
-        salt,
+        did_uri,
         contract,
     } = VaultContractTest::setup();
 
-    contract.initialize(&admin, &did_wasm_hash, &did_init_args, &salt);
+    contract.initialize(&admin, &did_uri);
 
     let new_admin = Address::generate(&env);
 

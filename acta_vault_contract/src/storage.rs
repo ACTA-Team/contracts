@@ -6,7 +6,6 @@ use soroban_sdk::{contracttype, Address, Env, String, Vec};
 pub enum DataKey {
     Admin,       // Address
     Did,         // String
-    DidContract, // Address
     Revoked,     // Boolean
     Issuers,     // Vec<Address>
     VC(String),  // VerifiableCredential
@@ -33,10 +32,7 @@ pub fn write_did(e: &Env, did: &String) {
     e.storage().instance().set(&key, did);
 }
 
-pub fn write_did_contract(e: &Env, did_contract: &Address) {
-    let key = DataKey::DidContract;
-    e.storage().instance().set(&key, did_contract);
-}
+// DID generativo: el address del contrato DID ya no se guarda.
 
 pub fn read_revoked(e: &Env) -> bool {
     let key = DataKey::Revoked;
