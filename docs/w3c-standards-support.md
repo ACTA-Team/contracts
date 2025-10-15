@@ -156,7 +156,7 @@ Instance vs Persistent:
 
 - Upgradability:
   - Both `VaultContract` and `VCIssuanceContract` expose `upgrade(new_wasm_hash)`.
-  - `VaultContract` also allows `set_admin(new_admin)`.
+  - `VaultContract` also allows `set_admin(owner, new_admin)` (per‑vault admin).
 
 ## Roadmap / Potential Enhancements
 
