@@ -6,7 +6,7 @@ Issues, verifies, and revokes Verifiable Credentials (VCs) on Soroban.
 
 Note: Example ID — replace with your own deployment.
 
-- `CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA`
+- `CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG`
 
 ## Features
 
@@ -58,11 +58,11 @@ soroban contract deploy \
   --wasm "C:\\Projects\\ACTA\\API\\ACTA-Contracts\\target\\wasm32v1-none\\release\\acta_issuance_contract.wasm" \
   --network testnet \
   --source acta_sc_source
-# => Contract ID: CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA
+# => Contract ID: CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG
 
 # Initialize with admin and issuer DID
 soroban contract invoke \
-  --id CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA \
+  --id CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG \
   --network testnet \
   --source acta_sc_source \
   -- \
@@ -75,7 +75,7 @@ soroban contract invoke \
 
 ```bash
 soroban contract invoke \
-  --id CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA \
+  --id CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG \
   --network testnet \
   --source acta_sc_source \
   -- \

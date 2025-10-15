@@ -231,7 +231,7 @@ Typical use:
 
 **Current Testnet Issuance Contract ID**
 
-- `CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA`
+- `CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG`
 
 ### Deploying the Issuance Contract (Testnet)
 
@@ -246,7 +246,7 @@ Typical use:
 - Authorize an issuer:
   `soroban contract invoke --id CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH --network testnet -- authorize_issuer --owner G...OWNER --issuer G...ISSUER`
 - Store a VC:
-  `soroban contract invoke --id CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH --network testnet -- store_vc --owner G...OWNER --vc_id vc-123 --vc_data '{"name":"Alice"}' --issuer G...ISSUER --issuer_did did:pkh:stellar:testnet:G...ISSUER --issuance_contract CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA`
+  `soroban contract invoke --id CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH --network testnet -- store_vc --owner G...OWNER --vc_id vc-123 --vc_data '{"name":"Alice"}' --issuer G...ISSUER --issuer_did did:pkh:stellar:testnet:G...ISSUER --issuance_contract CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG`
 
 ---
 

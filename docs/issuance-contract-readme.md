@@ -4,7 +4,7 @@ This guide describes each public function of the `acta_issuance_contract`, its a
 
 Note: Example Testnet IDs — replace with your own deployment IDs.
 
-- Issuance Contract: `CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA`
+- Issuance Contract: `CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG`
 - Vault Contract: `CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH`
 
 ## Key Concepts
@@ -42,7 +42,7 @@ Initialize the issuance contract with the `admin` and `issuer_did`.
 - Typical use: prepare the contract to issue VCs.
 
 Example (testnet):
-`soroban contract invoke --id CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA --network testnet --source acta_sc_source -- initialize --admin G...ADMIN --issuer_did did:pkh:stellar:testnet:G...ADMIN`
+`soroban contract invoke --id CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG --network testnet --source acta_sc_source -- initialize --admin G...ADMIN --issuer_did did:pkh:stellar:testnet:G...ADMIN`
 
 ---
 
@@ -60,7 +60,7 @@ Issue a VC and store it in the holder’s Vault.
 - Typical use: back-end issuance flows for one or multiple holders.
 
 Example (testnet):
-`soroban contract invoke --id CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA --network testnet --source acta_sc_source -- issue --owner G...OWNER --vc_id "vc-123" --vc_data "<encrypted_payload>" --vault_contract CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH`
+`soroban contract invoke --id CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG --network testnet --source acta_sc_source -- issue --owner G...OWNER --vc_id "vc-123" --vc_data "<encrypted_payload>" --vault_contract CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH`
 
 ---
 
@@ -73,7 +73,7 @@ Verify the status of a VC.
 - Typical use: quick status checks (e.g., during access verification).
 
 Example (testnet):
-`soroban contract invoke --id CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA --network testnet -- verify --vc_id vc-123`
+`soroban contract invoke --id CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG --network testnet -- verify --vc_id vc-123`
 
 ---
 
@@ -89,7 +89,7 @@ Revoke a VC by `vc_id`, recording the revocation `date`.
 - Typical use: remove a VC for compliance, fraud, or expiration.
 
 Example (testnet):
-`soroban contract invoke --id CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA --network testnet --source acta_sc_source -- revoke --vc_id vc-123 --date 2024-10-15T12:00:00Z`
+`soroban contract invoke --id CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG --network testnet --source acta_sc_source -- revoke --vc_id vc-123 --date 2024-10-15T12:00:00Z`
 
 ---
 
@@ -102,7 +102,7 @@ Migrate legacy storage (`VCs`, `Revocations`) to the current `VCStatus` scheme b
 - Typical use: run once after an upgrade that changed the storage scheme.
 
 Example (testnet):
-`soroban contract invoke --id CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA --network testnet --source acta_sc_source -- migrate`
+`soroban contract invoke --id CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG --network testnet --source acta_sc_source -- migrate`
 
 ---
 
@@ -115,7 +115,7 @@ Change the `admin` of the issuance contract.
 - Typical use: transfer control to another entity (custodian, multisig, etc.).
 
 Example (testnet):
-`soroban contract invoke --id CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA --network testnet --source acta_sc_source -- set_admin --new_admin G...NEWADMIN`
+`soroban contract invoke --id CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG --network testnet --source acta_sc_source -- set_admin --new_admin G...NEWADMIN`
 
 ---
 
@@ -128,7 +128,7 @@ Upgrade the contract WASM code.
 - Typical use: deploy new versions with improvements or fixes.
 
 Example (testnet):
-`soroban contract invoke --id CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA --network testnet --source acta_sc_source -- upgrade --new_wasm_hash a7a34e34b16d6ad3d4876f58737dfcbbaa8b5bb21abe17a3da022d181e4da3917`
+`soroban contract invoke --id CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG --network testnet --source acta_sc_source -- upgrade --new_wasm_hash a7a34e34b16d6ad3d4876f58737dfcbbaa8b5bb21abe17a3da022d181e4da3917`
 
 ---
 
@@ -139,7 +139,7 @@ Returns the package version (`CARGO_PKG_VERSION`) compiled into the contract.
 - Typical use: audit which version is running on-chain.
 
 Example (testnet):
-`soroban contract invoke --id CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA --network testnet -- version`
+`soroban contract invoke --id CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG --network testnet -- version`
 
 ---
 
@@ -161,5 +161,5 @@ Example (testnet):
 
 - Align signer with role: `admin` signs administrative actions; `issuer` (issuance admin) is authorized per Vault.
 - Manage IDs in configuration (e.g., `.env`):
-  - `ISSUANCE_CONTRACT_ID=CBRG5UJ7JZRIQMO2LCOUGODWXPSIXD2H5EMCCUP5BWZOKJ73AHNH4RUA`
+  - `ISSUANCE_CONTRACT_ID=CBQ5HQI4CG6VI74D46ZJ6YVTXZJ6UQZM7GLC2WUDS75ACXWEBI2AE2OG`
   - `VAULT_CONTRACT_ID=CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH`
