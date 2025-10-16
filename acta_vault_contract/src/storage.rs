@@ -11,6 +11,7 @@ pub enum DataKey {
     Issuers(Address),      // Vec<Address>
     VC(Address, String),   // VerifiableCredential
     VCs(Address),          // Vec<VerifiableCredential>
+    VCIds(Address),        // Vec<String>
 }
 
 pub fn has_admin(e: &Env, owner: &Address) -> bool {
@@ -75,6 +76,11 @@ pub fn write_vc(e: &Env, owner: &Address, vc_id: &String, vc: &VerifiableCredent
     e.storage().persistent().set(&key, vc)
 }
 
+pub fn read_vc(e: &Env, owner: &Address, vc_id: &String) -> Option<VerifiableCredential> {
+    let key = DataKey::VC(owner.clone(), vc_id.clone());
+    e.storage().persistent().get(&key)
+}
+
 pub fn read_old_vcs(e: &Env, owner: &Address) -> Option<Vec<VerifiableCredential>> {
     let key = DataKey::VCs(owner.clone());
     e.storage().persistent().get(&key)
@@ -83,4 +89,25 @@ pub fn read_old_vcs(e: &Env, owner: &Address) -> Option<Vec<VerifiableCredential
 pub fn remove_old_vcs(e: &Env, owner: &Address) {
     let key = DataKey::VCs(owner.clone());
     e.storage().persistent().remove(&key);
+}
+
+pub fn read_vc_ids(e: &Env, owner: &Address) -> Vec<String> {
+    let key = DataKey::VCIds(owner.clone());
+    match e.storage().persistent().get(&key) {
+        Some(v) => v,
+        None => Vec::new(e),
+    }
+}
+
+pub fn write_vc_ids(e: &Env, owner: &Address, ids: &Vec<String>) {
+    let key = DataKey::VCIds(owner.clone());
+    e.storage().persistent().set(&key, ids)
+}
+
+pub fn append_vc_id(e: &Env, owner: &Address, vc_id: &String) {
+    let mut ids = read_vc_ids(e, owner);
+    if !ids.contains(vc_id.clone()) {
+        ids.push_front(vc_id.clone());
+        write_vc_ids(e, owner, &ids);
+    }
 }

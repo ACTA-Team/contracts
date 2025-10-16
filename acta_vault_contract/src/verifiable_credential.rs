@@ -26,4 +26,6 @@ pub fn store_vc(
     };
 
     storage::write_vc(e, owner, &id, &new_vc);
+    // Maintain index of VC IDs per owner for listing.
+    storage::append_vc_id(e, owner, &id);
 }

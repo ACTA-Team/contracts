@@ -25,6 +25,12 @@ pub trait VaultTrait {
         issuance_contract: Address,
     );
 
+    /// Lists stored verifiable credential IDs for the owner's vault.
+    fn list_vc_ids(e: Env, owner: Address) -> Vec<String>;
+
+    /// Gets a verifiable credential by ID for the owner's vault.
+    fn get_vc(e: Env, owner: Address, vc_id: String) -> Option<crate::verifiable_credential::VerifiableCredential>;
+
     /// Revokes the owner's vault.
     fn revoke_vault(e: Env, owner: Address);
 
