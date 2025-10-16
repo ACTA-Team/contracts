@@ -132,6 +132,54 @@ Typical use:
 
 ---
 
+## list_vc_ids
+
+Lists all verifiable credential IDs stored in the vault for an `owner`.
+
+Effect:
+
+- Returns an array of VC identifiers (URIs or opaque strings) associated with `owner`.
+- Read‑only; does not mutate state.
+
+Requirements:
+
+- Must be signed by the `owner` (authorization enforced via `owner.require_auth()`).
+- Vault must be initialized and not revoked.
+
+Typical use:
+
+- Discover available VC IDs for an `owner` before fetching a specific credential with `get_vc`.
+
+---
+
+## get_vc
+
+Fetches a single verifiable credential by `vc_id` for the given `owner`.
+
+Effect:
+
+- Returns the stored VC payload and metadata for the key `(owner, vc_id)`.
+- Read‑only; does not mutate state.
+
+Return shape:
+
+- `id`: VC identifier.
+- `data`: VC payload (string or structured object depending on your app).
+- `issuance_contract`: on‑chain contract ID that issued the VC.
+- `issuer_did`: DID of the issuer.
+
+Requirements:
+
+- Must be signed by the `owner` (authorization enforced via `owner.require_auth()`).
+- Fails if the vault is revoked.
+- Fails if no record exists for `(owner, vc_id)`.
+
+Typical use:
+
+- Read a specific VC for validation or off‑chain processing after discovering its `vc_id` via `list_vc_ids`.
+
+---
+
 ## revoke_vault
 
 Revokes the `owner` vault.
@@ -239,7 +287,7 @@ Typical use:
 2. Note its contract ID (`C…`) and keep it in configuration (e.g., `.env`), so your app can pass it to `store_vc`.
 3. Multiple users can reference the same issuance contract; deployment is one‑time per issuer/organization, not per credential.
 
-### CLI Example: Initialize and Store VC (Testnet)
+### CLI Example: Initialize, Store, List and Get VC (Testnet)
 
 - Initialize vault for `owner`:
   `soroban contract invoke --id CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH --network testnet -- initialize --owner G...OWNER --did_uri did:pkh:stellar:testnet:G...OWNER`
@@ -247,6 +295,14 @@ Typical use:
   `soroban contract invoke --id CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH --network testnet -- authorize_issuer --owner G...OWNER --issuer G...ISSUER`
 - Store a VC:
   `soroban contract invoke --id CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH --network testnet -- store_vc --owner G...OWNER --vc_id vc-123 --vc_data '{"name":"Alice"}' --issuer G...ISSUER --issuer_did did:pkh:stellar:testnet:G...ISSUER --issuance_contract CANYEUDJCAPQ5ACXXJQXR4VA6727LFGFP2FFE35MF3YEQTXCMIA7BNWA`
+
+- List VC IDs for an owner:
+  `soroban contract invoke --id CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH --network testnet -- list_vc_ids --owner G...OWNER`
+
+- Get a VC by id:
+  `soroban contract invoke --id CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH --network testnet -- get_vc --owner G...OWNER --vc_id vc-123`
+
+Note: For read operations (`list_vc_ids`, `get_vc`), ensure you sign as the `owner` (e.g., set a default identity or pass `--source-account` with the owner’s key) because `owner.require_auth()` is enforced.
 
 ---
 
