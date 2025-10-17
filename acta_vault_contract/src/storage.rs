@@ -111,3 +111,16 @@ pub fn append_vc_id(e: &Env, owner: &Address, vc_id: &String) {
         write_vc_ids(e, owner, &ids);
     }
 }
+
+pub fn remove_vc(e: &Env, owner: &Address, vc_id: &String) {
+    let key = DataKey::VC(owner.clone(), vc_id.clone());
+    e.storage().persistent().remove(&key);
+}
+
+pub fn remove_vc_id(e: &Env, owner: &Address, vc_id: &String) {
+    let mut ids = read_vc_ids(e, owner);
+    if let Some(idx) = ids.first_index_of(vc_id.clone()) {
+        ids.remove(idx);
+        write_vc_ids(e, owner, &ids);
+    }
+}

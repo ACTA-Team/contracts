@@ -330,3 +330,78 @@ fn test_version() {
     let expected_version = String::from_str(&env, pkg_version);
     assert_eq!(contract.version(), expected_version)
 }
+
+#[test]
+fn test_push_vc_moves_record_and_ids() {
+    let VaultContractTest {
+        env,
+        owner: from_owner,
+        issuer,
+        did_uri,
+        contract,
+    } = VaultContractTest::setup();
+
+    // Segundo owner (destino)
+    let to_owner = Address::generate(&env);
+
+    // Inicializa ambos vaults
+    contract.initialize(&from_owner, &did_uri);
+    contract.initialize(&to_owner, &did_uri);
+
+    // Autoriza al issuer solo en el origen
+    contract.authorize_issuer(&from_owner, &issuer);
+
+    // Crea VC en el vault de origen
+    let VCVaultContractTest {
+        vc_id,
+        vc_data,
+        issuance_contract_address,
+        issuer_did,
+    } = get_vc_setup(&env);
+
+    contract.store_vc(
+        &from_owner,
+        &vc_id,
+        &vc_data,
+        &issuer,
+        &issuer_did,
+        &issuance_contract_address,
+    );
+
+    // Empuja al destino
+    contract.push(&from_owner, &to_owner, &vc_id, &issuer);
+
+    // Verifica que se movió
+    let from_ids = contract.list_vc_ids(&from_owner);
+    assert_eq!(from_ids.len(), 0);
+
+    let to_ids = contract.list_vc_ids(&to_owner);
+    assert!(to_ids.contains(vc_id.clone()));
+
+    let to_vc = contract.get_vc(&to_owner, &vc_id);
+    assert!(to_vc.is_some());
+
+    let from_vc = contract.get_vc(&from_owner, &vc_id);
+    assert!(from_vc.is_none());
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #6)")]
+fn test_push_vc_not_found_should_panic() {
+    let VaultContractTest {
+        env,
+        owner: from_owner,
+        issuer,
+        did_uri,
+        contract,
+    } = VaultContractTest::setup();
+
+    let to_owner = Address::generate(&env);
+
+    contract.initialize(&from_owner, &did_uri);
+    contract.initialize(&to_owner, &did_uri);
+    contract.authorize_issuer(&from_owner, &issuer);
+
+    let missing_vc_id = String::from_str(&env, "missing-vc");
+    contract.push(&from_owner, &to_owner, &missing_vc_id, &issuer);
+}

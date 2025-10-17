@@ -31,6 +31,15 @@ pub trait VaultTrait {
     /// Gets a verifiable credential by ID for the owner's vault.
     fn get_vc(e: Env, owner: Address, vc_id: String) -> Option<crate::verifiable_credential::VerifiableCredential>;
 
+    /// Push: moves a VC from one owner's vault to another (issuer-only). No target authorization required.
+    fn push(
+        e: Env,
+        from_owner: Address,
+        to_owner: Address,
+        vc_id: String,
+        issuer: Address,
+    );
+
     /// Revokes the owner's vault.
     fn revoke_vault(e: Env, owner: Address);
 

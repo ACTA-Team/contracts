@@ -84,6 +84,39 @@ impl VaultTrait for VaultContract {
         storage::read_vc(&e, &owner, &vc_id)
     }
 
+    fn push(
+        e: Env,
+        from_owner: Address,
+        to_owner: Address,
+        vc_id: String,
+        issuer: Address,
+    ) {
+        // Ambos vaults deben estar activos
+        validate_vault_revoked(&e, &from_owner);
+        validate_vault_revoked(&e, &to_owner);
+
+        // Solo el owner del vault de origen debe firmar la operación
+        from_owner.require_auth();
+
+        // El issuer debe estar autorizado en el vault de origen (sin exigir su firma)
+        validate_issuer_autorizado(&e, &from_owner, &issuer);
+
+        // La VC debe existir en el vault de origen
+        let vc_opt = storage::read_vc(&e, &from_owner, &vc_id);
+        if vc_opt.is_none() {
+            panic_with_error!(e, ContractError::VCNotFound);
+        }
+        let vc = vc_opt.unwrap();
+
+        // Remueve del vault de origen
+        storage::remove_vc(&e, &from_owner, &vc_id);
+        storage::remove_vc_id(&e, &from_owner, &vc_id);
+
+        // Inserta en el vault destino
+        storage::write_vc(&e, &to_owner, &vc_id, &vc);
+        storage::append_vc_id(&e, &to_owner, &vc_id);
+    }
+
     fn revoke_vault(e: Env, owner: Address) {
         validate_admin(&e, &owner);
         validate_vault_revoked(&e, &owner);
@@ -145,6 +178,16 @@ fn validate_issuer(e: &Env, owner: &Address, issuer: &Address) {
     }
 
     issuer.require_auth();
+}
+
+// Variante de validación para casos donde solo se requiere que el issuer esté
+// autorizado en el vault del owner, pero NO se exige su firma.
+fn validate_issuer_autorizado(e: &Env, owner: &Address, issuer: &Address) {
+    let issuers: Vec<Address> = storage::read_issuers(e, owner);
+
+    if !issuer::is_authorized(&issuers, issuer) {
+        panic_with_error!(e, ContractError::IssuerNotAuthorized)
+    }
 }
 
 fn validate_vault_revoked(e: &Env, owner: &Address) {
