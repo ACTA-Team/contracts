@@ -83,7 +83,7 @@ soroban contract invoke \
   --owner G...OWNER \
   --vc_id "vc-123" \
   --vc_data "<encrypted_payload>" \
-  --vault_contract CDXXIA7O4PMY2CVKFJZOXSV7GYEINP3HE4JSQ4YPBFDQZ4RG5HVOTATN
+  --vault_contract CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH
 ```
 
 ## License

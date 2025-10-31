@@ -5,7 +5,7 @@ This guide describes each public function of the `acta_issuance_contract`, its a
 Note: Example Testnet IDs — replace with your own deployment IDs.
 
 - Issuance Contract: `CANYEUDJCAPQ5ACXXJQXR4VA6727LFGFP2FFE35MF3YEQTXCMIA7BNWA`
-- Vault Contract: `CDXXIA7O4PMY2CVKFJZOXSV7GYEINP3HE4JSQ4YPBFDQZ4RG5HVOTATN`
+- Vault Contract: `CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH`
 
 ## Key Concepts
 
@@ -60,7 +60,7 @@ Issue a VC and store it in the holder’s Vault.
 - Typical use: back-end issuance flows for one or multiple holders.
 
 Example (testnet):
-`soroban contract invoke --id CANYEUDJCAPQ5ACXXJQXR4VA6727LFGFP2FFE35MF3YEQTXCMIA7BNWA --network testnet --source acta_sc_source -- issue --owner G...OWNER --vc_id "vc-123" --vc_data "<encrypted_payload>" --vault_contract CDXXIA7O4PMY2CVKFJZOXSV7GYEINP3HE4JSQ4YPBFDQZ4RG5HVOTATN`
+`soroban contract invoke --id CANYEUDJCAPQ5ACXXJQXR4VA6727LFGFP2FFE35MF3YEQTXCMIA7BNWA --network testnet --source acta_sc_source -- issue --owner G...OWNER --vc_id "vc-123" --vc_data "<encrypted_payload>" --vault_contract CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH`
 
 ---
 
@@ -162,4 +162,4 @@ Example (testnet):
 - Align signer with role: `admin` signs administrative actions; `issuer` (issuance admin) is authorized per Vault.
 - Manage IDs in configuration (e.g., `.env`):
   - `ISSUANCE_CONTRACT_ID=CANYEUDJCAPQ5ACXXJQXR4VA6727LFGFP2FFE35MF3YEQTXCMIA7BNWA`
-  - `VAULT_CONTRACT_ID=CDXXIA7O4PMY2CVKFJZOXSV7GYEINP3HE4JSQ4YPBFDQZ4RG5HVOTATN`
+  - `VAULT_CONTRACT_ID=CD7AN2XKCQLFNENL6YUUNZ6FBAL63N5J5X7AEGLRYSG6YBS6V35OSJCH`
