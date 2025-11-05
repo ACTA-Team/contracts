@@ -7,7 +7,7 @@ This document describes each public function of the `acta_vault_contract`, the a
 Note: Examples — replace with your own deployment if different.
 
 - Testnet: `CDK642PLEPCQH7WUBLHYYSKRJZOUIRIPY7GXQRHOETGR2JJ76UK6SWLZ`
-- Mainnet: `CBWXA3XCP7DHIDIFEPUVNKCXKN27KMYQBKKRMSEA25EEDIKRKRTTQZQ4`
+- Mainnet: `CAN2LSCQQGY6K2TZYZELHVNMXHMVNJBNII4RH2VTHMMJEWOTK2IFZYJF`
 
 ## Key Concepts
 
