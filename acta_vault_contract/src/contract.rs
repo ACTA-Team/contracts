@@ -73,14 +73,11 @@ impl VaultTrait for VaultContract {
     }
 
     fn list_vc_ids(e: Env, owner: Address) -> Vec<String> {
-        // Only the owner can list their credential IDs
-        owner.require_auth();
         storage::read_vc_ids(&e, &owner)
     }
 
     fn get_vc(e: Env, owner: Address, vc_id: String) -> Option<verifiable_credential::VerifiableCredential> {
-        // Only the owner can read their credential content
-        owner.require_auth();
+        // Public read: allow getting credential content without owner signature
         storage::read_vc(&e, &owner, &vc_id)
     }
 
