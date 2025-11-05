@@ -5,7 +5,7 @@ Secure, multi‑tenant repository for storing Verifiable Credentials (VCs) and m
 **Testnet Vault Contract ID**
 Note: Example ID — replace with your own deployment.
 
-- `CBOWVYBPLXU44EXGUJB3T4EC7GA47T6KERAOECYNP4WNFA73DZHBP4VQ`
+- `CDK642PLEPCQH7WUBLHYYSKRJZOUIRIPY7GXQRHOETGR2JJ76UK6SWLZ`
 
 ## Multi‑Tenant Model
 
@@ -46,11 +46,11 @@ Note: Example ID — replace with your own deployment.
 ## CLI Examples (Testnet)
 
 - Initialize:
-  `soroban contract invoke --id CBOWVYBPLXU44EXGUJB3T4EC7GA47T6KERAOECYNP4WNFA73DZHBP4VQ --network testnet -- initialize --owner G...OWNER --did_uri did:pkh:stellar:testnet:G...OWNER`
+  `soroban contract invoke --id CDK642PLEPCQH7WUBLHYYSKRJZOUIRIPY7GXQRHOETGR2JJ76UK6SWLZ --network testnet -- initialize --owner G...OWNER --did_uri did:pkh:stellar:testnet:G...OWNER`
 - Authorize issuer:
-  `soroban contract invoke --id CBOWVYBPLXU44EXGUJB3T4EC7GA47T6KERAOECYNP4WNFA73DZHBP4VQ --network testnet -- authorize_issuer --owner G...OWNER --issuer G...ISSUER`
+  `soroban contract invoke --id CDK642PLEPCQH7WUBLHYYSKRJZOUIRIPY7GXQRHOETGR2JJ76UK6SWLZ --network testnet -- authorize_issuer --owner G...OWNER --issuer G...ISSUER`
 - Store VC:
-  `soroban contract invoke --id CBOWVYBPLXU44EXGUJB3T4EC7GA47T6KERAOECYNP4WNFA73DZHBP4VQ --network testnet -- store_vc --owner G...OWNER --vc_id vc-123 --vc_data '{"name":"Alice"}' --issuer G...ISSUER --issuer_did did:pkh:stellar:testnet:G...ISSUER --issuance_contract C...ISSUANCE_ID`
+  `soroban contract invoke --id CDK642PLEPCQH7WUBLHYYSKRJZOUIRIPY7GXQRHOETGR2JJ76UK6SWLZ --network testnet -- store_vc --owner G...OWNER --vc_id vc-123 --vc_data '{"name":"Alice"}' --issuer G...ISSUER --issuer_did did:pkh:stellar:testnet:G...ISSUER --issuance_contract C...ISSUANCE_ID`
 
 ## License
 

@@ -54,4 +54,10 @@ pub trait VaultTrait {
 
     /// Returns the version of the contract.
     fn version(e: Env) -> String;
+
+    /// Sets global fee configuration (admin only): token contract, destination, amount.
+    fn set_fee_config(e: Env, token_contract: Address, fee_dest: Address, fee_amount: i128);
+
+    /// Enables or disables global fee charging (admin only).
+    fn set_fee_enabled(e: Env, enabled: bool);
 }

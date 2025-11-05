@@ -12,6 +12,11 @@ pub enum DataKey {
     VC(Address, String),   // VerifiableCredential
     VCs(Address),          // Vec<VerifiableCredential>
     VCIds(Address),        // Vec<String>
+    // Global fee configuration (instance storage)
+    FeeEnabled,            // bool
+    FeeTokenContract,      // Address
+    FeeDest,               // Address
+    FeeAmount,             // i128 (scaled to token decimals)
 }
 
 pub fn has_admin(e: &Env, owner: &Address) -> bool {
@@ -59,6 +64,55 @@ pub fn read_revoked(e: &Env, owner: &Address) -> bool {
 pub fn write_revoked(e: &Env, owner: &Address, revoked: &bool) {
     let key = DataKey::Revoked(owner.clone());
     e.storage().instance().set(&key, revoked);
+}
+
+// --- Fee configuration helpers (instance storage) ---
+pub fn has_fee_enabled(e: &Env) -> bool {
+    let key = DataKey::FeeEnabled;
+    e.storage().instance().has(&key)
+}
+
+pub fn read_fee_enabled(e: &Env) -> bool {
+    let key = DataKey::FeeEnabled;
+    match e.storage().instance().get(&key) {
+        Some(v) => v,
+        None => false,
+    }
+}
+
+pub fn write_fee_enabled(e: &Env, enabled: &bool) {
+    let key = DataKey::FeeEnabled;
+    e.storage().instance().set(&key, enabled);
+}
+
+pub fn write_fee_token_contract(e: &Env, addr: &Address) {
+    let key = DataKey::FeeTokenContract;
+    e.storage().instance().set(&key, addr);
+}
+
+pub fn read_fee_token_contract(e: &Env) -> Address {
+    let key = DataKey::FeeTokenContract;
+    e.storage().instance().get(&key).unwrap()
+}
+
+pub fn write_fee_dest(e: &Env, addr: &Address) {
+    let key = DataKey::FeeDest;
+    e.storage().instance().set(&key, addr);
+}
+
+pub fn read_fee_dest(e: &Env) -> Address {
+    let key = DataKey::FeeDest;
+    e.storage().instance().get(&key).unwrap()
+}
+
+pub fn write_fee_amount(e: &Env, amount: &i128) {
+    let key = DataKey::FeeAmount;
+    e.storage().instance().set(&key, amount);
+}
+
+pub fn read_fee_amount(e: &Env) -> i128 {
+    let key = DataKey::FeeAmount;
+    e.storage().instance().get(&key).unwrap()
 }
 
 pub fn read_issuers(e: &Env, owner: &Address) -> Vec<Address> {

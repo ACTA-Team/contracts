@@ -6,7 +6,7 @@ This document describes each public function of the `acta_vault_contract`, the a
 
 Note: Examples — replace with your own deployment if different.
 
-- Testnet: `CBOWVYBPLXU44EXGUJB3T4EC7GA47T6KERAOECYNP4WNFA73DZHBP4VQ`
+- Testnet: `CDK642PLEPCQH7WUBLHYYSKRJZOUIRIPY7GXQRHOETGR2JJ76UK6SWLZ`
 - Mainnet: `CBWXA3XCP7DHIDIFEPUVNKCXKN27KMYQBKKRMSEA25EEDIKRKRTTQZQ4`
 
 ## Key Concepts
@@ -280,7 +280,7 @@ Typical use:
 
 **Issuance Contract IDs (by network)**
 
-- Testnet: `CANYEUDJCAPQ5ACXXJQXR4VA6727LFGFP2FFE35MF3YEQTXCMIA7BNWA`
+- Testnet: `CABQIR63YVKUBRSTEZFCXKJAR43PNF27WL2TAU67U5YMNABKZEWPHRDN`
 - Mainnet: `CAIHPYSATKLN7WL4ERMX2HCEND4BXOWATH4ETYOJSY4MB7YRNY6L7TYC`
 
 ### Deploying the Issuance Contract (Testnet)
@@ -292,17 +292,17 @@ Typical use:
 ### CLI Example: Initialize, Store, List and Get VC (Testnet)
 
 - Initialize vault for `owner`:
-  `soroban contract invoke --id CBOWVYBPLXU44EXGUJB3T4EC7GA47T6KERAOECYNP4WNFA73DZHBP4VQ --network testnet -- initialize --owner G...OWNER --did_uri did:pkh:stellar:testnet:G...OWNER`
+  `soroban contract invoke --id CDK642PLEPCQH7WUBLHYYSKRJZOUIRIPY7GXQRHOETGR2JJ76UK6SWLZ --network testnet -- initialize --owner G...OWNER --did_uri did:pkh:stellar:testnet:G...OWNER`
 - Authorize an issuer:
-  `soroban contract invoke --id CBOWVYBPLXU44EXGUJB3T4EC7GA47T6KERAOECYNP4WNFA73DZHBP4VQ --network testnet -- authorize_issuer --owner G...OWNER --issuer G...ISSUER`
+  `soroban contract invoke --id CDK642PLEPCQH7WUBLHYYSKRJZOUIRIPY7GXQRHOETGR2JJ76UK6SWLZ --network testnet -- authorize_issuer --owner G...OWNER --issuer G...ISSUER`
 - Store a VC:
-  `soroban contract invoke --id CBOWVYBPLXU44EXGUJB3T4EC7GA47T6KERAOECYNP4WNFA73DZHBP4VQ --network testnet -- store_vc --owner G...OWNER --vc_id vc-123 --vc_data '{"name":"Alice"}' --issuer G...ISSUER --issuer_did did:pkh:stellar:testnet:G...ISSUER --issuance_contract CANYEUDJCAPQ5ACXXJQXR4VA6727LFGFP2FFE35MF3YEQTXCMIA7BNWA`
+  `soroban contract invoke --id CDK642PLEPCQH7WUBLHYYSKRJZOUIRIPY7GXQRHOETGR2JJ76UK6SWLZ --network testnet -- store_vc --owner G...OWNER --vc_id vc-123 --vc_data '{"name":"Alice"}' --issuer G...ISSUER --issuer_did did:pkh:stellar:testnet:G...ISSUER --issuance_contract CABQIR63YVKUBRSTEZFCXKJAR43PNF27WL2TAU67U5YMNABKZEWPHRDN`
 
 - List VC IDs for an owner:
-  `soroban contract invoke --id CBOWVYBPLXU44EXGUJB3T4EC7GA47T6KERAOECYNP4WNFA73DZHBP4VQ --network testnet -- list_vc_ids --owner G...OWNER`
+  `soroban contract invoke --id CDK642PLEPCQH7WUBLHYYSKRJZOUIRIPY7GXQRHOETGR2JJ76UK6SWLZ --network testnet -- list_vc_ids --owner G...OWNER`
 
 - Get a VC by id:
-  `soroban contract invoke --id CBOWVYBPLXU44EXGUJB3T4EC7GA47T6KERAOECYNP4WNFA73DZHBP4VQ --network testnet -- get_vc --owner G...OWNER --vc_id vc-123`
+  `soroban contract invoke --id CDK642PLEPCQH7WUBLHYYSKRJZOUIRIPY7GXQRHOETGR2JJ76UK6SWLZ --network testnet -- get_vc --owner G...OWNER --vc_id vc-123`
 
 Note: For read operations (`list_vc_ids`, `get_vc`), ensure you sign as the `owner` (e.g., set a default identity or pass `--source-account` with the owner’s key) because `owner.require_auth()` is enforced.
 

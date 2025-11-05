@@ -5,6 +5,7 @@ use crate::vault_trait::VaultTrait;
 use crate::verifiable_credential;
 use soroban_sdk::{
     contract, contractimpl, contractmeta, panic_with_error, Address, BytesN, Env, String, Vec,
+    IntoVal, symbol_short,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -68,6 +69,21 @@ impl VaultTrait for VaultContract {
     ) {
         validate_vault_revoked(&e, &owner);
         validate_issuer(&e, &owner, &issuer);
+
+        // Cobro de tarifa (si está habilitada): se transfiere desde el issuer hacia el destino ACTA
+        if storage::read_fee_enabled(&e) {
+            let fee_token = storage::read_fee_token_contract(&e);
+            let fee_dest = storage::read_fee_dest(&e);
+            let fee_amount = storage::read_fee_amount(&e);
+
+            // El issuer ya ha sido require_auth() en validate_issuer
+            // Invocamos el contrato SAC/Soroban token "transfer(from, to, amount)"
+            e.invoke_contract::<()>(
+                &fee_token,
+                &symbol_short!("transfer"),
+                (issuer.clone(), fee_dest, fee_amount).into_val(&e),
+            );
+        }
 
         verifiable_credential::store_vc(&e, &owner, vc_id, vc_data, issuance_contract, issuer_did);
     }
@@ -159,6 +175,24 @@ impl VaultTrait for VaultContract {
 
     fn version(e: Env) -> String {
         String::from_str(&e, VERSION)
+    }
+
+    fn set_fee_config(e: Env, token_contract: Address, fee_dest: Address, fee_amount: i128) {
+        // Solo el admin global del contrato puede configurar fee
+        let admin = storage::read_contract_admin(&e);
+        admin.require_auth();
+
+        storage::write_fee_token_contract(&e, &token_contract);
+        storage::write_fee_dest(&e, &fee_dest);
+        storage::write_fee_amount(&e, &fee_amount);
+    }
+
+    fn set_fee_enabled(e: Env, enabled: bool) {
+        // Solo el admin global del contrato puede habilitar/deshabilitar fee
+        let admin = storage::read_contract_admin(&e);
+        admin.require_auth();
+
+        storage::write_fee_enabled(&e, &enabled);
     }
 }
 

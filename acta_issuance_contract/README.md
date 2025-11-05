@@ -6,7 +6,7 @@ Issues, verifies, and revokes Verifiable Credentials (VCs) on Soroban.
 
 Note: Example ID — replace with your own deployment.
 
-- `CANYEUDJCAPQ5ACXXJQXR4VA6727LFGFP2FFE35MF3YEQTXCMIA7BNWA`
+- `CABQIR63YVKUBRSTEZFCXKJAR43PNF27WL2TAU67U5YMNABKZEWPHRDN`
 
 ## Features
 
@@ -58,11 +58,11 @@ soroban contract deploy \
   --wasm "C:\\Projects\\ACTA\\API\\ACTA-Contracts\\target\\wasm32v1-none\\release\\acta_issuance_contract.wasm" \
   --network testnet \
   --source acta_sc_source
-# => Contract ID: CANYEUDJCAPQ5ACXXJQXR4VA6727LFGFP2FFE35MF3YEQTXCMIA7BNWA
+# => Contract ID: CABQIR63YVKUBRSTEZFCXKJAR43PNF27WL2TAU67U5YMNABKZEWPHRDN
 
 # Initialize with admin and issuer DID
 soroban contract invoke \
-  --id CANYEUDJCAPQ5ACXXJQXR4VA6727LFGFP2FFE35MF3YEQTXCMIA7BNWA \
+  --id CABQIR63YVKUBRSTEZFCXKJAR43PNF27WL2TAU67U5YMNABKZEWPHRDN \
   --network testnet \
   --source acta_sc_source \
   -- \
@@ -75,7 +75,7 @@ soroban contract invoke \
 
 ```bash
 soroban contract invoke \
-  --id CANYEUDJCAPQ5ACXXJQXR4VA6727LFGFP2FFE35MF3YEQTXCMIA7BNWA \
+  --id CABQIR63YVKUBRSTEZFCXKJAR43PNF27WL2TAU67U5YMNABKZEWPHRDN \
   --network testnet \
   --source acta_sc_source \
   -- \
@@ -83,7 +83,7 @@ soroban contract invoke \
   --owner G...OWNER \
   --vc_id "vc-123" \
   --vc_data "<encrypted_payload>" \
-  --vault_contract CBOWVYBPLXU44EXGUJB3T4EC7GA47T6KERAOECYNP4WNFA73DZHBP4VQ
+  --vault_contract CDK642PLEPCQH7WUBLHYYSKRJZOUIRIPY7GXQRHOETGR2JJ76UK6SWLZ
 ```
 
 ## License
