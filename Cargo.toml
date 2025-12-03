@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = ["acta_vault_contract", "acta_issuance_contract"]
+members = ["contracts/vault", "contracts/issuance"]
 
 [workspace.package]
 version = "0.20.0"

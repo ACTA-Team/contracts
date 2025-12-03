@@ -3,7 +3,7 @@ use soroban_sdk::{map, testutils::Address as _, Address, Env, FromVal, Map, Stri
 
 mod vault_contract {
     soroban_sdk::contractimport!(
-        file = "../target/wasm32-unknown-unknown/release/acta_vault_contract.wasm"
+        file = "../target/wasm32-unknown-unknown/release/vault_contract.wasm"
     );
 }
 

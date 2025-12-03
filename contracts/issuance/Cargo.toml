@@ -1,5 +1,5 @@
 [package]
-name = "acta-issuance-contract"
+name = "issuance-contract"
 version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }

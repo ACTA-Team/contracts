@@ -50,12 +50,12 @@ soroban contract invoke \
 ## Deploy & Initialize (Testnet)
 
 ```bash
-# From ACTA-Contracts/acta_issuance_contract
+# From ACTA-Contracts/issuance
 soroban contract build
 
 # Deploy (uses default identity: acta_sc_source)
 soroban contract deploy \
-  --wasm "C:\\Projects\\ACTA\\API\\ACTA-Contracts\\target\\wasm32v1-none\\release\\acta_issuance_contract.wasm" \
+  --wasm "C:\\Projects\\ACTA\\API\\ACTA-Contracts\\target\\wasm32v1-none\\release\\issuance_contract.wasm" \
   --network testnet \
   --source acta_sc_source
 # => Contract ID: CABQIR63YVKUBRSTEZFCXKJAR43PNF27WL2TAU67U5YMNABKZEWPHRDN

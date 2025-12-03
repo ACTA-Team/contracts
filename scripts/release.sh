@@ -10,12 +10,12 @@ soroban keys generate acta_admin --network testnet
 # Install and deploy contracts.
 echo "Vault contract WASM ID:"
 soroban contract install \
-  --wasm target/wasm32-unknown-unknown/release/acta_vault_contract.optimized.wasm \
+  --wasm target/wasm32-unknown-unknown/release/vault_contract.optimized.wasm \
   --source acta_sc_source \
   --network testnet
 
 echo "Issuance contract WASM ID:"
 soroban contract install \
-  --wasm target/wasm32-unknown-unknown/release/acta_issuance_contract.optimized.wasm \
+  --wasm target/wasm32-unknown-unknown/release/issuance_contract.optimized.wasm \
   --source acta_sc_source \
   --network testnet
