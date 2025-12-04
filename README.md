@@ -10,29 +10,38 @@ This monorepo contains the ACTA contracts located in `contracts/`:
 
 ## Build
 
-First, build the contracts in release mode:
+Build the contracts and optimize the WASM files using the build script:
 
-```bash
-cargo build --release
-```
-
-Then, optimize the WASM files:
+**On Linux/macOS:**
 
 ```bash
 chmod +x scripts/build.sh
 ./scripts/build.sh
 ```
 
-Or run both steps manually:
+**On Windows (PowerShell):**
 
 ```bash
-# Build contracts
+# Make script executable (if needed)
+# Then run:
+bash scripts/build.sh
+```
+
+**Or run the script commands manually:**
+
+```bash
+# Build contracts in release mode
 cargo build --release
 
 # Optimize WASM files
 soroban contract optimize --wasm target/wasm32-unknown-unknown/release/vault_contract.wasm
 soroban contract optimize --wasm target/wasm32-unknown-unknown/release/issuance_contract.wasm
 ```
+
+The `scripts/build.sh` script will:
+
+1. Build the contracts in release mode using `cargo build --release`
+2. Optimize both WASM files using `soroban contract optimize`
 
 The optimized WASM files will be generated at:
 
