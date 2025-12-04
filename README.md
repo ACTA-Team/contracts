@@ -43,14 +43,48 @@ The optimized WASM files will be generated at:
 
 **Important:** Make sure you have built and optimized the contracts first (see Build section above).
 
-Then, deploy to testnet:
+Then, deploy to testnet using the release script:
+
+**On Linux/macOS:**
 
 ```bash
 chmod +x scripts/release.sh
 ./scripts/release.sh
 ```
 
-This script will:
+**On Windows (PowerShell):**
+
+```bash
+# Make script executable (if needed)
+# Then run:
+bash scripts/release.sh
+```
+
+**Or run the script commands manually:**
+
+```bash
+# Configure testnet network
+soroban config network add testnet \
+  --rpc-url https://soroban-testnet.stellar.org:443 \
+  --network-passphrase "Test SDF Network ; September 2015"
+
+# Generate key for signing transactions
+soroban keys generate acta_admin --network testnet
+
+# Install and deploy Vault contract
+soroban contract install \
+  --wasm target/wasm32-unknown-unknown/release/vault_contract.optimized.wasm \
+  --source acta_sc_source \
+  --network testnet
+
+# Install and deploy Issuance contract
+soroban contract install \
+  --wasm target/wasm32-unknown-unknown/release/issuance_contract.optimized.wasm \
+  --source acta_sc_source \
+  --network testnet
+```
+
+The `scripts/release.sh` script will:
 
 1. Configure the testnet network (if not already configured)
 2. Generate a key for signing transactions (`acta_admin`)
