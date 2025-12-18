@@ -2,20 +2,16 @@
 # Config testnet in local.
 soroban config network add testnet \
   --rpc-url https://soroban-testnet.stellar.org:443 \
-  --network-passphrase "Test SDF Network ; September 2015"
+  --network-passphrase "Test SDF Network ; September 2015" || true
 
 # Generate key to sign the transactions.
-soroban keys generate acta_admin --network testnet
+soroban keys generate acta_admin --network testnet || true
 
-# Install and deploy contracts.
-echo "Vault contract WASM ID:"
-soroban contract install \
-  --wasm target/wasm32-unknown-unknown/release/vault_contract.optimized.wasm \
-  --source acta_sc_source \
-  --network testnet
+# Build + optimize
+sh scripts/build.sh
 
-echo "Issuance contract WASM ID:"
-soroban contract install \
-  --wasm target/wasm32-unknown-unknown/release/issuance_contract.optimized.wasm \
-  --source acta_sc_source \
+echo "ACTA unified contract ID:"
+soroban contract deploy \
+  --wasm target/wasm32v1-none/release/acta_contract.optimized.wasm \
+  --source acta_admin \
   --network testnet
