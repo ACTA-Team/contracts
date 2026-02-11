@@ -376,3 +376,62 @@ fn test_migrate_some_without_legacy_vault_panics() {
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     client.migrate(&Some(owner));
 }
+
+// --- Sponsored vault ---
+
+#[test]
+fn test_create_sponsored_vault_as_admin() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    let owner = Address::generate(&env);
+    let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:SPONSORED_OWNER");
+    client.create_sponsored_vault(&admin, &owner, &did_uri);
+    let vc_ids = client.list_vc_ids(&owner);
+    assert!(vc_ids.is_empty());
+}
+
+#[test]
+fn test_create_sponsored_vault_as_sponsor() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    let sponsor = Address::generate(&env);
+    client.add_sponsored_vault_sponsor(&sponsor);
+    let owner = Address::generate(&env);
+    let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:SPONSORED_OWNER");
+    client.create_sponsored_vault(&sponsor, &owner, &did_uri);
+    let vc_ids = client.list_vc_ids(&owner);
+    assert!(vc_ids.is_empty());
+}
+
+#[test]
+#[should_panic]
+fn test_create_sponsored_vault_unauthorized_panics() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    let random = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
+    client.create_sponsored_vault(&random, &owner, &did_uri);
+}
+
+#[test]
+fn test_add_remove_sponsored_vault_sponsor() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    let sponsor = Address::generate(&env);
+    client.add_sponsored_vault_sponsor(&sponsor);
+    client.create_sponsored_vault(&sponsor, &Address::generate(&env), &String::from_str(&env, "did:test:1"));
+    client.remove_sponsored_vault_sponsor(&sponsor);
+}
+
+#[test]
+#[should_panic]
+fn test_create_sponsored_vault_after_remove_sponsor_panics() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    let sponsor = Address::generate(&env);
+    client.add_sponsored_vault_sponsor(&sponsor);
+    client.remove_sponsored_vault_sponsor(&sponsor);
+    let owner = Address::generate(&env);
+    client.create_sponsored_vault(&sponsor, &owner, &String::from_str(&env, "did:test:1"));
+}

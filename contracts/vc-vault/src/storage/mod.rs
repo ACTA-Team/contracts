@@ -36,6 +36,8 @@ pub enum DataKey {
     LegacyIssuanceRevocations,
     LegacyIssuanceVCs,
     LegacyVaultVCs(Address),
+    /// Instance: list of addresses allowed to create sponsored vaults.
+    SponsoredVaultSponsors,
 }
 
 /// Legacy revocation record for migration.
@@ -194,6 +196,41 @@ pub fn try_read_fee_custom(e: &Env, issuer: &Address) -> Option<i128> {
 
 pub fn read_fee_custom(e: &Env, issuer: &Address) -> i128 {
     try_read_fee_custom(e, issuer).unwrap_or_else(|| read_fee_amount(e))
+}
+
+// --- Sponsored vault sponsors (instance) ---
+
+pub fn read_sponsored_vault_sponsors(e: &Env) -> Vec<Address> {
+    e.storage()
+        .instance()
+        .get(&DataKey::SponsoredVaultSponsors)
+        .unwrap_or_else(|| Vec::new(e))
+}
+
+pub fn write_sponsored_vault_sponsors(e: &Env, sponsors: &Vec<Address>) {
+    e.storage().instance().set(&DataKey::SponsoredVaultSponsors, sponsors);
+}
+
+pub fn is_sponsored_vault_sponsor(e: &Env, addr: &Address) -> bool {
+    read_sponsored_vault_sponsors(e).contains(addr.clone())
+}
+
+pub fn add_sponsored_vault_sponsor(e: &Env, addr: &Address) {
+    let mut sponsors = read_sponsored_vault_sponsors(e);
+    if !sponsors.contains(addr.clone()) {
+        sponsors.push_front(addr.clone());
+        write_sponsored_vault_sponsors(e, &sponsors);
+    }
+    extend_instance_ttl(e);
+}
+
+pub fn remove_sponsored_vault_sponsor(e: &Env, addr: &Address) {
+    let mut sponsors = read_sponsored_vault_sponsors(e);
+    if let Some(idx) = sponsors.first_index_of(addr.clone()) {
+        sponsors.remove(idx);
+        write_sponsored_vault_sponsors(e, &sponsors);
+    }
+    extend_instance_ttl(e);
 }
 
 // --- Vault metadata (persistent) ---

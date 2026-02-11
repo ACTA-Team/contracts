@@ -138,6 +138,36 @@ impl VcVaultTrait for VcVaultContract {
         storage::extend_vault_ttl(&e, &owner);
     }
 
+    /// Create a vault for `owner` (beneficiary). Caller must be contract admin or an authorized
+    /// sponsor; they pay and sign. The vault is owned by `owner`, who will sign when using it.
+    fn create_sponsored_vault(e: Env, sponsor: Address, owner: Address, did_uri: String) {
+        sponsor.require_auth();
+        validate_sponsor_or_admin(&e, &sponsor);
+        if !storage::has_contract_admin(&e) {
+            panic_with_error!(e, ContractError::NotInitialized);
+        }
+        if storage::has_vault_admin(&e, &owner) {
+            panic_with_error!(e, ContractError::AlreadyInitialized);
+        }
+        storage::write_vault_admin(&e, &owner, &owner);
+        storage::write_vault_did(&e, &owner, &did_uri);
+        storage::write_vault_revoked(&e, &owner, &false);
+        storage::write_vault_issuers(&e, &owner, &Vec::new(&e));
+        storage::extend_vault_ttl(&e, &owner);
+    }
+
+    /// Add an address to the list of authorized sponsors for create_sponsored_vault. Admin only.
+    fn add_sponsored_vault_sponsor(e: Env, sponsor: Address) {
+        let _ = validate_contract_admin(&e);
+        storage::add_sponsored_vault_sponsor(&e, &sponsor);
+    }
+
+    /// Remove an address from the list of authorized sponsors. Admin only.
+    fn remove_sponsored_vault_sponsor(e: Env, sponsor: Address) {
+        let _ = validate_contract_admin(&e);
+        storage::remove_sponsored_vault_sponsor(&e, &sponsor);
+    }
+
     /// Set vault admin. Current vault admin must sign.
     fn set_vault_admin(e: Env, owner: Address, new_admin: Address) {
         validate_vault_admin(&e, &owner);
@@ -356,6 +386,20 @@ fn validate_contract_admin(e: &Env) -> Address {
     let admin = storage::read_contract_admin(e);
     admin.require_auth();
     admin
+}
+
+/// Ensure signer is either contract admin or an authorized sponsored-vault sponsor.
+fn validate_sponsor_or_admin(e: &Env, sponsor: &Address) {
+    if !storage::has_contract_admin(e) {
+        panic_with_error!(e, ContractError::NotInitialized)
+    }
+    let admin = storage::read_contract_admin(e);
+    if sponsor == &admin {
+        return;
+    }
+    if !storage::is_sponsored_vault_sponsor(e, sponsor) {
+        panic_with_error!(e, ContractError::NotAuthorizedSponsor)
+    }
 }
 
 /// Ensure vault exists for owner.
