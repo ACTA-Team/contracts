@@ -29,6 +29,7 @@ pub enum DataKey {
     VaultDid(Address),
     VaultRevoked(Address),
     VaultIssuers(Address),
+    VaultDeniedIssuers(Address),
     VaultVC(Address, String),
     VaultVCIds(Address),
     VCStatus(String),
@@ -248,6 +249,33 @@ pub fn write_vault_issuers(e: &Env, owner: &Address, issuers: &Vec<Address>) {
     e.storage().persistent().set(&DataKey::VaultIssuers(owner.clone()), issuers)
 }
 
+// --- Vault denied issuers (persistent) ---
+
+pub fn read_vault_denied_issuers(e: &Env, owner: &Address) -> Vec<Address> {
+    e.storage()
+        .persistent()
+        .get(&DataKey::VaultDeniedIssuers(owner.clone()))
+        .unwrap_or_else(|| Vec::new(e))
+}
+
+pub fn write_vault_denied_issuers(e: &Env, owner: &Address, denied: &Vec<Address>) {
+    e.storage()
+        .persistent()
+        .set(&DataKey::VaultDeniedIssuers(owner.clone()), denied);
+}
+
+pub fn is_issuer_denied(e: &Env, owner: &Address, issuer: &Address) -> bool {
+    read_vault_denied_issuers(e, owner).contains(issuer.clone())
+}
+
+pub fn add_denied_issuer(e: &Env, owner: &Address, issuer: &Address) {
+    let mut denied = read_vault_denied_issuers(e, owner);
+    if !denied.contains(issuer.clone()) {
+        denied.push_front(issuer.clone());
+        write_vault_denied_issuers(e, owner, &denied);
+    }
+}
+
 // --- VC payloads (persistent) ---
 
 pub fn write_vault_vc(e: &Env, owner: &Address, vc_id: &String, vc: &VerifiableCredential) {
@@ -324,6 +352,7 @@ pub fn extend_vault_ttl(e: &Env, owner: &Address) {
         DataKey::VaultDid(owner.clone()),
         DataKey::VaultRevoked(owner.clone()),
         DataKey::VaultIssuers(owner.clone()),
+        DataKey::VaultDeniedIssuers(owner.clone()),
         DataKey::VaultVCIds(owner.clone()),
     ];
     for key in keys {

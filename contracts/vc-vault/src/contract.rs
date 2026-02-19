@@ -246,7 +246,9 @@ impl VcVaultTrait for VcVaultContract {
 
     // --- Issuance ---
 
-    /// Issue VC: store in vault, set status Valid. Issuer must sign and be authorized.
+    /// Issue VC: store in vault, set status Valid. Issuer must sign.
+    /// If the issuer is not yet authorized in the holder's vault, it is auto-authorized
+    /// in the same transaction. The holder can revoke the issuer afterwards.
     fn issue(
         e: Env,
         owner: Address,
@@ -264,7 +266,7 @@ impl VcVaultTrait for VcVaultContract {
         }
         validate_vault_active(&e, &owner);
         validate_vault_initialized(&e, &owner);
-        validate_issuer_authorized_only(&e, &owner, &issuer_addr);
+        ensure_issuer_authorized(&e, &owner, &issuer_addr);
 
         store_vc_payload(
             &e,
@@ -386,6 +388,19 @@ fn validate_issuer_authorized_only(e: &Env, owner: &Address, issuer_addr: &Addre
     let issuers = storage::read_vault_issuers(e, owner);
     if !vault::is_authorized(&issuers, issuer_addr) {
         panic_with_error!(e, ContractError::IssuerNotAuthorized)
+    }
+}
+
+/// Auto-authorize issuer if not already in the vault's list. Respects the denied
+/// list: if the holder explicitly revoked this issuer, re-authorization is blocked.
+fn ensure_issuer_authorized(e: &Env, owner: &Address, issuer_addr: &Address) {
+    validate_vault_initialized(e, owner);
+    let issuers = storage::read_vault_issuers(e, owner);
+    if !vault::is_authorized(&issuers, issuer_addr) {
+        if storage::is_issuer_denied(e, owner, issuer_addr) {
+            panic_with_error!(e, ContractError::IssuerNotAuthorized)
+        }
+        vault::authorize_issuer(e, owner, issuer_addr);
     }
 }
 

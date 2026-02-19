@@ -359,6 +359,60 @@ fn test_push_nonexistent_vc_panics() {
     client.push(&from_owner, &to_owner, &vc_id, &issuer);
 }
 
+// --- Auto-authorization on issue ---
+
+#[test]
+fn test_issue_auto_authorizes_issuer() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
+    let vc_id = String::from_str(&env, "vc-auto");
+    let vc_data = String::from_str(&env, "<ciphertext>");
+    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
+    client.issue(&owner, &vc_id, &vc_data, &contract_id, &issuer, &issuer_did, &0_i128);
+    assert!(client.get_vc(&owner, &vc_id).is_some());
+    assert_eq!(client.list_vc_ids(&owner).len(), 1);
+}
+
+#[test]
+fn test_issue_auto_authorizes_multiple_issuers() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
+    let issuer2 = Address::generate(&env);
+    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
+    client.issue(&owner, &String::from_str(&env, "vc-1"), &String::from_str(&env, "<data1>"), &contract_id, &issuer, &issuer_did, &0_i128);
+    client.issue(&owner, &String::from_str(&env, "vc-2"), &String::from_str(&env, "<data2>"), &contract_id, &issuer2, &issuer_did, &0_i128);
+    assert_eq!(client.list_vc_ids(&owner).len(), 2);
+}
+
+#[test]
+fn test_holder_revokes_auto_authorized_issuer() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
+    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
+    client.issue(&owner, &String::from_str(&env, "vc-1"), &String::from_str(&env, "<data>"), &contract_id, &issuer, &issuer_did, &0_i128);
+    assert!(client.get_vc(&owner, &String::from_str(&env, "vc-1")).is_some());
+    client.revoke_issuer(&owner, &issuer);
+}
+
+#[test]
+#[should_panic]
+fn test_issue_after_holder_revokes_auto_authorized_issuer_panics() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
+    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
+    client.issue(&owner, &String::from_str(&env, "vc-1"), &String::from_str(&env, "<data>"), &contract_id, &issuer, &issuer_did, &0_i128);
+    client.revoke_issuer(&owner, &issuer);
+    client.issue(&owner, &String::from_str(&env, "vc-2"), &String::from_str(&env, "<data2>"), &contract_id, &issuer, &issuer_did, &0_i128);
+}
+
 #[test]
 #[should_panic]
 fn test_migrate_none_without_legacy_panics() {

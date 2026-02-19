@@ -19,7 +19,7 @@ pub fn authorize_issuers(e: &Env, owner: &Address, issuers: &Vec<Address>) {
     storage::write_vault_issuers(e, owner, issuers);
 }
 
-/// Remove issuer from vault. Panics if not authorized.
+/// Remove issuer from vault and add to denied list so auto-authorization won't re-add it.
 pub fn revoke_issuer(e: &Env, owner: &Address, issuer: &Address) {
     let mut issuers = storage::read_vault_issuers(e, owner);
     if let Some(issuer_index) = issuers.first_index_of(issuer) {
@@ -28,6 +28,7 @@ pub fn revoke_issuer(e: &Env, owner: &Address, issuer: &Address) {
         panic_with_error!(e, ContractError::IssuerNotAuthorized)
     }
     storage::write_vault_issuers(e, owner, &issuers);
+    storage::add_denied_issuer(e, owner, issuer);
 }
 
 /// Check if issuer is in the list.
