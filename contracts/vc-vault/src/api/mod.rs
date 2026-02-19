@@ -24,9 +24,6 @@ pub trait VcVaultTrait {
     fn version(e: Env) -> String;
     fn fee_config(e: Env) -> FeeConfig;
     fn create_vault(e: Env, owner: Address, did_uri: String);
-    fn create_sponsored_vault(e: Env, sponsor: Address, owner: Address, did_uri: String);
-    fn add_sponsored_vault_sponsor(e: Env, sponsor: Address);
-    fn remove_sponsored_vault_sponsor(e: Env, sponsor: Address);
     fn set_vault_admin(e: Env, owner: Address, new_admin: Address);
     fn authorize_issuers(e: Env, owner: Address, issuers: Vec<Address>);
     fn authorize_issuer(e: Env, owner: Address, issuer: Address);
