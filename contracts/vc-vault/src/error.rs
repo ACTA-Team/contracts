@@ -26,4 +26,6 @@ pub enum ContractError {
     NotInitialized = 9,
     /// vault_contract param is not this contract.
     InvalidVaultContract = 10,
+    /// Signer is not the contract admin nor an authorized sponsor.
+    NotAuthorizedSponsor = 11,
 }
