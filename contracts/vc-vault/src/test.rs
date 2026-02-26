@@ -430,3 +430,100 @@ fn test_migrate_some_without_legacy_vault_panics() {
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     client.migrate(&Some(owner));
 }
+
+// --- Sponsored vault tests ---
+
+#[test]
+fn test_sponsored_vault_open_to_all_defaults_false() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    assert!(!client.get_sponsored_vault_open_to_all());
+}
+
+#[test]
+fn test_admin_creates_sponsored_vault() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    let owner = Address::generate(&env);
+    let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
+    client.create_sponsored_vault(&admin, &owner, &did_uri);
+    // Vault exists: list_vc_ids returns empty without panicking.
+    assert_eq!(client.list_vc_ids(&owner).len(), 0);
+}
+
+#[test]
+fn test_authorized_sponsor_creates_sponsored_vault() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    let sponsor = Address::generate(&env);
+    client.add_sponsored_vault_sponsor(&sponsor);
+    let owner = Address::generate(&env);
+    let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
+    client.create_sponsored_vault(&sponsor, &owner, &did_uri);
+    assert_eq!(client.list_vc_ids(&owner).len(), 0);
+}
+
+#[test]
+#[should_panic]
+fn test_unauthorized_address_cannot_create_sponsored_vault_in_restricted_mode() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    // Confirm restricted mode (default).
+    assert!(!client.get_sponsored_vault_open_to_all());
+    let random = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
+    client.create_sponsored_vault(&random, &owner, &did_uri);
+}
+
+#[test]
+fn test_open_mode_allows_anyone_to_create_sponsored_vault() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    client.set_sponsored_vault_open_to_all(&true);
+    assert!(client.get_sponsored_vault_open_to_all());
+    let random = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
+    client.create_sponsored_vault(&random, &owner, &did_uri);
+    assert_eq!(client.list_vc_ids(&owner).len(), 0);
+}
+
+#[test]
+#[should_panic]
+fn test_back_to_restricted_mode_blocks_unauthorized() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    client.set_sponsored_vault_open_to_all(&true);
+    client.set_sponsored_vault_open_to_all(&false);
+    let random = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
+    client.create_sponsored_vault(&random, &owner, &did_uri);
+}
+
+#[test]
+#[should_panic]
+fn test_removed_sponsor_cannot_create_sponsored_vault() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    let sponsor = Address::generate(&env);
+    client.add_sponsored_vault_sponsor(&sponsor);
+    client.remove_sponsored_vault_sponsor(&sponsor);
+    let owner = Address::generate(&env);
+    let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
+    // Must fail: sponsor was removed.
+    client.create_sponsored_vault(&sponsor, &owner, &did_uri);
+}
+
+#[test]
+#[should_panic]
+fn test_duplicate_sponsored_vault_panics() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin, &String::from_str(&env, "did:acta:default"));
+    let owner = Address::generate(&env);
+    let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
+    client.create_sponsored_vault(&admin, &owner, &did_uri);
+    // Second creation for same owner must fail.
+    client.create_sponsored_vault(&admin, &owner, &did_uri);
+}
