@@ -37,6 +37,8 @@ pub enum DataKey {
     LegacyIssuanceRevocations,
     LegacyIssuanceVCs,
     LegacyVaultVCs(Address),
+    SponsoredVaultOpenToAll,
+    SponsoredVaultSponsors,
 }
 
 /// Legacy revocation record for migration.
@@ -390,6 +392,54 @@ pub fn extend_vc_status_ttl(e: &Env, vc_id: &String) {
                 .persistent()
                 .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
         }
+    }
+}
+
+// --- Sponsored vault config (instance) ---
+
+pub fn read_sponsored_vault_open_to_all(e: &Env) -> bool {
+    e.storage()
+        .instance()
+        .get(&DataKey::SponsoredVaultOpenToAll)
+        .unwrap_or(false)
+}
+
+pub fn write_sponsored_vault_open_to_all(e: &Env, open: &bool) {
+    e.storage()
+        .instance()
+        .set(&DataKey::SponsoredVaultOpenToAll, open);
+}
+
+pub fn read_sponsored_vault_sponsors(e: &Env) -> Vec<Address> {
+    e.storage()
+        .instance()
+        .get(&DataKey::SponsoredVaultSponsors)
+        .unwrap_or_else(|| Vec::new(e))
+}
+
+pub fn write_sponsored_vault_sponsors(e: &Env, sponsors: &Vec<Address>) {
+    e.storage()
+        .instance()
+        .set(&DataKey::SponsoredVaultSponsors, sponsors);
+}
+
+pub fn is_authorized_sponsor(e: &Env, sponsor: &Address) -> bool {
+    read_sponsored_vault_sponsors(e).contains(sponsor.clone())
+}
+
+pub fn add_sponsored_vault_sponsor(e: &Env, sponsor: &Address) {
+    let mut sponsors = read_sponsored_vault_sponsors(e);
+    if !sponsors.contains(sponsor.clone()) {
+        sponsors.push_front(sponsor.clone());
+        write_sponsored_vault_sponsors(e, &sponsors);
+    }
+}
+
+pub fn remove_sponsored_vault_sponsor(e: &Env, sponsor: &Address) {
+    let mut sponsors = read_sponsored_vault_sponsors(e);
+    if let Some(idx) = sponsors.first_index_of(sponsor.clone()) {
+        sponsors.remove(idx);
+        write_sponsored_vault_sponsors(e, &sponsors);
     }
 }
 
