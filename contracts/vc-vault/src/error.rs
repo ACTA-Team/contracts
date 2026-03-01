@@ -28,4 +28,8 @@ pub enum ContractError {
     InvalidVaultContract = 10,
     /// Signer is not the contract admin nor an authorized sponsor.
     NotAuthorizedSponsor = 11,
+    /// vc_id already exists in this vault; re-issuance is not allowed.
+    VCAlreadyExists = 12,
+    /// accept_contract_admin called but no admin nomination is pending.
+    NoPendingAdmin = 13,
 }
