@@ -236,15 +236,7 @@ impl VcVaultTrait for VcVaultContract {
         )
     }
 
-    /// Move VC from one vault to another. From-owner must sign. Issuer must be authorized in source.
-    ///
-    /// Only the source vault's issuer authorization is verified. The destination vault's
-    /// issuer list and denied list are not checked — this is intentional to allow cross-vault
-    /// transfers without requiring the recipient to pre-authorize the issuer.
-    ///
-    /// Recipient consent is not required: the destination vault receives the VC without signing.
-    /// This enables institutional push-issuance flows. Vault owners who wish to control
-    /// incoming VCs should monitor on-chain `VCIssued` events and revoke unwanted entries.
+    /// Moves a Valid VC from one vault to another; source owner and an authorized issuer must sign.
     fn push(e: Env, from_owner: Address, to_owner: Address, vc_id: String, issuer_addr: Address) {
         validate_vault_active(&e, &from_owner);
         validate_vault_active(&e, &to_owner);
@@ -274,9 +266,7 @@ impl VcVaultTrait for VcVaultContract {
 
     // --- Issuance ---
 
-    /// Issue VC: store in vault, set status Valid. Issuer must sign.
-    /// If the issuer is not yet authorized in the holder's vault, it is auto-authorized
-    /// in the same transaction. The holder can revoke the issuer afterwards.
+    /// Issues a VC into the owner's vault; auto-authorizes the issuer if not already present.
     fn issue(
         e: Env,
         owner: Address,
@@ -339,9 +329,7 @@ impl VcVaultTrait for VcVaultContract {
 
     // --- Sponsored vault ---
 
-    /// Create a vault on behalf of `owner`. `sponsor` must sign.
-    /// If restricted (open_to_all = false): sponsor must be contract admin or in sponsors list.
-    /// If open (open_to_all = true): any signer can be sponsor.
+    /// Creates a vault on behalf of owner; sponsor must sign and be authorized unless open_to_all is enabled.
     fn create_sponsored_vault(e: Env, sponsor: Address, owner: Address, did_uri: String) {
         sponsor.require_auth();
         if !storage::has_contract_admin(&e) {
@@ -365,9 +353,7 @@ impl VcVaultTrait for VcVaultContract {
         events::sponsored_vault_created(&e, &sponsor, &owner, &did_uri);
     }
 
-    /// Enable or disable the sponsor restriction. Admin only.
-    /// open = false (default): only admin or sponsors list can create sponsored vaults.
-    /// open = true: anyone can create sponsored vaults.
+    /// Sets whether sponsored vault creation is restricted to authorized sponsors or open to all. Admin only.
     fn set_sponsored_vault_open_to_all(e: Env, open: bool) {
         validate_contract_admin(&e);
         storage::write_sponsored_vault_open_to_all(&e, &open);
@@ -461,8 +447,7 @@ fn validate_issuer_authorized_only(e: &Env, owner: &Address, issuer_addr: &Addre
     }
 }
 
-/// Auto-authorize issuer if not already in the vault's list. Respects the denied
-/// list: if the holder explicitly revoked this issuer, re-authorization is blocked.
+/// Auto-authorizes issuer if not present in vault's list; panics if issuer is in the denied list.
 fn ensure_issuer_authorized(e: &Env, owner: &Address, issuer_addr: &Address) {
     validate_vault_initialized(e, owner);
     let issuers = storage::read_vault_issuers(e, owner);

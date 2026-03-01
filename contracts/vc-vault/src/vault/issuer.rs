@@ -4,7 +4,7 @@ use crate::error::ContractError;
 use crate::storage;
 use soroban_sdk::{panic_with_error, Address, Env, Vec};
 
-/// Add single issuer to vault. Panics if already authorized.
+/// Adds an issuer to the vault's authorized list; panics if already present.
 pub fn authorize_issuer(e: &Env, owner: &Address, issuer: &Address) {
     let mut issuers: Vec<Address> = storage::read_vault_issuers(e, owner);
     if is_authorized(&issuers, issuer) {
@@ -15,7 +15,7 @@ pub fn authorize_issuer(e: &Env, owner: &Address, issuer: &Address) {
     storage::remove_denied_issuer(e, owner, issuer);
 }
 
-/// Replace full issuer list for vault. Duplicates are silently removed.
+/// Replaces the vault's full issuer list, silently dropping any duplicates.
 pub fn authorize_issuers(e: &Env, owner: &Address, issuers: &Vec<Address>) {
     let mut deduped: Vec<Address> = Vec::new(e);
     for issuer in issuers.iter() {
@@ -26,8 +26,7 @@ pub fn authorize_issuers(e: &Env, owner: &Address, issuers: &Vec<Address>) {
     storage::write_vault_issuers(e, owner, &deduped);
 }
 
-/// Remove issuer from vault and add to denied list so auto-authorization won't re-add it.
-/// All duplicate occurrences are removed. Panics if issuer was not present.
+/// Removes an issuer from the vault and adds them to the deny list; panics if not present.
 pub fn revoke_issuer(e: &Env, owner: &Address, issuer: &Address) {
     let issuers = storage::read_vault_issuers(e, owner);
     let original_len = issuers.len();
@@ -44,7 +43,7 @@ pub fn revoke_issuer(e: &Env, owner: &Address, issuer: &Address) {
     storage::add_denied_issuer(e, owner, issuer);
 }
 
-/// Check if issuer is in the list.
+/// Returns true if the issuer is present in the authorized list.
 pub fn is_authorized(issuers: &Vec<Address>, issuer: &Address) -> bool {
     issuers.contains(issuer.clone())
 }
