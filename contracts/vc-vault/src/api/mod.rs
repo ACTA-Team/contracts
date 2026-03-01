@@ -45,4 +45,9 @@ pub trait VcVaultTrait {
     ) -> String;
     fn revoke(e: Env, vc_id: String, date: String);
     fn migrate(e: Env, owner: Option<Address>);
+    fn create_sponsored_vault(e: Env, sponsor: Address, owner: Address, did_uri: String);
+    fn set_sponsored_vault_open_to_all(e: Env, open: bool);
+    fn get_sponsored_vault_open_to_all(e: Env) -> bool;
+    fn add_sponsored_vault_sponsor(e: Env, sponsor: Address);
+    fn remove_sponsored_vault_sponsor(e: Env, sponsor: Address);
 }

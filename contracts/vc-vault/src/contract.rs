@@ -300,6 +300,62 @@ impl VcVaultTrait for VcVaultContract {
         storage::extend_vc_status_ttl(&e, &vc_id);
     }
 
+    // --- Sponsored vault ---
+
+    /// Create a vault on behalf of `owner`. `sponsor` must sign.
+    /// If restricted (open_to_all = false): sponsor must be contract admin or in sponsors list.
+    /// If open (open_to_all = true): any signer can be sponsor.
+    fn create_sponsored_vault(e: Env, sponsor: Address, owner: Address, did_uri: String) {
+        sponsor.require_auth();
+        if !storage::has_contract_admin(&e) {
+            panic_with_error!(e, ContractError::NotInitialized);
+        }
+        if !storage::read_sponsored_vault_open_to_all(&e) {
+            let admin = storage::read_contract_admin(&e);
+            if sponsor != admin && !storage::is_authorized_sponsor(&e, &sponsor) {
+                panic_with_error!(e, ContractError::NotAuthorizedSponsor);
+            }
+        }
+        if storage::has_vault_admin(&e, &owner) {
+            panic_with_error!(e, ContractError::AlreadyInitialized);
+        }
+        storage::write_vault_admin(&e, &owner, &owner);
+        storage::write_vault_did(&e, &owner, &did_uri);
+        storage::write_vault_revoked(&e, &owner, &false);
+        storage::write_vault_issuers(&e, &owner, &Vec::new(&e));
+        storage::extend_vault_ttl(&e, &owner);
+        storage::extend_instance_ttl(&e);
+    }
+
+    /// Enable or disable the sponsor restriction. Admin only.
+    /// open = false (default): only admin or sponsors list can create sponsored vaults.
+    /// open = true: anyone can create sponsored vaults.
+    fn set_sponsored_vault_open_to_all(e: Env, open: bool) {
+        validate_contract_admin(&e);
+        storage::write_sponsored_vault_open_to_all(&e, &open);
+        storage::extend_instance_ttl(&e);
+    }
+
+    /// Query whether sponsored vault creation is open to all.
+    fn get_sponsored_vault_open_to_all(e: Env) -> bool {
+        storage::extend_instance_ttl(&e);
+        storage::read_sponsored_vault_open_to_all(&e)
+    }
+
+    /// Add an address to the authorized sponsors list. Admin only.
+    fn add_sponsored_vault_sponsor(e: Env, sponsor: Address) {
+        validate_contract_admin(&e);
+        storage::add_sponsored_vault_sponsor(&e, &sponsor);
+        storage::extend_instance_ttl(&e);
+    }
+
+    /// Remove an address from the authorized sponsors list. Admin only.
+    fn remove_sponsored_vault_sponsor(e: Env, sponsor: Address) {
+        validate_contract_admin(&e);
+        storage::remove_sponsored_vault_sponsor(&e, &sponsor);
+        storage::extend_instance_ttl(&e);
+    }
+
     // --- Migrations ---
 
     /// Migrate legacy storage. Some(owner) = vault migration; None = issuance registry migration.
