@@ -1,15 +1,16 @@
 //! Public contract interface. All exported functions are defined here.
 
-use soroban_sdk::{Address, BytesN, Env, Map, String, Vec};
+use soroban_sdk::{Address, BytesN, Env, String, Vec};
 
-use crate::model::VerifiableCredential;
+use crate::model::{VCStatus, VerifiableCredential};
 use crate::storage::FeeConfig;
 
 /// Trait defining all public contract entrypoints.
 #[allow(dead_code)]
 pub trait VcVaultTrait {
-    fn initialize(e: Env, contract_admin: Address, default_issuer_did: String);
-    fn set_contract_admin(e: Env, new_admin: Address);
+    fn initialize(e: Env, contract_admin: Address);
+    fn nominate_admin(e: Env, new_admin: Address);
+    fn accept_contract_admin(e: Env);
     fn set_fee_enabled(e: Env, enabled: bool);
     fn set_fee_config(e: Env, token_contract: Address, fee_dest: Address, fee_amount: i128);
     fn set_fee_admin(e: Env, fee_amount: i128);
@@ -31,7 +32,7 @@ pub trait VcVaultTrait {
     fn revoke_vault(e: Env, owner: Address);
     fn list_vc_ids(e: Env, owner: Address) -> Vec<String>;
     fn get_vc(e: Env, owner: Address, vc_id: String) -> Option<VerifiableCredential>;
-    fn verify_vc(e: Env, owner: Address, vc_id: String) -> Map<String, String>;
+    fn verify_vc(e: Env, owner: Address, vc_id: String) -> VCStatus;
     fn push(e: Env, from_owner: Address, to_owner: Address, vc_id: String, issuer: Address);
     fn issue(
         e: Env,
@@ -43,8 +44,8 @@ pub trait VcVaultTrait {
         issuer_did: String,
         fee_override: i128,
     ) -> String;
-    fn revoke(e: Env, vc_id: String, date: String);
-    fn migrate(e: Env, owner: Option<Address>);
+    fn revoke(e: Env, owner: Address, vc_id: String, date: String);
+    fn migrate(e: Env, owner: Address);
     fn create_sponsored_vault(e: Env, sponsor: Address, owner: Address, did_uri: String);
     fn set_sponsored_vault_open_to_all(e: Env, open: bool);
     fn get_sponsored_vault_open_to_all(e: Env) -> bool;
