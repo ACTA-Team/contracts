@@ -252,6 +252,11 @@ impl VcVaultTrait for VcVaultContract {
         if storage::read_vc_status(&e, &from_owner, &vc_id) != VCStatus::Valid {
             panic_with_error!(e, ContractError::VCNotFound);
         }
+        if storage::read_vault_vc(&e, &to_owner, &vc_id).is_some()
+            || storage::read_vc_status(&e, &to_owner, &vc_id) != VCStatus::Invalid
+        {
+            panic_with_error!(e, ContractError::VCAlreadyExists);
+        }
         let vc = vc_opt.unwrap();
 
         storage::remove_vault_vc(&e, &from_owner, &vc_id);

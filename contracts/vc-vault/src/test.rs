@@ -376,6 +376,29 @@ fn test_revoke_after_push_on_destination_succeeds() {
 
 #[test]
 #[should_panic]
+fn test_push_to_destination_with_existing_vc_id_panics() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let attacker = Address::generate(&env);
+    let to_owner = Address::generate(&env);
+    client.create_vault(&attacker, &String::from_str(&env, "did:pkh:stellar:testnet:ATTACKER"));
+    client.create_vault(&to_owner, &String::from_str(&env, "did:pkh:stellar:testnet:TO"));
+    client.authorize_issuer(&attacker, &issuer);
+    let vc_id = String::from_str(&env, "vc-shared");
+    let vc_data = String::from_str(&env, "<ciphertext>");
+    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
+    let date = String::from_str(&env, "2025-12-18T00:00:00Z");
+    // to_owner has vc-shared issued and revoked.
+    client.issue(&to_owner, &vc_id, &vc_data, &contract_id, &issuer, &issuer_did, &0_i128);
+    client.revoke(&to_owner, &vc_id, &date);
+    // Attacker issues the same vc_id to their own vault and pushes to to_owner.
+    // Must fail: to_owner already has a status for this vc_id (Revoked).
+    client.issue(&attacker, &vc_id, &vc_data, &contract_id, &issuer, &issuer_did, &0_i128);
+    client.push(&attacker, &to_owner, &vc_id, &issuer);
+}
+
+#[test]
+#[should_panic]
 fn test_push_revoked_vc_panics() {
     let (env, admin, issuer, contract_id, client) = setup();
     client.initialize(&admin);
