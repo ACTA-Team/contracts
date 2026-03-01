@@ -258,6 +258,7 @@ impl VcVaultTrait for VcVaultContract {
         storage::remove_vault_vc_id(&e, &from_owner, &vc_id);
         storage::write_vault_vc(&e, &to_owner, &vc_id, &vc);
         storage::append_vault_vc_id(&e, &to_owner, &vc_id);
+        storage::write_vc_status(&e, &to_owner, &vc_id, &VCStatus::Valid);
 
         storage::extend_vault_ttl(&e, &from_owner);
         storage::extend_vault_ttl(&e, &to_owner);

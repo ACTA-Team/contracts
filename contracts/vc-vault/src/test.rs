@@ -339,6 +339,42 @@ fn test_revoke_after_push_panics() {
 }
 
 #[test]
+fn test_verify_vc_valid_after_push_on_destination() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let from_owner = Address::generate(&env);
+    let to_owner = Address::generate(&env);
+    client.create_vault(&from_owner, &String::from_str(&env, "did:pkh:stellar:testnet:FROM"));
+    client.create_vault(&to_owner, &String::from_str(&env, "did:pkh:stellar:testnet:TO"));
+    client.authorize_issuer(&from_owner, &issuer);
+    let vc_id = String::from_str(&env, "vc-push");
+    let vc_data = String::from_str(&env, "<ciphertext>");
+    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
+    client.issue(&from_owner, &vc_id, &vc_data, &contract_id, &issuer, &issuer_did, &0_i128);
+    client.push(&from_owner, &to_owner, &vc_id, &issuer);
+    assert_eq!(client.verify_vc(&to_owner, &vc_id), VCStatus::Valid);
+}
+
+#[test]
+fn test_revoke_after_push_on_destination_succeeds() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let from_owner = Address::generate(&env);
+    let to_owner = Address::generate(&env);
+    client.create_vault(&from_owner, &String::from_str(&env, "did:pkh:stellar:testnet:FROM"));
+    client.create_vault(&to_owner, &String::from_str(&env, "did:pkh:stellar:testnet:TO"));
+    client.authorize_issuer(&from_owner, &issuer);
+    let vc_id = String::from_str(&env, "vc-push");
+    let vc_data = String::from_str(&env, "<ciphertext>");
+    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
+    let date = String::from_str(&env, "2025-12-18T00:00:00Z");
+    client.issue(&from_owner, &vc_id, &vc_data, &contract_id, &issuer, &issuer_did, &0_i128);
+    client.push(&from_owner, &to_owner, &vc_id, &issuer);
+    client.revoke(&to_owner, &vc_id, &date);
+    assert_eq!(client.verify_vc(&to_owner, &vc_id), VCStatus::Revoked(date));
+}
+
+#[test]
 #[should_panic]
 fn test_push_revoked_vc_panics() {
     let (env, admin, issuer, contract_id, client) = setup();
