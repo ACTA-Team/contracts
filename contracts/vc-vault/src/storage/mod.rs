@@ -3,20 +3,18 @@
 use crate::model::{VCStatus, VerifiableCredential};
 use soroban_sdk::{contracttype, Address, Env, Map, String, Vec};
 
-/// TTL: extend when remaining < threshold, set to extend_to (ledger counts).
-/// Max per network: ~31_536_000 ledgers (~6 months). Extend to max so credentials
-/// stay accessible as long as possible without access.
-const INSTANCE_TTL_THRESHOLD: u32 = 30_000_000;
-const INSTANCE_TTL_EXTEND_TO: u32 = 31_536_000;
-const PERSISTENT_TTL_THRESHOLD: u32 = 30_000_000;
-const PERSISTENT_TTL_EXTEND_TO: u32 = 31_536_000;
+// TTL constants at ~5-second ledger close: 518_400 ≈ 30 days, 3_110_400 ≈ 180 days.
+const INSTANCE_TTL_THRESHOLD: u32 = 518_400;
+const INSTANCE_TTL_EXTEND_TO: u32 = 3_110_400;
+const PERSISTENT_TTL_THRESHOLD: u32 = 518_400;
+const PERSISTENT_TTL_EXTEND_TO: u32 = 3_110_400;
 
-/// Storage keys. Instance = admin, fees. Persistent = vault metadata, VCs, status.
+/// Storage keys. Instance = admin, fees, flags. Persistent = vault metadata, VCs, status.
 #[derive(Clone)]
 #[contracttype]
 pub enum DataKey {
     ContractAdmin,
-    DefaultIssuerDid,
+    PendingAdmin,
     FeeEnabled,
     FeeTokenContract,
     FeeDest,
@@ -32,13 +30,12 @@ pub enum DataKey {
     VaultDeniedIssuers(Address),
     VaultVC(Address, String),
     VaultVCIds(Address),
-    VCStatus(String),
-    VCOwner(String),
+    VCStatus(Address, String),
     LegacyIssuanceRevocations,
     LegacyIssuanceVCs,
     LegacyVaultVCs(Address),
     SponsoredVaultOpenToAll,
-    SponsoredVaultSponsors,
+    SponsoredVaultSponsor(Address),
 }
 
 /// Legacy revocation record for migration.
@@ -65,12 +62,20 @@ pub fn write_contract_admin(e: &Env, admin: &Address) {
     e.storage().instance().set(&DataKey::ContractAdmin, admin);
 }
 
-pub fn read_default_issuer_did(e: &Env) -> Option<String> {
-    e.storage().instance().get(&DataKey::DefaultIssuerDid)
+pub fn has_pending_admin(e: &Env) -> bool {
+    e.storage().instance().has(&DataKey::PendingAdmin)
 }
 
-pub fn write_default_issuer_did(e: &Env, did: &String) {
-    e.storage().instance().set(&DataKey::DefaultIssuerDid, did);
+pub fn read_pending_admin(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&DataKey::PendingAdmin)
+}
+
+pub fn write_pending_admin(e: &Env, admin: &Address) {
+    e.storage().instance().set(&DataKey::PendingAdmin, admin);
+}
+
+pub fn remove_pending_admin(e: &Env) {
+    e.storage().instance().remove(&DataKey::PendingAdmin);
 }
 
 pub fn read_fee_enabled(e: &Env) -> bool {
@@ -188,11 +193,15 @@ pub fn read_fee_early(e: &Env) -> i128 {
 }
 
 pub fn write_fee_custom(e: &Env, issuer: &Address, amount: &i128) {
-    e.storage().instance().set(&DataKey::FeeCustom(issuer.clone()), amount);
+    let key = DataKey::FeeCustom(issuer.clone());
+    e.storage().persistent().set(&key, amount);
+    e.storage()
+        .persistent()
+        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
 }
 
 pub fn try_read_fee_custom(e: &Env, issuer: &Address) -> Option<i128> {
-    e.storage().instance().get(&DataKey::FeeCustom(issuer.clone()))
+    e.storage().persistent().get(&DataKey::FeeCustom(issuer.clone()))
 }
 
 pub fn read_fee_custom(e: &Env, issuer: &Address) -> i128 {
@@ -242,6 +251,8 @@ pub fn write_vault_revoked(e: &Env, owner: &Address, revoked: &bool) {
 }
 
 // --- Vault issuers (persistent) ---
+// Expected maximum: ~20 issuers per vault. Reads and existence checks are O(n);
+// larger lists increase CPU cost linearly. Enforce a cap at the call-site if needed.
 
 pub fn read_vault_issuers(e: &Env, owner: &Address) -> Vec<Address> {
     e.storage().persistent().get(&DataKey::VaultIssuers(owner.clone())).unwrap()
@@ -274,6 +285,14 @@ pub fn add_denied_issuer(e: &Env, owner: &Address, issuer: &Address) {
     let mut denied = read_vault_denied_issuers(e, owner);
     if !denied.contains(issuer.clone()) {
         denied.push_front(issuer.clone());
+        write_vault_denied_issuers(e, owner, &denied);
+    }
+}
+
+pub fn remove_denied_issuer(e: &Env, owner: &Address, issuer: &Address) {
+    let mut denied = read_vault_denied_issuers(e, owner);
+    if let Some(idx) = denied.first_index_of(issuer.clone()) {
+        denied.remove(idx);
         write_vault_denied_issuers(e, owner, &denied);
     }
 }
@@ -319,23 +338,18 @@ pub fn remove_vault_vc_id(e: &Env, owner: &Address, vc_id: &String) {
     }
 }
 
-pub fn write_vc_status(e: &Env, vc_id: &String, status: &VCStatus) {
-    e.storage().persistent().set(&DataKey::VCStatus(vc_id.clone()), status)
-}
-
-pub fn read_vc_status(e: &Env, vc_id: &String) -> VCStatus {
+/// VC status keyed by (owner, vc_id) to prevent cross-vault collisions.
+pub fn write_vc_status(e: &Env, owner: &Address, vc_id: &String, status: &VCStatus) {
     e.storage()
         .persistent()
-        .get(&DataKey::VCStatus(vc_id.clone()))
+        .set(&DataKey::VCStatus(owner.clone(), vc_id.clone()), status)
+}
+
+pub fn read_vc_status(e: &Env, owner: &Address, vc_id: &String) -> VCStatus {
+    e.storage()
+        .persistent()
+        .get(&DataKey::VCStatus(owner.clone(), vc_id.clone()))
         .unwrap_or(VCStatus::Invalid)
-}
-
-pub fn write_vc_owner(e: &Env, vc_id: &String, owner: &Address) {
-    e.storage().persistent().set(&DataKey::VCOwner(vc_id.clone()), owner)
-}
-
-pub fn read_vc_owner(e: &Env, vc_id: &String) -> Option<Address> {
-    e.storage().persistent().get(&DataKey::VCOwner(vc_id.clone()))
 }
 
 // --- TTL extensions ---
@@ -366,13 +380,12 @@ pub fn extend_vault_ttl(e: &Env, owner: &Address) {
     }
 }
 
-/// Extend TTL of VC payload, index, status, owner. Call when touching a VC.
+/// Extend TTL of VC payload, index, and status. Call when touching a VC.
 pub fn extend_vc_ttl(e: &Env, owner: &Address, vc_id: &String) {
     let vc_key = DataKey::VaultVC(owner.clone(), vc_id.clone());
     let ids_key = DataKey::VaultVCIds(owner.clone());
-    let status_key = DataKey::VCStatus(vc_id.clone());
-    let owner_key = DataKey::VCOwner(vc_id.clone());
-    for key in [&vc_key, &ids_key, &status_key, &owner_key] {
+    let status_key = DataKey::VCStatus(owner.clone(), vc_id.clone());
+    for key in [&vc_key, &ids_key, &status_key] {
         if e.storage().persistent().has(key) {
             e.storage()
                 .persistent()
@@ -381,21 +394,17 @@ pub fn extend_vc_ttl(e: &Env, owner: &Address, vc_id: &String) {
     }
 }
 
-/// Extend TTL of VC status/owner only. Call from revoke flow.
-pub fn extend_vc_status_ttl(e: &Env, vc_id: &String) {
-    for key in [
-        DataKey::VCStatus(vc_id.clone()),
-        DataKey::VCOwner(vc_id.clone()),
-    ] {
-        if e.storage().persistent().has(&key) {
-            e.storage()
-                .persistent()
-                .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
-        }
+/// Extend TTL of VC status only. Call from revoke flow.
+pub fn extend_vc_status_ttl(e: &Env, owner: &Address, vc_id: &String) {
+    let key = DataKey::VCStatus(owner.clone(), vc_id.clone());
+    if e.storage().persistent().has(&key) {
+        e.storage()
+            .persistent()
+            .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
     }
 }
 
-// --- Sponsored vault config (instance) ---
+// --- Sponsored vault config ---
 
 pub fn read_sponsored_vault_open_to_all(e: &Env) -> bool {
     e.storage()
@@ -410,37 +419,25 @@ pub fn write_sponsored_vault_open_to_all(e: &Env, open: &bool) {
         .set(&DataKey::SponsoredVaultOpenToAll, open);
 }
 
-pub fn read_sponsored_vault_sponsors(e: &Env) -> Vec<Address> {
-    e.storage()
-        .instance()
-        .get(&DataKey::SponsoredVaultSponsors)
-        .unwrap_or_else(|| Vec::new(e))
-}
-
-pub fn write_sponsored_vault_sponsors(e: &Env, sponsors: &Vec<Address>) {
-    e.storage()
-        .instance()
-        .set(&DataKey::SponsoredVaultSponsors, sponsors);
-}
-
+/// Check if an address is an authorized sponsor.
 pub fn is_authorized_sponsor(e: &Env, sponsor: &Address) -> bool {
-    read_sponsored_vault_sponsors(e).contains(sponsor.clone())
+    e.storage()
+        .persistent()
+        .has(&DataKey::SponsoredVaultSponsor(sponsor.clone()))
 }
 
 pub fn add_sponsored_vault_sponsor(e: &Env, sponsor: &Address) {
-    let mut sponsors = read_sponsored_vault_sponsors(e);
-    if !sponsors.contains(sponsor.clone()) {
-        sponsors.push_front(sponsor.clone());
-        write_sponsored_vault_sponsors(e, &sponsors);
-    }
+    let key = DataKey::SponsoredVaultSponsor(sponsor.clone());
+    e.storage().persistent().set(&key, &true);
+    e.storage()
+        .persistent()
+        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
 }
 
 pub fn remove_sponsored_vault_sponsor(e: &Env, sponsor: &Address) {
-    let mut sponsors = read_sponsored_vault_sponsors(e);
-    if let Some(idx) = sponsors.first_index_of(sponsor.clone()) {
-        sponsors.remove(idx);
-        write_sponsored_vault_sponsors(e, &sponsors);
-    }
+    e.storage()
+        .persistent()
+        .remove(&DataKey::SponsoredVaultSponsor(sponsor.clone()));
 }
 
 // --- Legacy (migration) ---
@@ -454,7 +451,10 @@ pub fn remove_legacy_issuance_vcs(e: &Env) {
 }
 
 pub fn read_legacy_issuance_revocations(e: &Env) -> Map<String, LegacyRevocation> {
-    e.storage().persistent().get(&DataKey::LegacyIssuanceRevocations).unwrap()
+    e.storage()
+        .persistent()
+        .get(&DataKey::LegacyIssuanceRevocations)
+        .unwrap_or_else(|| Map::new(e))
 }
 
 pub fn remove_legacy_issuance_revocations(e: &Env) {

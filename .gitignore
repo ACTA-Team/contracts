@@ -1,5 +1,7 @@
-/target
-/Cargo.lock
+**/target
+**/Cargo.lock
 tarpaulin-report.html
 **/test_snapshots/
 .soroban/
+**/fuzz/corpus/
+**/fuzz/artifacts/
