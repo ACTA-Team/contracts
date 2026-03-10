@@ -46,6 +46,15 @@ pub struct VCRevoked {
     pub date: String,
 }
 
+#[contractevent]
+pub struct LinkedVCIssued {
+    pub issuer: Address,
+    pub owner: Address,
+    pub vc_id: String,
+    pub parent_owner: Address,
+    pub parent_vc_id: String,
+}
+
 pub fn vault_created(e: &Env, owner: &Address, did_uri: &String) {
     VaultCreated {
         owner: owner.clone(),
@@ -100,6 +109,24 @@ pub fn vc_revoked(e: &Env, owner: &Address, vc_id: &String, date: &String) {
         owner: owner.clone(),
         vc_id: vc_id.clone(),
         date: date.clone(),
+    }
+    .publish(e);
+}
+
+pub fn linked_vc_issued(
+    e: &Env,
+    issuer: &Address,
+    owner: &Address,
+    vc_id: &String,
+    parent_owner: &Address,
+    parent_vc_id: &String,
+) {
+    LinkedVCIssued {
+        issuer: issuer.clone(),
+        owner: owner.clone(),
+        vc_id: vc_id.clone(),
+        parent_owner: parent_owner.clone(),
+        parent_vc_id: parent_vc_id.clone(),
     }
     .publish(e);
 }

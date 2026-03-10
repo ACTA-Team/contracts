@@ -739,6 +739,190 @@ fn test_auth_authorize_issuer_requires_vault_admin_signature() {
     client.authorize_issuer(&owner, &issuer);
 }
 
+// --- Linked VC tests ---
+
+#[test]
+fn test_issue_linked_requires_valid_parent_vc() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+
+    // Foundation vault with a primary VC.
+    let foundation = Address::generate(&env);
+    client.create_vault(&foundation, &String::from_str(&env, "did:pkh:stellar:testnet:FOUNDATION"));
+    let parent_vc_id = String::from_str(&env, "vc-empresa-001");
+    let vc_data = String::from_str(&env, "<primary-data>");
+    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
+    client.issue(&foundation, &parent_vc_id, &vc_data, &contract_id, &issuer, &issuer_did, &0_i128);
+
+    // Empresario vault receives a linked VC.
+    let empresario = Address::generate(&env);
+    client.create_vault(&empresario, &String::from_str(&env, "did:pkh:stellar:testnet:EMPRESARIO"));
+    let linked_vc_id = String::from_str(&env, "vc-endorse-001");
+    client.issue_linked(
+        &issuer,
+        &empresario,
+        &linked_vc_id,
+        &String::from_str(&env, "<endorse-data>"),
+        &contract_id,
+        &issuer_did,
+        &foundation,
+        &parent_vc_id,
+    );
+
+    assert_eq!(client.verify_vc(&empresario, &linked_vc_id), crate::model::VCStatus::Valid);
+}
+
+#[test]
+#[should_panic]
+fn test_issue_linked_fails_if_parent_not_found() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+
+    let foundation = Address::generate(&env);
+    client.create_vault(&foundation, &String::from_str(&env, "did:pkh:stellar:testnet:FOUNDATION"));
+
+    let empresario = Address::generate(&env);
+    client.create_vault(&empresario, &String::from_str(&env, "did:pkh:stellar:testnet:EMPRESARIO"));
+
+    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
+    // parent_vc_id does not exist → ParentVCInvalid
+    client.issue_linked(
+        &issuer,
+        &empresario,
+        &String::from_str(&env, "vc-endorse-001"),
+        &String::from_str(&env, "<endorse-data>"),
+        &contract_id,
+        &issuer_did,
+        &foundation,
+        &String::from_str(&env, "nonexistent-vc"),
+    );
+}
+
+#[test]
+#[should_panic]
+fn test_issue_linked_fails_if_parent_revoked() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+
+    let foundation = Address::generate(&env);
+    client.create_vault(&foundation, &String::from_str(&env, "did:pkh:stellar:testnet:FOUNDATION"));
+    let parent_vc_id = String::from_str(&env, "vc-empresa-001");
+    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
+    client.issue(&foundation, &parent_vc_id, &String::from_str(&env, "<data>"), &contract_id, &issuer, &issuer_did, &0_i128);
+    client.revoke(&foundation, &parent_vc_id, &String::from_str(&env, "2026-01-01T00:00:00Z"));
+
+    let empresario = Address::generate(&env);
+    client.create_vault(&empresario, &String::from_str(&env, "did:pkh:stellar:testnet:EMPRESARIO"));
+
+    // parent VC is revoked → ParentVCInvalid
+    client.issue_linked(
+        &issuer,
+        &empresario,
+        &String::from_str(&env, "vc-endorse-001"),
+        &String::from_str(&env, "<endorse-data>"),
+        &contract_id,
+        &issuer_did,
+        &foundation,
+        &parent_vc_id,
+    );
+}
+
+#[test]
+fn test_get_vc_parent_returns_none_for_regular_vc() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
+    let vc_id = String::from_str(&env, "vc-plain");
+    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
+    client.issue(&owner, &vc_id, &String::from_str(&env, "<data>"), &contract_id, &issuer, &issuer_did, &0_i128);
+    assert!(client.get_vc_parent(&owner, &vc_id).is_none());
+}
+
+#[test]
+fn test_get_vc_parent_returns_link_for_linked_vc() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+
+    let foundation = Address::generate(&env);
+    client.create_vault(&foundation, &String::from_str(&env, "did:pkh:stellar:testnet:FOUNDATION"));
+    let parent_vc_id = String::from_str(&env, "vc-primary");
+    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
+    client.issue(&foundation, &parent_vc_id, &String::from_str(&env, "<data>"), &contract_id, &issuer, &issuer_did, &0_i128);
+
+    let empresario = Address::generate(&env);
+    client.create_vault(&empresario, &String::from_str(&env, "did:pkh:stellar:testnet:EMPRESARIO"));
+    let linked_vc_id = String::from_str(&env, "vc-linked");
+    client.issue_linked(
+        &issuer,
+        &empresario,
+        &linked_vc_id,
+        &String::from_str(&env, "<linked-data>"),
+        &contract_id,
+        &issuer_did,
+        &foundation,
+        &parent_vc_id,
+    );
+
+    let result = client.get_vc_parent(&empresario, &linked_vc_id);
+    assert!(result.is_some());
+    let (returned_owner, returned_id) = result.unwrap();
+    assert_eq!(returned_owner, foundation);
+    assert_eq!(returned_id, parent_vc_id);
+}
+
+#[test]
+fn test_foundation_flow_end_to_end() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+
+    // Step 1: foundation creates its own vault.
+    let foundation = Address::generate(&env);
+    client.create_vault(&foundation, &String::from_str(&env, "did:pkh:stellar:testnet:FOUNDATION"));
+
+    // Step 2: Admin sponsors vault for the empresario.
+    let empresario = Address::generate(&env);
+    client.create_sponsored_vault(
+        &admin,
+        &empresario,
+        &String::from_str(&env, "did:pkh:stellar:testnet:EMPRESARIO"),
+    );
+
+    // Step 3: Foundation issues a primary VC in its own vault.
+    let parent_vc_id = String::from_str(&env, "vc-empresa-001");
+    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
+    client.issue(
+        &foundation,
+        &parent_vc_id,
+        &String::from_str(&env, "<primary-data>"),
+        &contract_id,
+        &issuer,
+        &issuer_did,
+        &0_i128,
+    );
+    assert_eq!(client.verify_vc(&foundation, &parent_vc_id), crate::model::VCStatus::Valid);
+
+    // Step 4: Empresario issues an endorsed VC linked to the foundation's VC.
+    let linked_vc_id = String::from_str(&env, "vc-endorse-001");
+    client.issue_linked(
+        &issuer,
+        &empresario,
+        &linked_vc_id,
+        &String::from_str(&env, "<endorse-data>"),
+        &contract_id,
+        &issuer_did,
+        &foundation,
+        &parent_vc_id,
+    );
+
+    // Step 5: Verify both VCs and confirm the parent link.
+    assert_eq!(client.verify_vc(&foundation, &parent_vc_id), crate::model::VCStatus::Valid);
+    assert_eq!(client.verify_vc(&empresario, &linked_vc_id), crate::model::VCStatus::Valid);
+    let parent_link = client.get_vc_parent(&empresario, &linked_vc_id).unwrap();
+    assert_eq!(parent_link.0, foundation);
+    assert_eq!(parent_link.1, parent_vc_id);
+}
+
 #[test]
 #[should_panic]
 fn test_auth_issue_requires_issuer_signature() {
