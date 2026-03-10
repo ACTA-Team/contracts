@@ -31,6 +31,7 @@ pub enum DataKey {
     VaultVC(Address, String),
     VaultVCIds(Address),
     VCStatus(Address, String),
+    VCParent(Address, String),
     LegacyIssuanceRevocations,
     LegacyIssuanceVCs,
     LegacyVaultVCs(Address),
@@ -336,6 +337,39 @@ pub fn remove_vault_vc_id(e: &Env, owner: &Address, vc_id: &String) {
         ids.remove(idx);
         write_vault_vc_ids(e, owner, &ids);
     }
+}
+
+// --- VC parent links (persistent) ---
+
+/// Write a parent link: (owner, vc_id) → (parent_owner, parent_vc_id).
+pub fn write_vc_parent(
+    e: &Env,
+    owner: &Address,
+    vc_id: &String,
+    parent_owner: &Address,
+    parent_vc_id: &String,
+) {
+    let key = DataKey::VCParent(owner.clone(), vc_id.clone());
+    e.storage()
+        .persistent()
+        .set(&key, &(parent_owner.clone(), parent_vc_id.clone()));
+    e.storage()
+        .persistent()
+        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
+}
+
+/// Read the parent link for a VC. Returns None if the VC has no parent.
+pub fn read_vc_parent(e: &Env, owner: &Address, vc_id: &String) -> Option<(Address, String)> {
+    e.storage()
+        .persistent()
+        .get(&DataKey::VCParent(owner.clone(), vc_id.clone()))
+}
+
+/// Return true if the VC has a recorded parent link.
+pub fn has_vc_parent(e: &Env, owner: &Address, vc_id: &String) -> bool {
+    e.storage()
+        .persistent()
+        .has(&DataKey::VCParent(owner.clone(), vc_id.clone()))
 }
 
 /// VC status keyed by (owner, vc_id) to prevent cross-vault collisions.

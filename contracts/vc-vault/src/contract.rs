@@ -333,6 +333,57 @@ impl VcVaultTrait for VcVaultContract {
         events::vc_revoked(&e, &owner, &vc_id, &date);
     }
 
+    // --- Linked VCs ---
+
+    /// Issues a VC into owner's vault that references a parent VC in another vault.
+    /// Validates that the parent VC is Valid before issuing. Issuer must sign.
+    fn issue_linked(
+        e: Env,
+        issuer: Address,
+        owner: Address,
+        vc_id: String,
+        data: String,
+        issuance_contract: Address,
+        issuer_did: String,
+        parent_owner: Address,
+        parent_vc_id: String,
+    ) {
+        issuer.require_auth();
+        let this = e.current_contract_address();
+        if issuance_contract != this {
+            panic_with_error!(e, ContractError::InvalidVaultContract);
+        }
+        validate_vault_active(&e, &owner);
+        validate_vault_initialized(&e, &parent_owner);
+
+        if storage::read_vc_status(&e, &parent_owner, &parent_vc_id) != VCStatus::Valid {
+            panic_with_error!(e, ContractError::ParentVCInvalid);
+        }
+
+        ensure_issuer_authorized(&e, &owner, &issuer);
+
+        if storage::read_vault_vc(&e, &owner, &vc_id).is_some()
+            || storage::read_vc_status(&e, &owner, &vc_id) != VCStatus::Invalid
+        {
+            panic_with_error!(e, ContractError::VCAlreadyExists);
+        }
+
+        store_vc_payload(&e, &owner, vc_id.clone(), data, &issuer, issuer_did, this, 0);
+
+        storage::write_vc_status(&e, &owner, &vc_id, &VCStatus::Valid);
+        storage::write_vc_parent(&e, &owner, &vc_id, &parent_owner, &parent_vc_id);
+        storage::extend_vault_ttl(&e, &owner);
+        storage::extend_vc_ttl(&e, &owner, &vc_id);
+        events::linked_vc_issued(&e, &issuer, &owner, &vc_id, &parent_owner, &parent_vc_id);
+    }
+
+    /// Returns Some((parent_owner, parent_vc_id)) if the VC was issued via issue_linked,
+    /// or None if it is a regular VC with no parent link.
+    fn get_vc_parent(e: Env, owner: Address, vc_id: String) -> Option<(Address, String)> {
+        storage::extend_instance_ttl(&e);
+        storage::read_vc_parent(&e, &owner, &vc_id)
+    }
+
     // --- Sponsored vault ---
 
     /// Creates a vault on behalf of owner; sponsor must sign and be authorized unless open_to_all is enabled.

@@ -45,6 +45,18 @@ pub trait VcVaultTrait {
         fee_override: i128,
     ) -> String;
     fn revoke(e: Env, owner: Address, vc_id: String, date: String);
+    fn issue_linked(
+        e: Env,
+        issuer: Address,
+        owner: Address,
+        vc_id: String,
+        data: String,
+        issuance_contract: Address,
+        issuer_did: String,
+        parent_owner: Address,
+        parent_vc_id: String,
+    );
+    fn get_vc_parent(e: Env, owner: Address, vc_id: String) -> Option<(Address, String)>;
     fn migrate(e: Env, owner: Address);
     fn create_sponsored_vault(e: Env, sponsor: Address, owner: Address, did_uri: String);
     fn set_sponsored_vault_open_to_all(e: Env, open: bool);
