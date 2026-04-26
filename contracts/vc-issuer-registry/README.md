@@ -1,6 +1,6 @@
 # vc-issuer-registry
 
-A Soroban smart contract that provides an on-chain allowlist and metadata registry for Verifiable Credential issuers.
+A Stellar smart contract that provides an on-chain allowlist and metadata registry for Verifiable Credential issuers.
 
 ## Overview
 
@@ -13,14 +13,14 @@ A Soroban smart contract that provides an on-chain allowlist and metadata regist
 | `Admin` | Instance | Contract admin address |
 | `Issuer(Address)` | Persistent | `IssuerRecord` for each registered issuer |
 
-### `IssuerRecord`
+### IssuerRecord
 
 ```rust
 pub struct IssuerRecord {
     pub allowed: bool,
-    pub name:    Option<Symbol>,
-    pub did:     Option<Bytes>,
-    pub url:     Option<Bytes>,
+    pub name: Option<Symbol>,
+    pub did: Option<Bytes>,
+    pub url: Option<Bytes>,
 }
 ```
 
