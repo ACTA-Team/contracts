@@ -20,16 +20,21 @@ impl VcIssuerRegistryContract {
     // Initialization
     // -----------------------------------------------------------------------
 
-    /// Initialize the registry. Can only be called once.
-    /// `admin` must sign; it becomes the sole authority for admin-gated methods.
-    pub fn initialize(e: Env, admin: Address) {
-        if storage::has_admin(&e) {
-            panic_with_error!(&e, ContractError::AlreadyInitialized);
-        }
-        admin.require_auth();
-        storage::write_admin(&e, &admin);
-        storage::extend_instance_ttl(&e);
+   // -----------------------------------------------------------------------
+// Initialization (Constructor)
+// -----------------------------------------------------------------------
+
+/// Contract constructor. Runs once at deployment.
+pub fn __constructor(e: Env, admin: Address) {
+    if storage::has_admin(&e) {
+        panic_with_error!(&e, ContractError::AlreadyInitialized);
     }
+
+    admin.require_auth();
+
+    storage::write_admin(&e, &admin);
+    storage::extend_instance_ttl(&e);
+}
 
     // -----------------------------------------------------------------------
     // Issuer management (admin-only)
@@ -114,7 +119,7 @@ impl VcIssuerRegistryContract {
         if !storage::has_admin(&e) {
             panic_with_error!(&e, ContractError::NotInitialized);
         }
-        storage::extend_instance_ttl(&e);
+        storage::extend_instance_ttl(&e);    
         storage::read_admin(&e)
     }
 
