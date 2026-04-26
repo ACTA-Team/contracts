@@ -13,10 +13,14 @@ const PERSISTENT_TTL_EXTEND_TO: u32 = 3_110_400;
 /// Storage keys.
 #[derive(Clone)]
 #[contracttype]
+/// Storage keys separated by role (explicit role isolation).
+#[derive(Clone)]
+#[contracttype]
 pub enum DataKey {
-    /// Instance key: contract admin address.
+    /// Global admin (singleton, instance storage)
     Admin,
-    /// Persistent key: issuer record keyed by issuer Address.
+
+    /// Issuer registry (per-address persistent storage)
     Issuer(Address),
 }
 
