@@ -6,7 +6,7 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [lib]
-crate-type = ["rlib"]
+crate-type = ["rlib", "cdylib"]
 
 [dependencies]
 soroban-sdk = { workspace = true }
