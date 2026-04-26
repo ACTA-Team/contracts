@@ -1,6 +1,7 @@
 //! Contract entry points for vc-issuer-registry.
 
 use crate::error::ContractError;
+use crate::events;
 use crate::storage::{self, IssuerRecord};
 use soroban_sdk::{contract, contractimpl, contractmeta, panic_with_error, Address, Bytes, Env, Symbol};
 
@@ -16,28 +17,21 @@ pub struct VcIssuerRegistryContract;
 
 #[contractimpl]
 impl VcIssuerRegistryContract {
-    
-// -----------------------------------------------------------------------
-// Initialization (Constructor)
-// -----------------------------------------------------------------------
 
-/// Contract constructor. Runs once at deployment.
-pub fn __constructor(e: Env, admin: Address) {
-    if storage::has_admin(&e) {
-        panic_with_error!(&e, ContractError::AlreadyInitialized);
+    // -----------------------------------------------------------------------
+    // Initialization
+    // -----------------------------------------------------------------------
+
+    /// One-time initializer. Stores the admin address. Panics if already called.
+    pub fn initialize(e: Env, admin: Address) {
+        if storage::has_admin(&e) {
+            panic_with_error!(&e, ContractError::AlreadyInitialized);
+        }
+        admin.require_auth();
+        storage::write_admin(&e, &admin);
+        storage::extend_instance_ttl(&e);
+        events::initialized(&e, &admin);
     }
-
-    admin.require_auth();
-
-    storage::write_admin(&e, &admin);
-    storage::extend_instance_ttl(&e);
-}
-
-    admin.require_auth();
-
-    storage::write_admin(&e, &admin);
-    storage::extend_instance_ttl(&e);
-}
 
     // -----------------------------------------------------------------------
     // Issuer management (admin-only)
@@ -58,6 +52,7 @@ pub fn __constructor(e: Env, admin: Address) {
         let record = IssuerRecord { allowed: true, name, did, url };
         storage::write_issuer(&e, &issuer, &record);
         storage::extend_instance_ttl(&e);
+        events::issuer_added(&e, &issuer);
     }
 
     /// Update metadata for an existing issuer. Fails if not registered.
@@ -76,6 +71,7 @@ pub fn __constructor(e: Env, admin: Address) {
         record.url = url;
         storage::write_issuer(&e, &issuer, &record);
         storage::extend_instance_ttl(&e);
+        events::issuer_updated(&e, &issuer);
     }
 
     /// Set the `allowed` flag for an issuer (enable / disable without removing).
@@ -86,6 +82,7 @@ pub fn __constructor(e: Env, admin: Address) {
         record.allowed = allowed;
         storage::write_issuer(&e, &issuer, &record);
         storage::extend_instance_ttl(&e);
+        events::issuer_allowed_set(&e, &issuer, allowed);
     }
 
     /// Remove an issuer from the registry entirely.
@@ -96,6 +93,7 @@ pub fn __constructor(e: Env, admin: Address) {
         }
         storage::remove_issuer(&e, &issuer);
         storage::extend_instance_ttl(&e);
+        events::issuer_removed(&e, &issuer);
     }
 
     // -----------------------------------------------------------------------
@@ -117,12 +115,12 @@ pub fn __constructor(e: Env, admin: Address) {
             .unwrap_or(false)
     }
 
-    /// Returns the current admin address.
+    /// Returns the current admin address. Panics with NotInitialized if not set.
     pub fn admin(e: Env) -> Address {
         if !storage::has_admin(&e) {
             panic_with_error!(&e, ContractError::NotInitialized);
         }
-        storage::extend_instance_ttl(&e);    
+        storage::extend_instance_ttl(&e);
         storage::read_admin(&e)
     }
 
@@ -136,8 +134,8 @@ pub fn __constructor(e: Env, admin: Address) {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/// Panics with `Unauthorized` if the caller is not the stored admin.
-/// Also panics with `NotInitialized` if initialize() was never called.
+/// Panics with `NotInitialized` if no admin is stored, or with a host auth
+/// error if the caller is not the stored admin.
 fn require_admin(e: &Env) {
     if !storage::has_admin(e) {
         panic_with_error!(e, ContractError::NotInitialized);
