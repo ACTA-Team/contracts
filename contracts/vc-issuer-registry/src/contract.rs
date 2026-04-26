@@ -16,11 +16,8 @@ pub struct VcIssuerRegistryContract;
 
 #[contractimpl]
 impl VcIssuerRegistryContract {
-    // -----------------------------------------------------------------------
-    // Initialization
-    // -----------------------------------------------------------------------
-
-   // -----------------------------------------------------------------------
+    
+// -----------------------------------------------------------------------
 // Initialization (Constructor)
 // -----------------------------------------------------------------------
 
@@ -29,6 +26,12 @@ pub fn __constructor(e: Env, admin: Address) {
     if storage::has_admin(&e) {
         panic_with_error!(&e, ContractError::AlreadyInitialized);
     }
+
+    admin.require_auth();
+
+    storage::write_admin(&e, &admin);
+    storage::extend_instance_ttl(&e);
+}
 
     admin.require_auth();
 
