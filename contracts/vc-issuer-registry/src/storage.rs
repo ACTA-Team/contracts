@@ -10,9 +10,6 @@ const INSTANCE_TTL_EXTEND_TO: u32 = 3_110_400;
 const PERSISTENT_TTL_THRESHOLD: u32 = 518_400;
 const PERSISTENT_TTL_EXTEND_TO: u32 = 3_110_400;
 
-/// Storage keys.
-#[derive(Clone)]
-#[contracttype]
 /// Storage keys separated by role (explicit role isolation).
 #[derive(Clone)]
 #[contracttype]
