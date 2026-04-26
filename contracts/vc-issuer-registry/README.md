@@ -57,5 +57,5 @@ cargo build -p vc-issuer-registry-contract
 cargo test -p vc-issuer-registry-contract
 
 # WASM
-soroban contract build
+stellar contract build
 ```
