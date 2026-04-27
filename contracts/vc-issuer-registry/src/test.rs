@@ -53,8 +53,8 @@ fn test_admin_gate_rejects_non_admin() {
     // Initialize so admin is stored.
     client.initialize(&admin);
 
-    // Now try add_issuer with no valid auth (mock_all_auths is still active,
-    // but the admin address used for init won't match the non_admin calling add_issuer)
+    // Clear mocks so no valid auth is provided for add_issuer
+    e.mock_auths(&[]);
     let result = client.try_add_issuer(&non_admin, &None, &None, &None);
 
     assert!(result.is_err(), "non-admin call must fail");

@@ -42,12 +42,10 @@ pub struct IssuerRecord {
 
 | Code | Variant               | Meaning                            |
 | ---- | --------------------- | ---------------------------------- |
-| 1    | `Unauthorized`        | Caller is not the admin            |
-| 2    | `AlreadyInitialized`  | `initialize` called more than once |
-| 3    | `IssuerNotFound`      | Issuer not in registry             |
-| 4    | `IssuerAlreadyExists` | Issuer already registered          |
-| 5    | `InvalidMetadata`     | Metadata validation failed         |
-| 6    | `NotInitialized`      | Contract not yet initialized       |
+| 1    | `AlreadyInitialized`  | `initialize` called more than once |
+| 2    | `IssuerNotFound`      | Issuer not in registry             |
+| 3    | `IssuerAlreadyExists` | Issuer already registered          |
+| 4    | `NotInitialized`      | Contract not yet initialized       |
 
 ## Events
 
