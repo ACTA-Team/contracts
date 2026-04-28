@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = ["contracts/vc-vault"]
+members = ["contracts/vc-vault", "contracts/vc-issuer-registry"]
 
 [workspace.package]
 version = "0.21.0"
