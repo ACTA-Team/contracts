@@ -5,7 +5,6 @@ extern crate std;
 use soroban_sdk::{testutils::Address as _, Address, Env};
 
 use crate::contract::{VcIssuerRegistryContract, VcIssuerRegistryContractClient};
-use crate::error::ContractError;
 
 fn setup() -> (Env, VcIssuerRegistryContractClient<'static>) {
     let e = Env::default();
