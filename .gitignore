@@ -5,3 +5,5 @@ tarpaulin-report.html
 .soroban/
 **/fuzz/corpus/
 **/fuzz/artifacts/
+docs/refactor/
+skill/
