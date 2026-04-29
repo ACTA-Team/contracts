@@ -7,6 +7,9 @@ use soroban_sdk::{contract, contractimpl, contractmeta, panic_with_error, Addres
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Maximum allowed byte length for `did` and `url` metadata fields.
+const MAX_METADATA_BYTES: u32 = 256;
+
 contractmeta!(
     key = "Description",
     val = "VC Issuer Registry: on-chain allowlist and metadata registry for VC issuers",
@@ -46,6 +49,7 @@ impl VcIssuerRegistryContract {
         url: Option<Bytes>,
     ) {
         require_admin(&e);
+        validate_metadata(&e, &did, &url);
         if storage::has_issuer(&e, &issuer) {
             panic_with_error!(&e, ContractError::IssuerAlreadyExists);
         }
@@ -56,7 +60,8 @@ impl VcIssuerRegistryContract {
     }
 
     /// Update metadata for an existing issuer. Fails if not registered.
-    pub fn update_issuer(
+    /// Does **not** re-add a removed issuer — the `allowed` flag is preserved.
+    pub fn set_issuer_metadata(
         e: Env,
         issuer: Address,
         name: Option<Symbol>,
@@ -64,6 +69,7 @@ impl VcIssuerRegistryContract {
         url: Option<Bytes>,
     ) {
         require_admin(&e);
+        validate_metadata(&e, &did, &url);
         let mut record = storage::read_issuer(&e, &issuer)
             .unwrap_or_else(|| panic_with_error!(&e, ContractError::IssuerNotFound));
         record.name = name;
@@ -71,7 +77,7 @@ impl VcIssuerRegistryContract {
         record.url = url;
         storage::write_issuer(&e, &issuer, &record);
         storage::extend_instance_ttl(&e);
-        events::issuer_updated(&e, &issuer);
+        events::metadata_updated(&e, &issuer);
     }
 
     /// Set the `allowed` flag for an issuer (enable / disable without removing).
@@ -86,6 +92,9 @@ impl VcIssuerRegistryContract {
     }
 
     /// Remove an issuer from the registry entirely.
+    /// **Behavior:** the record is deleted (not soft-disabled). After removal,
+    /// `is_issuer_allowed` returns `false` and `get_issuer` panics with
+    /// `IssuerNotFound`.
     pub fn remove_issuer(e: Env, issuer: Address) {
         require_admin(&e);
         if !storage::has_issuer(&e, &issuer) {
@@ -108,7 +117,7 @@ impl VcIssuerRegistryContract {
     }
 
     /// Returns true if the issuer is registered and currently allowed.
-    pub fn is_allowed(e: Env, issuer: Address) -> bool {
+    pub fn is_issuer_allowed(e: Env, issuer: Address) -> bool {
         storage::extend_instance_ttl(&e);
         storage::read_issuer(&e, &issuer)
             .map(|r| r.allowed)
@@ -142,4 +151,19 @@ fn require_admin(e: &Env) {
     }
     let admin = storage::read_admin(e);
     admin.require_auth();
+}
+
+/// Validates metadata field sizes. Panics with `InvalidMetadata` if `did` or
+/// `url` exceeds [`MAX_METADATA_BYTES`].
+fn validate_metadata(e: &Env, did: &Option<Bytes>, url: &Option<Bytes>) {
+    if let Some(d) = did {
+        if d.len() > MAX_METADATA_BYTES {
+            panic_with_error!(e, ContractError::InvalidMetadata);
+        }
+    }
+    if let Some(u) = url {
+        if u.len() > MAX_METADATA_BYTES {
+            panic_with_error!(e, ContractError::InvalidMetadata);
+        }
+    }
 }
