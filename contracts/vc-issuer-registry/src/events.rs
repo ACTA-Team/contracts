@@ -13,7 +13,7 @@ pub struct IssuerAdded {
 }
 
 #[contractevent]
-pub struct IssuerUpdated {
+pub struct MetadataUpdated {
     pub issuer: Address,
 }
 
@@ -42,8 +42,8 @@ pub fn issuer_added(e: &Env, issuer: &Address) {
     .publish(e);
 }
 
-pub fn issuer_updated(e: &Env, issuer: &Address) {
-    IssuerUpdated {
+pub fn metadata_updated(e: &Env, issuer: &Address) {
+    MetadataUpdated {
         issuer: issuer.clone(),
     }
     .publish(e);
