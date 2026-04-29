@@ -14,4 +14,6 @@ pub enum ContractError {
     IssuerAlreadyExists = 3,
     /// Contract has not been initialized yet.
     NotInitialized = 4,
+    /// Metadata field exceeds maximum allowed size.
+    InvalidMetadata = 5,
 }
