@@ -59,10 +59,40 @@ pub trait DidStellarRegistryInterface {
     /// Read-only. Returns the current `DidRecord`, or `None` if no record
     /// exists for `did_id`. Does not require authorization.
     fn get(e: Env, did_id: BytesN<16>) -> Option<DidRecord>;
+
+    // --- Contract-level admin -----------------------------------------------
+    // The admin governs future contract-wide operations (none today; reserved
+    // for emergency pause, parameter updates, etc.). Per-DID mutations are
+    // NOT admin-gated — they remain authorized exclusively by the DID
+    // controller.
+
+    /// Propose a new contract admin. The current admin MUST authorize. The
+    /// nominee must call `accept_admin` to complete the transfer; the
+    /// proposal lives in temporary storage and expires automatically.
+    fn propose_admin(e: Env, new_admin: Address);
+
+    /// Accept a pending admin nomination. The proposed admin MUST authorize.
+    /// Fails with `NoProposedAdmin` if there is no active proposal.
+    fn accept_admin(e: Env);
+
+    /// Read the current contract admin. No authorization required.
+    fn get_admin(e: Env) -> Address;
 }
 
 #[contract]
 pub struct DidStellarRegistry;
+
+#[contractimpl]
+impl DidStellarRegistry {
+    /// Soroban constructor — runs exactly once at deployment time. Sets the
+    /// initial admin. The deployer MUST sign as `admin`.
+    pub fn __constructor(e: Env, admin: Address) {
+        admin.require_auth();
+        storage::set_admin(&e, &admin);
+        storage::extend_instance(&e);
+        events::contract_initialized(&e, &admin);
+    }
+}
 
 #[contractimpl]
 impl DidStellarRegistryInterface for DidStellarRegistry {
@@ -197,6 +227,31 @@ impl DidStellarRegistryInterface for DidStellarRegistry {
 
     fn get(e: Env, did_id: BytesN<16>) -> Option<DidRecord> {
         storage::read_record(&e, &did_id)
+    }
+
+    fn propose_admin(e: Env, new_admin: Address) {
+        let admin = storage::get_admin(&e);
+        admin.require_auth();
+        storage::set_proposed_admin(&e, &new_admin);
+        storage::extend_instance(&e);
+    }
+
+    fn accept_admin(e: Env) {
+        match storage::get_proposed_admin(&e) {
+            Some(proposed) => {
+                proposed.require_auth();
+                let old_admin = storage::get_admin(&e);
+                storage::set_admin(&e, &proposed);
+                storage::remove_proposed_admin(&e);
+                storage::extend_instance(&e);
+                events::admin_transferred(&e, &old_admin, &proposed);
+            }
+            None => panic_with_error!(&e, RegistryError::NoProposedAdmin),
+        }
+    }
+
+    fn get_admin(e: Env) -> Address {
+        storage::get_admin(&e)
     }
 }
 

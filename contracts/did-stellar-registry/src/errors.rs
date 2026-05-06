@@ -38,4 +38,7 @@ pub enum RegistryError {
     ServiceEndpointInvalid = 15,
     /// `metadata_uri` is not an `https://` URL or exceeds MAX_URL_LEN.
     MetadataUriInvalid = 16,
+    /// `accept_admin` called when no admin has been proposed (or the
+    /// proposal expired from temporary storage).
+    NoProposedAdmin = 17,
 }
