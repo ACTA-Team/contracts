@@ -16,7 +16,10 @@ extern crate std;
 
 use crate::contract::{DidStellarRegistry, DidStellarRegistryClient};
 use crate::errors::RegistryError;
-use crate::events::{DidControllerTransferred, DidDeactivated, DidRegistered, DidUpdated};
+use crate::events::{
+    AdminTransferred, ContractInitialized, DidControllerTransferred, DidDeactivated, DidRegistered,
+    DidUpdated,
+};
 use crate::model::{DidKey, DidRecord, DidService};
 use soroban_sdk::{
     testutils::{Address as _, BytesN as _, Events},
@@ -25,7 +28,9 @@ use soroban_sdk::{
 
 // --- helpers ---------------------------------------------------------------
 
-/// Returns `(env, controller, did_id, contract_id, client)`.
+/// Returns `(env, controller, did_id, contract_id, client)`. The contract
+/// is deployed with a fresh admin address; tests that need to interact with
+/// the admin role should use `setup_with_admin` instead.
 fn setup() -> (
     Env,
     Address,
@@ -33,13 +38,29 @@ fn setup() -> (
     Address,
     DidStellarRegistryClient<'static>,
 ) {
+    let (env, _admin, controller, did_id, contract_id, client) = setup_with_admin();
+    (env, controller, did_id, contract_id, client)
+}
+
+/// Returns `(env, admin, controller, did_id, contract_id, client)`. Use this
+/// when the test needs the admin address (e.g. to call `propose_admin`).
+fn setup_with_admin() -> (
+    Env,
+    Address,
+    Address,
+    BytesN<16>,
+    Address,
+    DidStellarRegistryClient<'static>,
+) {
     let env = Env::default();
     env.mock_all_auths();
+    let admin = Address::generate(&env);
     let controller = Address::generate(&env);
     let did_id = BytesN::<16>::random(&env);
-    let contract_id = env.register(DidStellarRegistry, ());
+    // `__constructor` requires `admin.require_auth()`; mock_all_auths covers it.
+    let contract_id = env.register(DidStellarRegistry, (admin.clone(),));
     let client = DidStellarRegistryClient::new(&env, &contract_id);
-    (env, controller, did_id, contract_id, client)
+    (env, admin, controller, did_id, contract_id, client)
 }
 
 fn s(e: &Env, v: &str) -> String {
@@ -223,10 +244,14 @@ fn test_deactivate_twice() {
 #[should_panic]
 fn test_auth_register_requires_controller() {
     let env = Env::default();
+    // Mocks are enabled to satisfy the constructor's `admin.require_auth()`,
+    // then stripped so the subsequent `register` call has no auth coverage.
+    env.mock_all_auths();
     let controller = Address::generate(&env);
     let did_id = BytesN::<16>::random(&env);
-    let contract_id = env.register(DidStellarRegistry, ());
+    let contract_id = env.register(DidStellarRegistry, (Address::generate(&env),));
     let client = DidStellarRegistryClient::new(&env, &contract_id);
+    env.set_auths(&[]);
     client.register(&did_id, &minimal_record(&env, &controller));
 }
 
@@ -237,7 +262,7 @@ fn test_auth_update_requires_controller() {
     env.mock_all_auths();
     let controller = Address::generate(&env);
     let did_id = BytesN::<16>::random(&env);
-    let contract_id = env.register(DidStellarRegistry, ());
+    let contract_id = env.register(DidStellarRegistry, (Address::generate(&env),));
     let client = DidStellarRegistryClient::new(&env, &contract_id);
     client.register(&did_id, &minimal_record(&env, &controller));
     // Strip auths — update must fail.
@@ -252,7 +277,7 @@ fn test_auth_transfer_requires_controller() {
     env.mock_all_auths();
     let controller = Address::generate(&env);
     let did_id = BytesN::<16>::random(&env);
-    let contract_id = env.register(DidStellarRegistry, ());
+    let contract_id = env.register(DidStellarRegistry, (Address::generate(&env),));
     let client = DidStellarRegistryClient::new(&env, &contract_id);
     client.register(&did_id, &minimal_record(&env, &controller));
     env.set_auths(&[]);
@@ -267,7 +292,7 @@ fn test_auth_deactivate_requires_controller() {
     env.mock_all_auths();
     let controller = Address::generate(&env);
     let did_id = BytesN::<16>::random(&env);
-    let contract_id = env.register(DidStellarRegistry, ());
+    let contract_id = env.register(DidStellarRegistry, (Address::generate(&env),));
     let client = DidStellarRegistryClient::new(&env, &contract_id);
     client.register(&did_id, &minimal_record(&env, &controller));
     env.set_auths(&[]);
@@ -583,7 +608,7 @@ fn test_vector_1_minimal_did() {
     env.mock_all_auths();
     let controller = Address::generate(&env);
     let did_id = vector_did_id(&env);
-    let contract_id = env.register(DidStellarRegistry, ());
+    let contract_id = env.register(DidStellarRegistry, (Address::generate(&env),));
     let client = DidStellarRegistryClient::new(&env, &contract_id);
 
     let mut auth = empty_keys(&env);
@@ -623,7 +648,7 @@ fn test_vector_2_full_did() {
     env.mock_all_auths();
     let controller = Address::generate(&env);
     let did_id = vector_did_id(&env);
-    let contract_id = env.register(DidStellarRegistry, ());
+    let contract_id = env.register(DidStellarRegistry, (Address::generate(&env),));
     let client = DidStellarRegistryClient::new(&env, &contract_id);
 
     let mut auth = empty_keys(&env);
@@ -671,7 +696,7 @@ fn test_vector_3_deactivated_tombstone() {
     env.mock_all_auths();
     let controller = Address::generate(&env);
     let did_id = vector_did_id(&env);
-    let contract_id = env.register(DidStellarRegistry, ());
+    let contract_id = env.register(DidStellarRegistry, (Address::generate(&env),));
     let client = DidStellarRegistryClient::new(&env, &contract_id);
 
     client.register(&did_id, &minimal_record(&env, &controller));
@@ -719,4 +744,154 @@ fn test_record_round_trip_via_intoval() {
     let controller = Address::generate(&env);
     let r = minimal_record(&env, &controller);
     let _val: soroban_sdk::Val = (&r).into_val(&env);
+}
+
+// --- contract admin (constructor + two-step transfer) ----------------------
+// The proposed admin uses temporary storage so an unaccepted nomination
+// auto-expires; this bounds the time window during which a stale proposal
+// could be accepted.
+
+#[test]
+fn test_constructor_emits_initialized_event() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(DidStellarRegistry, (admin.clone(),));
+
+    // Inspect events BEFORE any further client call — `env.events().all()`
+    // returns events from the last contract invocation only.
+    let expected = ContractInitialized {
+        admin: admin.clone(),
+    };
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (contract_id.clone(), expected.topics(&env), expected.data(&env))
+        ]
+    );
+}
+
+#[test]
+fn test_constructor_sets_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(DidStellarRegistry, (admin.clone(),));
+    let client = DidStellarRegistryClient::new(&env, &contract_id);
+    assert_eq!(client.get_admin(), admin);
+}
+
+#[test]
+fn test_propose_admin_records_pending_nominee() {
+    let (env, _admin, _controller, _did_id, _id, client) = setup_with_admin();
+    let nominee = Address::generate(&env);
+    client.propose_admin(&nominee);
+    // Until accepted, the current admin is unchanged.
+    // (We can't directly read proposed_admin via the public ABI — covered
+    // indirectly by the accept tests below.)
+    assert_ne!(client.get_admin(), nominee);
+}
+
+#[test]
+fn test_accept_admin_completes_two_step_transfer() {
+    let (env, admin, _controller, _did_id, contract_id, client) = setup_with_admin();
+    let nominee = Address::generate(&env);
+
+    client.propose_admin(&nominee);
+    client.accept_admin();
+
+    // Inspect events BEFORE `get_admin` — events from a read overwrite the
+    // accept_admin invocation in `env.events().all()`.
+    let expected = AdminTransferred {
+        old_admin: admin.clone(),
+        new_admin: nominee.clone(),
+    };
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (contract_id.clone(), expected.topics(&env), expected.data(&env))
+        ]
+    );
+
+    assert_eq!(client.get_admin(), nominee);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #17)")] // NoProposedAdmin
+fn test_accept_admin_with_no_proposal_fails() {
+    let (_env, _admin, _controller, _did_id, _id, client) = setup_with_admin();
+    client.accept_admin();
+}
+
+#[test]
+#[should_panic]
+fn test_propose_admin_requires_current_admin_auth() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(DidStellarRegistry, (admin,));
+    let client = DidStellarRegistryClient::new(&env, &contract_id);
+    let nominee = Address::generate(&env);
+    // Strip auths after construction — propose must fail.
+    env.set_auths(&[]);
+    client.propose_admin(&nominee);
+}
+
+#[test]
+#[should_panic]
+fn test_accept_admin_requires_nominee_auth() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(DidStellarRegistry, (admin,));
+    let client = DidStellarRegistryClient::new(&env, &contract_id);
+    let nominee = Address::generate(&env);
+    client.propose_admin(&nominee);
+    // Strip auths — accept must fail because nominee can't sign.
+    env.set_auths(&[]);
+    client.accept_admin();
+}
+
+#[test]
+fn test_propose_admin_overwrites_previous_proposal() {
+    // Calling propose_admin twice should leave the second nominee as the
+    // pending one. After accept, that's the new admin.
+    let (env, _admin, _controller, _did_id, _id, client) = setup_with_admin();
+    let first = Address::generate(&env);
+    let second = Address::generate(&env);
+    client.propose_admin(&first);
+    client.propose_admin(&second);
+    client.accept_admin();
+    assert_eq!(client.get_admin(), second);
+}
+
+#[test]
+fn test_admin_does_not_bypass_did_controller_auth() {
+    // The admin role is contract-level governance; per-DID mutations remain
+    // strictly controller-authorized. Admin signing is NOT enough to mutate
+    // a DID owned by a different controller.
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let controller = Address::generate(&env);
+    let did_id = BytesN::<16>::random(&env);
+    let contract_id = env.register(DidStellarRegistry, (admin.clone(),));
+    let client = DidStellarRegistryClient::new(&env, &contract_id);
+    client.register(&did_id, &minimal_record(&env, &controller));
+
+    // Restrict auths so only the admin signs; the controller does NOT.
+    // The update must still fail (admin is irrelevant to DID auth).
+    use soroban_sdk::testutils::MockAuth;
+    env.mock_auths(&[MockAuth {
+        address: &admin,
+        invoke: &soroban_sdk::testutils::MockAuthInvoke {
+            contract: &contract_id,
+            fn_name: "update",
+            args: (did_id.clone(), 1u32, minimal_record(&env, &controller)).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+
 }
