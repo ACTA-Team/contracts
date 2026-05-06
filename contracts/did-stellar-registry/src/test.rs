@@ -894,4 +894,121 @@ fn test_admin_does_not_bypass_did_controller_auth() {
         },
     }]);
 
+    // Admin auth alone is not enough — update must be rejected.
+    let result = client.try_update(&did_id, &1u32, &minimal_record(&env, &controller));
+    assert!(result.is_err());
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #18)")] // ServiceTypeEmpty
+fn test_boundary_service_type_empty() {
+    let (env, controller, did_id, _id, client) = setup();
+    let mut r = minimal_record(&env, &controller);
+    let mut svcs = empty_services(&env);
+    svcs.push_back(DidService {
+        id_suffix: s(&env, "issuer"),
+        service_type: s(&env, ""),
+        service_endpoint: s(&env, "https://example.com"),
+    });
+    r.services = svcs;
+    client.register(&did_id, &r);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #15)")] // ServiceEndpointInvalid
+fn test_boundary_service_endpoint_no_host() {
+    // "https://" with no host must be rejected (len == 8, equal to prefix).
+    let (env, controller, did_id, _id, client) = setup();
+    let mut r = minimal_record(&env, &controller);
+    let mut svcs = empty_services(&env);
+    svcs.push_back(DidService {
+        id_suffix: s(&env, "issuer"),
+        service_type: s(&env, "LinkedDomains"),
+        service_endpoint: s(&env, "https://"),
+    });
+    r.services = svcs;
+    client.register(&did_id, &r);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #16)")] // MetadataUriInvalid
+fn test_boundary_metadata_uri_no_host() {
+    // "https://" with no host must be rejected for metadata_uri too.
+    let (env, controller, did_id, _id, client) = setup();
+    let mut r = minimal_record(&env, &controller);
+    r.metadata_uri = Some(s(&env, "https://"));
+    client.register(&did_id, &r);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #19)")] // VersionOverflow
+fn test_version_overflow() {
+    // A DID at u32::MAX must not panic arithmetically — it must return a
+    // clean VersionOverflow error so the DID remains inspectable.
+    let (env, controller, did_id, contract_id, client) = setup();
+    client.register(&did_id, &minimal_record(&env, &controller));
+
+    // Forcibly set the on-chain version to u32::MAX via contract storage.
+    env.as_contract(&contract_id, || {
+        let mut r = crate::storage::read_record(&env, &did_id).unwrap();
+        r.version = u32::MAX;
+        crate::storage::write_record(&env, &did_id, &r);
+    });
+
+    client.update(&did_id, &u32::MAX, &minimal_record(&env, &controller));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #9)")] // DuplicateKey
+fn test_duplicate_keys_cross_relationship() {
+    // Same multibase key in authentication AND assertion_method must be rejected.
+    let (env, controller, did_id, _id, client) = setup();
+    let mut r = minimal_record(&env, &controller);
+    let same = "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY";
+    let mut assert_keys = empty_keys(&env);
+    assert_keys.push_back(key(&env, same));
+    r.assertion_method = assert_keys;
+    // r.authentication already contains `same` from minimal_record.
+    client.register(&did_id, &r);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #14)")] // ServiceIdInvalidFormat
+fn test_boundary_service_id_leading_hyphen() {
+    let (env, controller, did_id, _id, client) = setup();
+    let mut r = minimal_record(&env, &controller);
+    let mut svcs = empty_services(&env);
+    svcs.push_back(DidService {
+        id_suffix: s(&env, "-issuer"),
+        service_type: s(&env, "LinkedDomains"),
+        service_endpoint: s(&env, "https://example.com"),
+    });
+    r.services = svcs;
+    client.register(&did_id, &r);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #14)")] // ServiceIdInvalidFormat
+fn test_boundary_service_id_trailing_hyphen() {
+    let (env, controller, did_id, _id, client) = setup();
+    let mut r = minimal_record(&env, &controller);
+    let mut svcs = empty_services(&env);
+    svcs.push_back(DidService {
+        id_suffix: s(&env, "issuer-"),
+        service_type: s(&env, "LinkedDomains"),
+        service_endpoint: s(&env, "https://example.com"),
+    });
+    r.services = svcs;
+    client.register(&did_id, &r);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #20)")] // MetadataInconsistent
+fn test_boundary_metadata_hash_without_uri() {
+    // A metadata_hash with no metadata_uri is orphaned — must be rejected.
+    let (env, controller, did_id, _id, client) = setup();
+    let mut r = minimal_record(&env, &controller);
+    r.metadata_hash = Some(BytesN::<32>::from_array(&env, &[0u8; 32]));
+    // metadata_uri intentionally left None.
+    client.register(&did_id, &r);
 }

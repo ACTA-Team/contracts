@@ -140,6 +140,9 @@ impl DidStellarRegistryInterface for DidStellarRegistry {
 
         validate_record(&e, &next_record);
 
+        if current.version == u32::MAX {
+            panic_with_error!(&e, RegistryError::VersionOverflow);
+        }
         let new_version = current.version + 1;
         let updated = DidRecord {
             controller: next_record.controller,
@@ -172,6 +175,9 @@ impl DidStellarRegistryInterface for DidStellarRegistry {
         require_version(&e, expected_version, current.version);
         current.controller.require_auth();
 
+        if current.version == u32::MAX {
+            panic_with_error!(&e, RegistryError::VersionOverflow);
+        }
         let new_version = current.version + 1;
         let old_controller = current.controller.clone();
         let updated = DidRecord {
@@ -204,6 +210,9 @@ impl DidStellarRegistryInterface for DidStellarRegistry {
         require_version(&e, expected_version, current.version);
         current.controller.require_auth();
 
+        if current.version == u32::MAX {
+            panic_with_error!(&e, RegistryError::VersionOverflow);
+        }
         let new_version = current.version + 1;
         // Tombstone state: empty key sets, preserve controller + metadata for
         // audit.
@@ -301,6 +310,14 @@ fn validate_record(e: &Env, record: &DidRecord) {
     validate_keys_no_duplicates(e, &record.assertion_method);
     validate_keys_no_duplicates(e, &record.key_agreement);
 
+    // --- Cross-relationship duplicate detection ---
+    // The DID Core spec requires key IDs to be unique across the entire
+    // document; the same multibase key must not appear in two different
+    // verification relationships.
+    validate_keys_cross_duplicates(e, &record.authentication, &record.assertion_method);
+    validate_keys_cross_duplicates(e, &record.authentication, &record.key_agreement);
+    validate_keys_cross_duplicates(e, &record.assertion_method, &record.key_agreement);
+
     // --- Services ---
     for i in 0..record.services.len() {
         let s: DidService = record.services.get_unchecked(i);
@@ -311,6 +328,32 @@ fn validate_record(e: &Env, record: &DidRecord) {
     if let Some(uri) = &record.metadata_uri {
         if !is_valid_https_url(uri) {
             panic_with_error!(e, RegistryError::MetadataUriInvalid);
+        }
+    }
+
+    // --- Metadata consistency ---
+    // A hash without a URI is orphaned: there is no referent to verify
+    // against. Reject this combination to prevent incoherent records.
+    if record.metadata_hash.is_some() && record.metadata_uri.is_none() {
+        panic_with_error!(e, RegistryError::MetadataInconsistent);
+    }
+}
+
+/// Checks that no key in `a` appears in `b`. Both lists must already have
+/// passed `validate_keys_no_duplicates` individually. Bounded by
+/// `MAX_KEY_COUNT_AUTH × MAX_KEY_COUNT_ASSERT` = 3 × 3 = 9 iterations worst case.
+fn validate_keys_cross_duplicates(
+    e: &Env,
+    a: &soroban_sdk::Vec<DidKey>,
+    b: &soroban_sdk::Vec<DidKey>,
+) {
+    for i in 0..a.len() {
+        let ka: DidKey = a.get_unchecked(i);
+        for j in 0..b.len() {
+            let kb: DidKey = b.get_unchecked(j);
+            if ka.public_key_multibase == kb.public_key_multibase {
+                panic_with_error!(e, RegistryError::DuplicateKey);
+            }
         }
     }
 }
@@ -351,7 +394,10 @@ fn validate_service(e: &Env, s: &DidService) {
     if !is_valid_id_suffix(&s.id_suffix) {
         panic_with_error!(e, RegistryError::ServiceIdInvalidFormat);
     }
-    if s.service_type.len() == 0 || s.service_type.len() > MAX_SERVICE_TYPE_LEN {
+    if s.service_type.len() == 0 {
+        panic_with_error!(e, RegistryError::ServiceTypeEmpty);
+    }
+    if s.service_type.len() > MAX_SERVICE_TYPE_LEN {
         panic_with_error!(e, RegistryError::ServiceTypeTooLong);
     }
     if !is_valid_https_url(&s.service_endpoint) {
@@ -359,11 +405,17 @@ fn validate_service(e: &Env, s: &DidService) {
     }
 }
 
-/// `^[a-z0-9-]+$` — lowercase ASCII letters, digits, and hyphen.
+/// `^[a-z0-9][a-z0-9-]*[a-z0-9]$` or a single `[a-z0-9]` char.
+/// Lowercase ASCII letters, digits, and interior hyphens only.
+/// Leading and trailing hyphens (e.g. `-foo`, `foo-`) are rejected.
 fn is_valid_id_suffix(s: &String) -> bool {
     let bytes = s.to_bytes();
     let n = bytes.len();
     if n == 0 {
+        return false;
+    }
+    // Leading or trailing hyphens are not valid slug identifiers.
+    if bytes.get_unchecked(0) == b'-' || bytes.get_unchecked(n - 1) == b'-' {
         return false;
     }
     for i in 0..n {
@@ -380,7 +432,7 @@ fn is_valid_id_suffix(s: &String) -> bool {
 /// no longer than `MAX_URL_LEN`. Does not parse or validate the host.
 fn is_valid_https_url(s: &String) -> bool {
     let len = s.len();
-    if len < 8 || len > MAX_URL_LEN {
+    if len <= 8 || len > MAX_URL_LEN {
         return false;
     }
     let bytes = s.to_bytes();

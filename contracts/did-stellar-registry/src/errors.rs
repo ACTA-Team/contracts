@@ -41,4 +41,13 @@ pub enum RegistryError {
     /// `accept_admin` called when no admin has been proposed (or the
     /// proposal expired from temporary storage).
     NoProposedAdmin = 17,
+    /// `service.service_type` is empty.
+    ServiceTypeEmpty = 18,
+    /// `update`/`transfer_controller`/`deactivate` called on a DID whose
+    /// `version` has reached `u32::MAX`. Extremely unlikely in practice but
+    /// must be handled to prevent arithmetic overflow.
+    VersionOverflow = 19,
+    /// `metadata_hash` is `Some` but `metadata_uri` is `None`. An integrity
+    /// hash without a corresponding URI is orphaned and meaningless.
+    MetadataInconsistent = 20,
 }
