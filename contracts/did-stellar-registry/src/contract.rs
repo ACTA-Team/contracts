@@ -134,8 +134,11 @@ impl DidStellarRegistryInterface for DidStellarRegistry {
         require_active(&e, &current);
         require_version(&e, expected_version, current.version);
 
-        // The current controller authorizes the mutation. The new controller
-        // value (if any) only takes effect on the next mutation cycle.
+        // The current controller authorizes the mutation. The controller field
+        // is immutable through `update`; ownership changes must go through
+        // `transfer_controller`, which emits the dedicated
+        // `DidControllerTransferred` event so off-chain indexers can track
+        // ownership changes reliably.
         current.controller.require_auth();
 
         validate_record(&e, &next_record);
@@ -145,7 +148,9 @@ impl DidStellarRegistryInterface for DidStellarRegistry {
         }
         let new_version = current.version + 1;
         let updated = DidRecord {
-            controller: next_record.controller,
+            // Controller is pinned to the current value — next_record.controller
+            // is intentionally ignored here.
+            controller: current.controller.clone(),
             authentication: next_record.authentication,
             assertion_method: next_record.assertion_method,
             key_agreement: next_record.key_agreement,

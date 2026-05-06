@@ -590,6 +590,25 @@ fn test_events_deactivate_emits_payload() {
     );
 }
 
+#[test]
+fn test_update_ignores_controller_field() {
+    // `update` must NOT change the controller even if next_record carries a
+    // different one. Ownership changes must go through `transfer_controller`
+    // so the `DidControllerTransferred` event is emitted for indexers.
+    let (env, controller, did_id, _id, client) = setup();
+    client.register(&did_id, &minimal_record(&env, &controller));
+
+    let mut next = minimal_record(&env, &controller);
+    let intruder = Address::generate(&env);
+    next.controller = intruder.clone();
+
+    client.update(&did_id, &1u32, &next);
+
+    let r = client.get(&did_id).unwrap();
+    assert_eq!(r.controller, controller, "update must not change the controller");
+    assert_ne!(r.controller, intruder);
+}
+
 // --- normative test vectors ------------------------------------------------
 // These match `docs/did-spec/test-vectors/vectors.json`.
 
