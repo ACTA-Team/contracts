@@ -8,6 +8,12 @@ This contract is the canonical source of truth for the state of every `did:stell
 
 ## Public ABI
 
+### Constructor
+
+| Function | Purpose |
+|---|---|
+| `__constructor(admin: Address)` | Runs once at deploy. Sets the contract admin. Deployer MUST sign as `admin`. Emits `ContractInitialized`. |
+
 ### Per-DID operations
 
 | Function | Purpose |
@@ -20,6 +26,18 @@ This contract is the canonical source of truth for the state of every `did:stell
 
 All mutations require `controller.require_auth()`. All mutations except `register` use optimistic concurrency: `expected_version` MUST equal the current on-chain version, or the call is rejected with `VersionMismatch`.
 
+### Contract-level admin
+
+Two-step admin transfer. Per-DID mutations are NOT admin-gated — the admin role exists for future contract-wide governance only.
+
+| Function | Purpose |
+|---|---|
+| `propose_admin(new_admin: Address)` | Current admin nominates a successor. Proposal lives in temporary storage and auto-expires (~10 days). |
+| `accept_admin()` | Proposed admin accepts the role. Both the current admin (already past) and the proposed admin must have signed the two calls. Emits `AdminTransferred`. Fails with `NoProposedAdmin` if no proposal exists. |
+| `get_admin() -> Address` | Read the current admin. No authorization required. |
+
+**The contract WASM is intentionally NOT upgradeable.** There is no `upgrade(new_wasm_hash)` function. To migrate, deploy a new contract and migrate state explicitly.
+
 The auto-generated client struct is `DidStellarRegistryClient`.
 
 ---
@@ -28,11 +46,15 @@ The auto-generated client struct is `DidStellarRegistryClient`.
 
 | Function | Authorizing party |
 |---|---|
+| `__constructor` | `admin` (deployer signs) |
 | `register` | `initial_record.controller` |
 | `update` | current `controller` |
 | `transfer_controller` | current `controller` |
 | `deactivate` | current `controller` |
 | `get` | none (read-only) |
+| `propose_admin` | current `admin` |
+| `accept_admin` | proposed admin |
+| `get_admin` | none (read-only) |
 
 ---
 
@@ -58,6 +80,7 @@ Codes are part of the ABI. Numeric values MUST NOT be renumbered.
 | 14 | `ServiceIdInvalidFormat` | `id_suffix` does not match `^[a-z0-9-]+$`. |
 | 15 | `ServiceEndpointInvalid` | `service_endpoint` is not `https://...` or > 255 chars. |
 | 16 | `MetadataUriInvalid` | `metadata_uri` is not `https://...` or > 255 chars. |
+| 17 | `NoProposedAdmin` | `accept_admin` called when no proposal exists or proposal expired. |
 
 ---
 
@@ -71,6 +94,8 @@ Each successful mutation emits a typed event:
 | `DidUpdated` | `did_id`, `version` | `update` |
 | `DidControllerTransferred` | `did_id`, `old_controller`, `new_controller`, `version` | `transfer_controller` |
 | `DidDeactivated` | `did_id`, `version` | `deactivate` |
+| `ContractInitialized` | `admin` | `__constructor` (once) |
+| `AdminTransferred` | `old_admin`, `new_admin` | `accept_admin` |
 
 Events use the `#[contractevent]` macro.
 
@@ -89,6 +114,13 @@ pub enum DidDataKey {
 ```
 
 TTL is extended on every read AND every write (~30-day threshold, ~180-day bump). A DID that is regularly resolved or mutated stays alive without any explicit rent extension call.
+
+### Contract admin
+
+| Symbol key | Storage type | Lifetime |
+|---|---|---|
+| `Admin` | instance | bumps with contract activity (~30-day threshold, ~90-day bump) |
+| `PropAdmin` | temporary | ~10 days; an unaccepted proposal expires automatically |
 
 ---
 
@@ -123,6 +155,8 @@ cargo build
 cargo test -p did-stellar-registry
 
 # build the WASM artifact
+stellar contract build
+
 ./scripts/build.sh
 ```
 
