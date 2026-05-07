@@ -45,7 +45,7 @@ case "$PACKAGE" in
         WASM="target/wasm32v1-none/release/did_stellar_registry.optimized.wasm"
         # Requires an admin address at construction.
         # Defaults to the deployer address; override by setting DID_ADMIN env var.
-        ADMIN=${DID_ADMIN:-$(stellar keys address "$SOURCE" --network "$NETWORK")}
+        ADMIN=${DID_ADMIN:-$(stellar keys address "$SOURCE")}
         CONSTRUCTOR_ARGS="-- --admin $ADMIN"
         ;;
     *)
