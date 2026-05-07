@@ -1,71 +1,106 @@
-# Smart Contracts (Soroban)
+# contracts-acta
 
-ACTA Verifiable Credentials on Soroban: **vault storage + issuance status registry**, unified into **one** contract.
+Soroban smart contracts for the ACTA identity and Verifiable Credential infrastructure on Stellar.
 
-## Contract
+**Release:** [v0.1.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/v0.1.0) — Tranche 1
 
-This repo contains a single Soroban contract located at:
+---
 
-- **`contracts/vc-vault/`**: unified contract that includes:
-  - **Vault (per owner)**: `create_vault`, issuer authorization, `list_vc_ids`, `get_vc`, `push`, `revoke_vault`, `set_vault_admin`
-  - **Issuance (status registry)**: `issue`, `verify_vc`, `revoke`
-  - **Admin**: `initialize`, `set_contract_admin`, fee config (`set_fee_config`, `set_fee_enabled`), `upgrade`, `version`
+## Contracts
 
-## Security & Privacy
+### `did-stellar-registry`
 
-- Contract state is public on-chain: **store only ciphertext** in `vc_data` (never plaintext PII).
-- Admin-gated functions require signatures (`require_auth()`).
-- `initialize` requires `contract_admin` signature; `create_vault` requires `owner` signature (prevents hostile/grief initialization).
-- Vault write operations are blocked if the vault is revoked.
+On-chain registry for the [`did:stellar`](docs/did-spec/did-stellar-v0.1.md) decentralized identifier method (v0.1). Stores the authoritative `DidRecord` for each DID on Stellar, readable directly from RPC without an indexer.
+
+| Function | Description |
+|---|---|
+| `register` | Create a new DID |
+| `update` | Replace the full DID record (optimistic concurrency) |
+| `transfer_controller` | Transfer control to a different Stellar account |
+| `deactivate` | Permanently deactivate a DID |
+| `get` | Read-only: return the current `DidRecord` |
+
+See [`contracts/did-stellar-registry/README.md`](contracts/did-stellar-registry/README.md) for the full ABI, authorization model, and error codes.
+
+---
+
+### `vc-vault`
+
+Per-holder vault for Verifiable Credentials on Stellar. Manages VC storage, issuance status, revocation, issuer authorization, and fee collection in USDC.
+
+| Category | Functions |
+|---|---|
+| Admin | `initialize`, `nominate_admin`, `accept_contract_admin`, `upgrade`, `version`, `fee_*` |
+| Vault | `create_vault`, `create_sponsored_vault`, `set_vault_admin`, `authorize_issuer`, `revoke_issuer`, `revoke_vault` |
+| Credentials | `issue`, `issue_linked`, `revoke`, `verify_vc`, `get_vc`, `list_vc_ids`, `push` |
+
+See [`contracts/vc-vault/README.md`](contracts/vc-vault/README.md) for the full ABI, authorization model, and error codes.
+
+---
+
+## Testnet Deployments
+
+| Contract | Contract ID |
+|---|---|
+| `did-stellar-registry` | `CB7ATU7SF5QUKJMSULJDJVWJZVDXC23HTZX6NFUDTSFPVT6MA575NNZJ` |
+| `vc-vault` | `CC3SQ7UTAQQDQF6PUQMQIGK3BMPB22OKMHE5Y5XELEX3JFAKC72SQOAM` |
+
+Network: Stellar Testnet (`Test SDF Network ; September 2015`)  
+Full deployment record: [`docs/deployments/testnet.md`](docs/deployments/testnet.md)
+
+---
 
 ## Build
 
-Use the build script (Soroban v21 uses `wasm32v1-none` output by default):
-
-**Linux/macOS:**
-
 ```bash
-chmod +x scripts/build.sh
-./scripts/build.sh
+# Build a specific contract
+./scripts/build.sh vc-vault
+./scripts/build.sh did-stellar-registry
 ```
 
-**Windows (PowerShell):**
+Output files:
+- `target/wasm32v1-none/release/<contract>.wasm`
+- `target/wasm32v1-none/release/<contract>.optimized.wasm`
+
+---
+
+## Deploy
 
 ```bash
-bash scripts/build.sh
+# Prerequisites: stellar-cli installed, network configured, key generated
+./scripts/deploy.sh <package> <network> <source-account>
+
+# Examples
+./scripts/deploy.sh did-stellar-registry testnet acta_deployer
+./scripts/deploy.sh vc-vault testnet acta_deployer
 ```
 
-**Manual:**
+Record the resulting contract ID in [`docs/deployments/<network>.md`](docs/deployments/).
+
+---
+
+## Specification
+
+The `did:stellar` v0.1 method specification lives at [`docs/did-spec/did-stellar-v0.1.md`](docs/did-spec/did-stellar-v0.1.md). It covers:
+
+- DID syntax and identifier generation
+- On-chain data model (`DidRecord`)
+- Contract operations and mutation semantics
+- DID Document construction rules
+- Proof of control protocol
+- Normative test vectors
+
+---
+
+## Tests
 
 ```bash
-soroban contract build
-soroban contract optimize --wasm target/wasm32v1-none/release/vc_vault_contract.wasm
+cargo test -p vc-vault-contract          # 63 tests
+cargo test -p did-stellar-registry       # 56 tests
 ```
 
-Build outputs:
-
-- `target/wasm32v1-none/release/vc_vault_contract.wasm`
-- `target/wasm32v1-none/release/vc_vault_contract.optimized.wasm`
-
-## Deploy (Testnet)
-
-Use the release script:
-
-**Linux/macOS:**
-
-```bash
-chmod +x scripts/release.sh
-./scripts/release.sh
-```
-
-**Windows (PowerShell):**
-
-```bash
-bash scripts/release.sh
-```
-
-The script configures testnet (idempotent), generates `vc_vault_admin` (idempotent), builds/optimizes, and deploys the unified contract.
+---
 
 ## License
 
-This software is licensed under the [Apache License 2.0](./LICENSE).
+Licensed under the [Apache License 2.0](./LICENSE).
