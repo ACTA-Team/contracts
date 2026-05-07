@@ -962,3 +962,77 @@ fn test_auth_issue_requires_issuer_signature() {
         &0_i128,
     );
 }
+
+// --- event coverage ----------------------------------------------------------
+
+#[test]
+fn test_push_emits_event_and_moves_vc() {
+    use soroban_sdk::testutils::Events;
+
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let from_owner = Address::generate(&env);
+    let to_owner = Address::generate(&env);
+    client.create_vault(&from_owner, &String::from_str(&env, "did:from"));
+    client.create_vault(&to_owner, &String::from_str(&env, "did:to"));
+    client.authorize_issuer(&from_owner, &issuer);
+    let vc_id = String::from_str(&env, "vc-push-event");
+    client.issue(
+        &from_owner,
+        &vc_id,
+        &String::from_str(&env, "<data>"),
+        &contract_id,
+        &issuer,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+    );
+    client.push(&from_owner, &to_owner, &vc_id, &issuer);
+
+    // Check events BEFORE any subsequent invocation — env.events().all()
+    // returns events from the most recent contract call only.
+    assert_eq!(env.events().all().len(), 1, "push must emit exactly one VCPushed event");
+
+    // VC moved: gone from source, present in destination.
+    assert!(client.get_vc(&from_owner, &vc_id).is_none());
+    assert!(client.get_vc(&to_owner, &vc_id).is_some());
+}
+
+#[test]
+fn test_set_vault_admin_emits_event() {
+    use soroban_sdk::testutils::Events;
+
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    let new_admin = Address::generate(&env);
+    client.set_vault_admin(&owner, &new_admin);
+
+    // Exactly one event emitted by set_vault_admin (VaultAdminChanged).
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #7)")] // VCAlreadyRevoked
+fn test_push_revoked_vc_returns_already_revoked_error() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let from_owner = Address::generate(&env);
+    let to_owner = Address::generate(&env);
+    client.create_vault(&from_owner, &String::from_str(&env, "did:from"));
+    client.create_vault(&to_owner, &String::from_str(&env, "did:to"));
+    client.authorize_issuer(&from_owner, &issuer);
+    let vc_id = String::from_str(&env, "vc-rev");
+    client.issue(
+        &from_owner,
+        &vc_id,
+        &String::from_str(&env, "<data>"),
+        &contract_id,
+        &issuer,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+    );
+    client.revoke(&from_owner, &vc_id, &String::from_str(&env, "2025-01-01T00:00:00Z"));
+    // Must fail with VCAlreadyRevoked (#7), not VCNotFound (#6).
+    client.push(&from_owner, &to_owner, &vc_id, &issuer);
+}

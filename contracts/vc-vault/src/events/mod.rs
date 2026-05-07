@@ -47,12 +47,44 @@ pub struct VCRevoked {
 }
 
 #[contractevent]
+pub struct VCPushed {
+    pub from_owner: Address,
+    pub to_owner: Address,
+    pub vc_id: String,
+}
+
+#[contractevent]
+pub struct VaultAdminChanged {
+    pub owner: Address,
+    pub old_admin: Address,
+    pub new_admin: Address,
+}
+
+#[contractevent]
 pub struct LinkedVCIssued {
     pub issuer: Address,
     pub owner: Address,
     pub vc_id: String,
     pub parent_owner: Address,
     pub parent_vc_id: String,
+}
+
+pub fn vc_pushed(e: &Env, from_owner: &Address, to_owner: &Address, vc_id: &String) {
+    VCPushed {
+        from_owner: from_owner.clone(),
+        to_owner: to_owner.clone(),
+        vc_id: vc_id.clone(),
+    }
+    .publish(e);
+}
+
+pub fn vault_admin_changed(e: &Env, owner: &Address, old_admin: &Address, new_admin: &Address) {
+    VaultAdminChanged {
+        owner: owner.clone(),
+        old_admin: old_admin.clone(),
+        new_admin: new_admin.clone(),
+    }
+    .publish(e);
 }
 
 pub fn vault_created(e: &Env, owner: &Address, did_uri: &String) {

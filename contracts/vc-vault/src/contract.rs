@@ -154,8 +154,10 @@ impl VcVaultTrait for VcVaultContract {
     fn set_vault_admin(e: Env, owner: Address, new_admin: Address) {
         validate_vault_admin(&e, &owner);
         validate_vault_active(&e, &owner);
+        let old_admin = storage::read_vault_admin(&e, &owner);
         storage::write_vault_admin(&e, &owner, &new_admin);
         storage::extend_vault_ttl(&e, &owner);
+        events::vault_admin_changed(&e, &owner, &old_admin, &new_admin);
     }
 
     /// Replace full issuer list. Vault admin only.
@@ -247,10 +249,11 @@ impl VcVaultTrait for VcVaultContract {
         if vc_opt.is_none() {
             panic_with_error!(e, ContractError::VCNotFound);
         }
-        // Only Valid VCs may be pushed. A revoked VC is an invalidated credential
-        // and should not be transferred to another vault.
+        // Only Valid VCs may be pushed. A revoked VC cannot be transferred to
+        // another vault; use the dedicated VCAlreadyRevoked error so callers
+        // can distinguish "not found" from "found but revoked".
         if storage::read_vc_status(&e, &from_owner, &vc_id) != VCStatus::Valid {
-            panic_with_error!(e, ContractError::VCNotFound);
+            panic_with_error!(e, ContractError::VCAlreadyRevoked);
         }
         if storage::read_vault_vc(&e, &to_owner, &vc_id).is_some()
             || storage::read_vc_status(&e, &to_owner, &vc_id) != VCStatus::Invalid
@@ -268,6 +271,7 @@ impl VcVaultTrait for VcVaultContract {
         storage::extend_vault_ttl(&e, &from_owner);
         storage::extend_vault_ttl(&e, &to_owner);
         storage::extend_vc_ttl(&e, &to_owner, &vc_id);
+        events::vc_pushed(&e, &from_owner, &to_owner, &vc_id);
     }
 
     // --- Issuance ---
