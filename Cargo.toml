@@ -1,13 +1,17 @@
 [workspace]
 resolver = "2"
 
-members = ["contracts/vc-vault", "contracts/vc-issuer-registry"]
+members = [
+    "contracts/vc-vault",
+    "contracts/vc-issuer-registry",
+    "contracts/did-stellar-registry",
+]
 
 [workspace.package]
 version = "0.21.0"
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/ACTA-Team/contracts"
+repository = "https://github.com/ACTA-Team/contracts-acta"
 
 [workspace.dependencies]
 soroban-sdk = { version = "23.4.0" }
