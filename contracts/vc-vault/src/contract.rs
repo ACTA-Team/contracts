@@ -198,25 +198,48 @@ impl VcVaultTrait for VcVaultContract {
         events::vault_revoked(&e, &owner);
     }
 
-    /// List VC IDs currently active in owner's vault. Reads from the O(1)
-    /// index by enumerating positions `0..count`. Returns the full list; a
-    /// paginated variant lands in a follow-up release.
+    /// List vc_ids active in owner's vault, paginated.
     ///
-    /// Each slot's TTL is refreshed during enumeration so vaults that are
-    /// only ever listed (without `get_vc` calls on individual VCs) keep
-    /// the index alive — otherwise `read_vc_id_at` could return None for
-    /// archived slots while `VaultVCCount` remains live, silently truncating
-    /// the result.
-    fn list_vc_ids(e: Env, owner: Address) -> Vec<String> {
+    /// Returns the slice `[offset, min(offset + limit, vc_count(owner)))`.
+    /// Empty when `offset >= vc_count(owner)` or `limit == 0`. Panics with
+    /// `LimitTooLarge` if `limit > MAX_LIST_LIMIT` so callers can't blow the
+    /// CPU budget by asking for thousands of slots in a single call.
+    ///
+    /// Each enumerated slot has its TTL refreshed so vaults that are only
+    /// ever listed (without `get_vc` calls on individual VCs) keep the
+    /// index alive — otherwise `VaultVCIndex` entries could age out while
+    /// `VaultVCCount` remains live, silently truncating future results.
+    ///
+    /// Use `vc_count(owner)` to size the iteration without reading any
+    /// slot.
+    fn list_vc_ids(e: Env, owner: Address, offset: u32, limit: u32) -> Vec<String> {
+        if limit > storage::MAX_LIST_LIMIT {
+            panic_with_error!(e, ContractError::LimitTooLarge);
+        }
         storage::extend_vault_ttl(&e, &owner);
-        let count = storage::read_vc_count(&e, &owner);
         let mut ids = Vec::new(&e);
-        for i in 0..count {
+        if limit == 0 {
+            return ids;
+        }
+        let count = storage::read_vc_count(&e, &owner);
+        if offset >= count {
+            return ids;
+        }
+        let end = offset.saturating_add(limit).min(count);
+        for i in offset..end {
             if let Some(vc_id) = storage::read_vc_id_at_extend(&e, &owner, i) {
                 ids.push_back(vc_id);
             }
         }
         ids
+    }
+
+    /// Number of active vc_ids in owner's vault. O(1) — reads `VaultVCCount`
+    /// directly without enumerating any slot. Returns 0 for unknown vaults
+    /// (consistent with `read_vc_count`'s default).
+    fn vc_count(e: Env, owner: Address) -> u32 {
+        storage::extend_vault_ttl(&e, &owner);
+        storage::read_vc_count(&e, &owner)
     }
 
     /// Get VC payload by ID. Returns None if not found.

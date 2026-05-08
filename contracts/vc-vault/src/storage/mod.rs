@@ -14,6 +14,14 @@ const PERSISTENT_TTL_EXTEND_TO: u32 = 3_110_400;
 /// this cap prevents new issuance until VCs are revoked or pushed away.
 pub const MAX_VCS_PER_VAULT: u32 = 1_000;
 
+/// Maximum number of vc_ids that may be returned by a single `list_vc_ids`
+/// call. Each slot read costs ~3-5k instructions in Soroban; capping at 200
+/// keeps the worst-case enumeration well under the 1.4M instruction budget
+/// while still allowing the full `MAX_VCS_PER_VAULT` to be retrieved in a
+/// handful of paginated calls. Callers should request `vc_count(owner)` to
+/// size their iteration.
+pub const MAX_LIST_LIMIT: u32 = 200;
+
 /// Storage keys. Instance = admin, fees, flags. Persistent = vault metadata, VCs, status.
 #[derive(Clone)]
 #[contracttype]

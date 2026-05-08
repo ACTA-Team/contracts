@@ -30,7 +30,8 @@ pub trait VcVaultTrait {
     fn authorize_issuer(e: Env, owner: Address, issuer: Address);
     fn revoke_issuer(e: Env, owner: Address, issuer: Address);
     fn revoke_vault(e: Env, owner: Address);
-    fn list_vc_ids(e: Env, owner: Address) -> Vec<String>;
+    fn list_vc_ids(e: Env, owner: Address, offset: u32, limit: u32) -> Vec<String>;
+    fn vc_count(e: Env, owner: Address) -> u32;
     fn get_vc(e: Env, owner: Address, vc_id: String) -> Option<VerifiableCredential>;
     fn verify_vc(e: Env, owner: Address, vc_id: String) -> VCStatus;
     fn push(e: Env, from_owner: Address, to_owner: Address, vc_id: String, issuer: Address);
