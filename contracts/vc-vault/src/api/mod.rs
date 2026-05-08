@@ -59,6 +59,7 @@ pub trait VcVaultTrait {
     );
     fn get_vc_parent(e: Env, owner: Address, vc_id: String) -> Option<(Address, String)>;
     fn migrate(e: Env, owner: Address);
+    fn migrate_vc_index(e: Env, owner: Address);
     fn create_sponsored_vault(e: Env, sponsor: Address, owner: Address, did_uri: String);
     fn set_sponsored_vault_open_to_all(e: Env, open: bool);
     fn get_sponsored_vault_open_to_all(e: Env) -> bool;

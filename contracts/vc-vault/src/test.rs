@@ -1431,3 +1431,144 @@ fn test_vc_count_zero_for_unknown_vault() {
     let stranger = Address::generate(&env);
     assert_eq!(client.vc_count(&stranger), 0);
 }
+
+// --- migrate_vc_index tests (issue #22) ---
+
+/// Write a legacy `VaultVCIds(owner)` entry as if produced by v0.1. The new
+/// O(1) index introduced in #20 has no public writer for this key, so tests
+/// that need to simulate a pre-upgrade vault drop into `env.as_contract` to
+/// populate it directly.
+fn seed_legacy_vault_vc_ids(env: &Env, contract_id: &Address, owner: &Address, ids: &[&str]) {
+    env.as_contract(contract_id, || {
+        let mut vec_ids = soroban_sdk::Vec::<String>::new(env);
+        for id in ids.iter() {
+            vec_ids.push_back(String::from_str(env, id));
+        }
+        let key = crate::storage::DataKey::VaultVCIds(owner.clone());
+        env.storage().persistent().set(&key, &vec_ids);
+    });
+}
+
+#[test]
+fn test_migrate_vc_index_moves_legacy_to_new_index() {
+    let (env, admin, _issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+
+    // Simulate a v0.1 vault that has three vc_ids in the legacy Vec but no
+    // entries in the new index.
+    seed_legacy_vault_vc_ids(&env, &contract_id, &owner, &["vc-a", "vc-b", "vc-c"]);
+    assert_eq!(client.vc_count(&owner), 0);
+
+    client.migrate_vc_index(&owner);
+
+    // New index now has all three; legacy entry is gone.
+    assert_eq!(client.vc_count(&owner), 3);
+    let listed = client.list_vc_ids(&owner, &0_u32, &200_u32);
+    assert_eq!(listed.len(), 3);
+    assert!(listed.contains(String::from_str(&env, "vc-a")));
+    assert!(listed.contains(String::from_str(&env, "vc-b")));
+    assert!(listed.contains(String::from_str(&env, "vc-c")));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")] // VCSAlreadyMigrated
+fn test_migrate_vc_index_double_call_panics() {
+    let (env, admin, _issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    seed_legacy_vault_vc_ids(&env, &contract_id, &owner, &["vc-1"]);
+
+    client.migrate_vc_index(&owner);
+    // Second call: vc_count > 0 already, must reject.
+    client.migrate_vc_index(&owner);
+}
+
+#[test]
+fn test_migrate_vc_index_with_no_legacy_is_noop() {
+    // A vault created fresh post-upgrade has no legacy data and an empty new
+    // index. migrate_vc_index must complete without panicking.
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    assert_eq!(client.vc_count(&owner), 0);
+
+    client.migrate_vc_index(&owner);
+
+    // Still empty, no panic.
+    assert_eq!(client.vc_count(&owner), 0);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")] // VCSAlreadyMigrated
+fn test_migrate_vc_index_panics_when_new_index_has_entries() {
+    // A vault that was created post-upgrade and already received VCs through
+    // the new index has nothing to migrate; calling migrate_vc_index must be
+    // rejected so callers can detect "already on the new schema" without
+    // pretending the call was successful.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    client.issue(
+        &owner,
+        &String::from_str(&env, "vc-1"),
+        &String::from_str(&env, "<data>"),
+        &contract_id,
+        &issuer,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+    );
+    assert_eq!(client.vc_count(&owner), 1);
+
+    client.migrate_vc_index(&owner);
+}
+
+#[test]
+fn test_migrate_vc_index_requires_no_auth() {
+    // Migration is deterministic from on-chain state: any caller — not just
+    // the vault admin — can drive it. This test runs without
+    // env.mock_all_auths to confirm there is no `require_auth` on the path.
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let contract_id = env.register(VcVaultContract, ());
+    let client = VcVaultContractClient::new(&env, &contract_id);
+
+    // initialize and create_vault still need auths; mock just for those.
+    env.mock_all_auths();
+    client.initialize(&admin);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    seed_legacy_vault_vc_ids(&env, &contract_id, &owner, &["vc-1", "vc-2"]);
+
+    // Drop the auth mock so the next call would fail if any require_auth
+    // were inserted in the path.
+    env.set_auths(&[]);
+
+    client.migrate_vc_index(&owner);
+    assert_eq!(client.vc_count(&owner), 2);
+}
+
+#[test]
+fn test_migrate_vc_index_preserves_legacy_order() {
+    // The legacy Vec is enumerated in stored order and append_vc_to_index
+    // assigns positions 0..N in iteration order. After migration, listing
+    // from the new index returns the same sequence.
+    let (env, admin, _issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    seed_legacy_vault_vc_ids(&env, &contract_id, &owner, &["first", "second", "third"]);
+
+    client.migrate_vc_index(&owner);
+
+    let listed = client.list_vc_ids(&owner, &0_u32, &10_u32);
+    assert_eq!(listed.len(), 3);
+    assert_eq!(listed.get_unchecked(0), String::from_str(&env, "first"));
+    assert_eq!(listed.get_unchecked(1), String::from_str(&env, "second"));
+    assert_eq!(listed.get_unchecked(2), String::from_str(&env, "third"));
+}
