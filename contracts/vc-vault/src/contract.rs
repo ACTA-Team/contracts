@@ -538,6 +538,39 @@ impl VcVaultTrait for VcVaultContract {
         storage::remove_legacy_vault_vcs(&e, &owner);
         storage::extend_vault_ttl(&e, &owner);
     }
+
+    /// Migrate the v0.1 `Vec<String>` index at `VaultVCIds(owner)` into the
+    /// O(1) index introduced in v0.2 (`VaultVCCount`, `VaultVCIndex`,
+    /// `VaultVCPosition`).
+    ///
+    /// **No auth.** The migration is deterministic from on-chain state: it
+    /// only relocates the same vc_ids to the new key layout, so any caller
+    /// (the owner, an SDK background worker, an indexer) can drive it.
+    /// Letting backend services migrate proactively avoids a "first write
+    /// after upgrade is expensive" cliff for end users.
+    ///
+    /// Semantics:
+    /// - Panics with `VCSAlreadyMigrated` when the new index already has
+    ///   entries (`vc_count > 0`). Catches both double-calls and post-v0.2
+    ///   vaults that never had legacy data.
+    /// - When the legacy entry is absent and the new index is empty (vault
+    ///   created fresh post-upgrade with no VCs yet) the call is a no-op.
+    /// - Iterates the legacy Vec in stored order and `append_vc_to_index`
+    ///   each id, preserving relative ordering.
+    /// - Removes `VaultVCIds(owner)` afterward so a future call panics.
+    fn migrate_vc_index(e: Env, owner: Address) {
+        if storage::read_vc_count(&e, &owner) > 0 {
+            panic_with_error!(e, ContractError::VCSAlreadyMigrated);
+        }
+        let legacy_ids = storage::read_legacy_vault_vc_ids(&e, &owner);
+        for vc_id in legacy_ids.iter() {
+            storage::append_vc_to_index(&e, &owner, &vc_id);
+        }
+        if storage::has_legacy_vault_vc_ids(&e, &owner) {
+            storage::remove_legacy_vault_vc_ids(&e, &owner);
+        }
+        storage::extend_vault_ttl(&e, &owner);
+    }
 }
 
 // --- Validation helpers ---
