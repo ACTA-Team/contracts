@@ -45,6 +45,15 @@ pub trait VcVaultTrait {
         issuer_did: String,
         fee_override: i128,
     ) -> String;
+    fn batch_issue(
+        e: Env,
+        issuer: Address,
+        owner: Address,
+        vault_contract: Address,
+        issuer_did: String,
+        fee_override: i128,
+        vcs: Vec<(String, String)>,
+    ) -> Vec<String>;
     fn revoke(e: Env, owner: Address, vc_id: String, date: String);
     fn issue_linked(
         e: Env,

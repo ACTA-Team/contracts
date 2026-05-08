@@ -377,6 +377,100 @@ impl VcVaultTrait for VcVaultContract {
         vc_id
     }
 
+    /// Issues up to `MAX_BATCH_SIZE` VCs into owner's vault in a single
+    /// transaction. Returns the issued vc_ids in input order.
+    ///
+    /// Compared to N sequential `issue()` calls this path:
+    ///
+    /// - takes one `issuer.require_auth()` for the whole batch,
+    /// - charges a single fee transfer of `fee_override × n` (when fees are
+    ///   enabled and `fee_override > 0`) instead of one per VC,
+    /// - extends the vault TTL once at the end,
+    /// - still emits a per-VC `VCIssued` event so off-chain indexers see
+    ///   each credential individually.
+    ///
+    /// Cap rationale: Soroban allows ~25 ledger entry writes per
+    /// transaction. Each VC writes 4 entries (`VaultVC`, `VaultVCIndex`,
+    /// `VaultVCPosition`, `VCStatus`) plus 1 shared `VaultVCCount`, so
+    /// `MAX_BATCH_SIZE = 5` lands at 21 entries with margin for the fee
+    /// transfer. Larger batches must be split client-side.
+    fn batch_issue(
+        e: Env,
+        issuer_addr: Address,
+        owner: Address,
+        vault_contract: Address,
+        issuer_did: String,
+        fee_override: i128,
+        vcs: Vec<(String, String)>,
+    ) -> Vec<String> {
+        issuer_addr.require_auth();
+        let n = vcs.len();
+        if n == 0 {
+            panic_with_error!(e, ContractError::BatchEmpty);
+        }
+        if n > storage::MAX_BATCH_SIZE {
+            panic_with_error!(e, ContractError::BatchTooLarge);
+        }
+        let this = e.current_contract_address();
+        if vault_contract != this {
+            panic_with_error!(e, ContractError::InvalidVaultContract);
+        }
+        validate_vault_active(&e, &owner);
+        ensure_issuer_authorized(&e, &owner, &issuer_addr);
+
+        // Single fee transfer for the entire batch, if enabled and the
+        // caller requested a positive override. The contract already trusts
+        // `issuer` to set fee_override per call (same as `issue`), so the
+        // batch behaves like N issues at the same per-VC fee.
+        if storage::read_fee_enabled(&e) && fee_override > 0 {
+            let fee_token = storage::read_fee_token_contract(&e);
+            let fee_dest = storage::read_fee_dest(&e);
+            // saturating_mul is safe: at MAX_BATCH_SIZE=5 and any plausible
+            // fee_override (≤ 10^16 stroops, the entire USDC supply order
+            // of magnitude), the product fits in i128 by ~22 orders of
+            // magnitude. The saturate-to-i128::MAX path would only fire
+            // under deliberately absurd inputs, where the token contract
+            // would reject the transfer for insufficient balance anyway.
+            let total = fee_override.saturating_mul(n as i128);
+            e.invoke_contract::<()>(
+                &fee_token,
+                &symbol_short!("transfer"),
+                (issuer_addr.clone(), fee_dest, total).into_val(&e),
+            );
+        }
+
+        // Issue each VC. Duplicate vc_ids — both within the batch and
+        // against existing entries — are caught by the existence check on
+        // the second iteration: the first write populates VaultVC and
+        // VCStatus, so the next attempt with the same id fails with
+        // VCAlreadyExists.
+        let mut result = Vec::new(&e);
+        for entry in vcs.iter() {
+            let (vc_id, vc_data) = entry;
+            if storage::read_vault_vc(&e, &owner, &vc_id).is_some()
+                || storage::read_vc_status(&e, &owner, &vc_id) != VCStatus::Invalid
+            {
+                panic_with_error!(e, ContractError::VCAlreadyExists);
+            }
+            vault::store_vc(
+                &e,
+                &owner,
+                vc_id.clone(),
+                vc_data,
+                this.clone(),
+                issuer_did.clone(),
+            );
+            storage::write_vc_status(&e, &owner, &vc_id, &VCStatus::Valid);
+            storage::extend_vc_ttl(&e, &owner, &vc_id);
+            events::vc_issued(&e, &owner, &vc_id, &issuer_addr);
+            result.push_back(vc_id);
+        }
+
+        // One vault TTL extend after all per-VC writes.
+        storage::extend_vault_ttl(&e, &owner);
+        result
+    }
+
     /// Revoke VC. Owner must sign. The VC payload remains queryable via
     /// `get_vc(owner, vc_id)`; only the active index entry is removed so the
     /// vault doesn't fill up with revoked entries (each free slot can be

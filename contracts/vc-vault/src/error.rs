@@ -38,4 +38,8 @@ pub enum ContractError {
     VaultFull = 15,
     /// Pagination `limit` exceeds `MAX_LIST_LIMIT`.
     LimitTooLarge = 16,
+    /// Batch issuance request exceeds `MAX_BATCH_SIZE`.
+    BatchTooLarge = 17,
+    /// Batch issuance called with an empty `vcs` list.
+    BatchEmpty = 18,
 }
