@@ -22,6 +22,14 @@ pub const MAX_VCS_PER_VAULT: u32 = 1_000;
 /// size their iteration.
 pub const MAX_LIST_LIMIT: u32 = 200;
 
+/// Maximum number of VCs that may be issued in a single `batch_issue` call.
+/// Each VC writes 4 ledger entries (`VaultVC`, `VaultVCIndex`,
+/// `VaultVCPosition`, `VCStatus`); plus 1 shared write to `VaultVCCount`.
+/// At the cap of 5 the batch touches 21 ledger entries, leaving headroom
+/// for the optional fee transfer (token, source-balance, dest-balance ≈ 3
+/// entries) under Soroban's ~25 entries-per-transaction default.
+pub const MAX_BATCH_SIZE: u32 = 5;
+
 /// Storage keys. Instance = admin, fees, flags. Persistent = vault metadata, VCs, status.
 #[derive(Clone)]
 #[contracttype]

@@ -3,7 +3,7 @@
 use crate::contract::{VcVaultContract, VcVaultContractClient};
 use crate::model::VCStatus;
 use soroban_sdk::{
-    testutils::{Address as _, MockAuth, MockAuthInvoke},
+    testutils::{Address as _, Events, MockAuth, MockAuthInvoke},
     vec, Address, Env, IntoVal, String,
 };
 
@@ -1551,6 +1551,259 @@ fn test_migrate_vc_index_requires_no_auth() {
 
     client.migrate_vc_index(&owner);
     assert_eq!(client.vc_count(&owner), 2);
+}
+
+// --- batch_issue tests (issue #24) ---
+
+#[test]
+fn test_batch_issue_writes_all_vcs_in_order() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+
+    let id_a = String::from_str(&env, "vc-a");
+    let id_b = String::from_str(&env, "vc-b");
+    let id_c = String::from_str(&env, "vc-c");
+    let vcs = soroban_sdk::vec![
+        &env,
+        (id_a.clone(), data.clone()),
+        (id_b.clone(), data.clone()),
+        (id_c.clone(), data.clone()),
+    ];
+    let returned = client.batch_issue(&issuer, &owner, &contract_id, &issuer_did, &0_i128, &vcs);
+
+    assert_eq!(returned.len(), 3);
+    assert_eq!(returned.get_unchecked(0), id_a);
+    assert_eq!(returned.get_unchecked(1), id_b);
+    assert_eq!(returned.get_unchecked(2), id_c);
+    assert_eq!(client.vc_count(&owner), 3);
+    let listed = client.list_vc_ids(&owner, &0_u32, &10_u32);
+    assert!(listed.contains(id_a));
+    assert!(listed.contains(id_b));
+    assert!(listed.contains(id_c));
+}
+
+#[test]
+fn test_batch_issue_at_max_size_succeeds() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+
+    let vcs = soroban_sdk::vec![
+        &env,
+        (String::from_str(&env, "vc-1"), data.clone()),
+        (String::from_str(&env, "vc-2"), data.clone()),
+        (String::from_str(&env, "vc-3"), data.clone()),
+        (String::from_str(&env, "vc-4"), data.clone()),
+        (String::from_str(&env, "vc-5"), data.clone()),
+    ];
+    let returned = client.batch_issue(&issuer, &owner, &contract_id, &issuer_did, &0_i128, &vcs);
+    assert_eq!(returned.len(), 5);
+    assert_eq!(client.vc_count(&owner), 5);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #17)")] // BatchTooLarge
+fn test_batch_issue_above_max_size_panics() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let data = String::from_str(&env, "<data>");
+
+    let vcs = soroban_sdk::vec![
+        &env,
+        (String::from_str(&env, "vc-1"), data.clone()),
+        (String::from_str(&env, "vc-2"), data.clone()),
+        (String::from_str(&env, "vc-3"), data.clone()),
+        (String::from_str(&env, "vc-4"), data.clone()),
+        (String::from_str(&env, "vc-5"), data.clone()),
+        (String::from_str(&env, "vc-6"), data.clone()),
+    ];
+    client.batch_issue(
+        &issuer,
+        &owner,
+        &contract_id,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+        &vcs,
+    );
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #18)")] // BatchEmpty
+fn test_batch_issue_empty_panics() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let vcs = soroban_sdk::Vec::<(String, String)>::new(&env);
+    client.batch_issue(
+        &issuer,
+        &owner,
+        &contract_id,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+        &vcs,
+    );
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #12)")] // VCAlreadyExists
+fn test_batch_issue_with_duplicate_within_batch_panics() {
+    // First entry writes vc-x; second entry's existence check finds it and
+    // panics with VCAlreadyExists.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let data = String::from_str(&env, "<data>");
+    let dup = String::from_str(&env, "vc-x");
+    let vcs = soroban_sdk::vec![&env, (dup.clone(), data.clone()), (dup, data),];
+    client.batch_issue(
+        &issuer,
+        &owner,
+        &contract_id,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+        &vcs,
+    );
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #12)")] // VCAlreadyExists
+fn test_batch_issue_with_existing_vc_panics() {
+    // A VC with this id was previously issued; batch's existence check
+    // catches it on the first iteration.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+
+    client.issue(
+        &owner,
+        &String::from_str(&env, "vc-existing"),
+        &data,
+        &contract_id,
+        &issuer,
+        &issuer_did,
+        &0_i128,
+    );
+
+    let vcs = soroban_sdk::vec![
+        &env,
+        (String::from_str(&env, "vc-new"), data.clone()),
+        (String::from_str(&env, "vc-existing"), data),
+    ];
+    client.batch_issue(&issuer, &owner, &contract_id, &issuer_did, &0_i128, &vcs);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #4)")] // VaultRevoked
+fn test_batch_issue_on_revoked_vault_panics() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    client.revoke_vault(&owner);
+    let data = String::from_str(&env, "<data>");
+    let vcs = soroban_sdk::vec![&env, (String::from_str(&env, "vc-1"), data),];
+    client.batch_issue(
+        &issuer,
+        &owner,
+        &contract_id,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+        &vcs,
+    );
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #10)")] // InvalidVaultContract
+fn test_batch_issue_with_wrong_vault_contract_panics() {
+    let (env, admin, issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let wrong_contract = Address::generate(&env);
+    let data = String::from_str(&env, "<data>");
+    let vcs = soroban_sdk::vec![&env, (String::from_str(&env, "vc-1"), data),];
+    client.batch_issue(
+        &issuer,
+        &owner,
+        &wrong_contract,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+        &vcs,
+    );
+}
+
+#[test]
+fn test_batch_issue_emits_one_event_per_vc() {
+    // Off-chain indexers expect one VCIssued per credential, even when the
+    // credentials are written together. Capture events before any read so
+    // env.events().all() still holds them.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let data = String::from_str(&env, "<data>");
+    let vcs = soroban_sdk::vec![
+        &env,
+        (String::from_str(&env, "vc-a"), data.clone()),
+        (String::from_str(&env, "vc-b"), data.clone()),
+        (String::from_str(&env, "vc-c"), data),
+    ];
+    client.batch_issue(
+        &issuer,
+        &owner,
+        &contract_id,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+        &vcs,
+    );
+    // 3 VCIssued events from the batch (no other contract calls between).
+    assert_eq!(env.events().all().len(), 3);
+}
+
+#[test]
+fn test_batch_issue_auto_authorizes_unknown_issuer() {
+    // Mirrors single issue() semantics: if the issuer is not yet on the
+    // vault's authorized list and not in the denied list, batch_issue
+    // auto-authorizes them.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    // No explicit authorize_issuer call.
+    let data = String::from_str(&env, "<data>");
+    let vcs = soroban_sdk::vec![&env, (String::from_str(&env, "vc-1"), data),];
+    client.batch_issue(
+        &issuer,
+        &owner,
+        &contract_id,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+        &vcs,
+    );
+    assert_eq!(client.vc_count(&owner), 1);
 }
 
 #[test]
