@@ -1130,6 +1130,113 @@ fn test_push_reindexes_source_and_destination() {
 }
 
 #[test]
+fn test_push_moves_parent_link_to_destination() {
+    // Regression: VCParent must follow the VC into the destination so
+    // get_vc_parent(to_owner, vc_id) returns the link, and the source no
+    // longer reports a parent for a payload it does not hold.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let parent_owner = Address::generate(&env);
+    let from_owner = Address::generate(&env);
+    let to_owner = Address::generate(&env);
+    client.create_vault(&parent_owner, &String::from_str(&env, "did:parent"));
+    client.create_vault(&from_owner, &String::from_str(&env, "did:from"));
+    client.create_vault(&to_owner, &String::from_str(&env, "did:to"));
+    client.authorize_issuer(&parent_owner, &issuer);
+    client.authorize_issuer(&from_owner, &issuer);
+
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+    let parent_id = String::from_str(&env, "vc-parent");
+    let child_id = String::from_str(&env, "vc-child");
+
+    client.issue(
+        &parent_owner,
+        &parent_id,
+        &data,
+        &contract_id,
+        &issuer,
+        &issuer_did,
+        &0_i128,
+    );
+    client.issue_linked(
+        &issuer,
+        &from_owner,
+        &child_id,
+        &data,
+        &contract_id,
+        &issuer_did,
+        &parent_owner,
+        &parent_id,
+    );
+    // Sanity: parent link is at the source before push.
+    let pre = client.get_vc_parent(&from_owner, &child_id);
+    assert!(pre.is_some());
+    let (pre_owner, pre_id) = pre.unwrap();
+    assert_eq!(pre_owner, parent_owner);
+    assert_eq!(pre_id, parent_id);
+
+    client.push(&from_owner, &to_owner, &child_id, &issuer);
+
+    // Link followed the VC.
+    let post = client.get_vc_parent(&to_owner, &child_id);
+    assert!(post.is_some());
+    let (post_owner, post_id) = post.unwrap();
+    assert_eq!(post_owner, parent_owner);
+    assert_eq!(post_id, parent_id);
+    // Source no longer claims a link for a VC it does not hold.
+    assert!(client.get_vc_parent(&from_owner, &child_id).is_none());
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #14)")] // ParentVCInvalid
+fn test_issue_linked_rejects_pushed_away_parent() {
+    // Regression: issue_linked must check both parent payload AND status.
+    // Previously only status was checked; after push the source vault keeps a
+    // stale Valid status as a vc_id-uniqueness tombstone, which would let an
+    // attacker pass the source as parent for a payload that has moved away.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let parent_holder = Address::generate(&env);
+    let new_holder = Address::generate(&env);
+    let child_owner = Address::generate(&env);
+    client.create_vault(&parent_holder, &String::from_str(&env, "did:parent"));
+    client.create_vault(&new_holder, &String::from_str(&env, "did:new"));
+    client.create_vault(&child_owner, &String::from_str(&env, "did:child"));
+    client.authorize_issuer(&parent_holder, &issuer);
+    client.authorize_issuer(&child_owner, &issuer);
+
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+    let parent_id = String::from_str(&env, "vc-parent");
+
+    client.issue(
+        &parent_holder,
+        &parent_id,
+        &data,
+        &contract_id,
+        &issuer,
+        &issuer_did,
+        &0_i128,
+    );
+    // Push the parent away. parent_holder retains a stale Valid status tombstone.
+    client.push(&parent_holder, &new_holder, &parent_id, &issuer);
+
+    // Attempt to link a new child to the orphaned source — must be rejected.
+    let child_id = String::from_str(&env, "vc-child");
+    client.issue_linked(
+        &issuer,
+        &child_owner,
+        &child_id,
+        &data,
+        &contract_id,
+        &issuer_did,
+        &parent_holder,
+        &parent_id,
+    );
+}
+
+#[test]
 fn test_index_remains_consistent_after_many_issues_and_revokes() {
     // Stress the swap-and-pop logic: issue 10 VCs, revoke half, ensure the
     // index reflects exactly the surviving IDs.

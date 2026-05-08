@@ -345,15 +345,32 @@ pub fn read_vc_count(e: &Env, owner: &Address) -> u32 {
 }
 
 pub fn write_vc_count(e: &Env, owner: &Address, count: u32) {
+    let key = DataKey::VaultVCCount(owner.clone());
+    e.storage().persistent().set(&key, &count);
     e.storage()
         .persistent()
-        .set(&DataKey::VaultVCCount(owner.clone()), &count);
+        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
 }
 
 pub fn read_vc_id_at(e: &Env, owner: &Address, position: u32) -> Option<String> {
     e.storage()
         .persistent()
         .get(&DataKey::VaultVCIndex(owner.clone(), position))
+}
+
+/// Read a slot and refresh its TTL in a single call. Use this from enumeration
+/// paths (e.g. `list_vc_ids`) so that callers who only ever list — without
+/// touching individual VCs — keep the index alive. Returns None if the slot
+/// has been archived/never written.
+pub fn read_vc_id_at_extend(e: &Env, owner: &Address, position: u32) -> Option<String> {
+    let key = DataKey::VaultVCIndex(owner.clone(), position);
+    if !e.storage().persistent().has(&key) {
+        return None;
+    }
+    e.storage()
+        .persistent()
+        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
+    e.storage().persistent().get(&key)
 }
 
 pub fn write_vc_id_at(e: &Env, owner: &Address, position: u32, vc_id: &String) {
@@ -494,6 +511,14 @@ pub fn has_vc_parent(e: &Env, owner: &Address, vc_id: &String) -> bool {
         .has(&DataKey::VCParent(owner.clone(), vc_id.clone()))
 }
 
+/// Remove a parent link entry. Used by `push` so the link follows the VC into
+/// the destination vault and doesn't get orphaned at the source.
+pub fn remove_vc_parent(e: &Env, owner: &Address, vc_id: &String) {
+    e.storage()
+        .persistent()
+        .remove(&DataKey::VCParent(owner.clone(), vc_id.clone()));
+}
+
 /// VC status keyed by (owner, vc_id) to prevent cross-vault collisions.
 pub fn write_vc_status(e: &Env, owner: &Address, vc_id: &String, status: &VCStatus) {
     e.storage()
@@ -506,6 +531,16 @@ pub fn read_vc_status(e: &Env, owner: &Address, vc_id: &String) -> VCStatus {
         .persistent()
         .get(&DataKey::VCStatus(owner.clone(), vc_id.clone()))
         .unwrap_or(VCStatus::Invalid)
+}
+
+/// Remove the status entry. After removal the default `Invalid` is returned by
+/// `read_vc_status`. Used by `push` so the source vault no longer reports a
+/// `Valid` status for a VC whose payload has moved away — otherwise stale
+/// status reads can spoof `issue_linked` into accepting orphan parents.
+pub fn remove_vc_status(e: &Env, owner: &Address, vc_id: &String) {
+    e.storage()
+        .persistent()
+        .remove(&DataKey::VCStatus(owner.clone(), vc_id.clone()));
 }
 
 // --- TTL extensions ---
