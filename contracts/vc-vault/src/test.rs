@@ -1036,3 +1036,238 @@ fn test_push_revoked_vc_returns_already_revoked_error() {
     // Must fail with VCAlreadyRevoked (#7), not VCNotFound (#6).
     client.push(&from_owner, &to_owner, &vc_id, &issuer);
 }
+
+// --- O(1) index tests (issue #20) ---
+
+#[test]
+fn test_index_remove_middle_uses_swap_and_pop() {
+    // Issuing three VCs places them at positions 0, 1, 2. Revoking the middle
+    // one (position 1) must move the last one (position 2) into position 1
+    // via swap-and-pop, leaving an active count of 2 with the surviving IDs
+    // queryable via list_vc_ids.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+    let id_a = String::from_str(&env, "vc-a");
+    let id_b = String::from_str(&env, "vc-b");
+    let id_c = String::from_str(&env, "vc-c");
+    client.issue(&owner, &id_a, &data, &contract_id, &issuer, &issuer_did, &0_i128);
+    client.issue(&owner, &id_b, &data, &contract_id, &issuer, &issuer_did, &0_i128);
+    client.issue(&owner, &id_c, &data, &contract_id, &issuer, &issuer_did, &0_i128);
+    assert_eq!(client.list_vc_ids(&owner).len(), 3);
+
+    client.revoke(&owner, &id_b, &String::from_str(&env, "2025-01-01T00:00:00Z"));
+    let remaining = client.list_vc_ids(&owner);
+    assert_eq!(remaining.len(), 2);
+    assert!(remaining.contains(id_a.clone()));
+    assert!(remaining.contains(id_c.clone()));
+    assert!(!remaining.contains(id_b));
+    // The revoked VC payload survives — only the active index is freed.
+    assert_eq!(
+        client.verify_vc(&owner, &id_a),
+        crate::model::VCStatus::Valid
+    );
+    assert_eq!(
+        client.verify_vc(&owner, &id_c),
+        crate::model::VCStatus::Valid
+    );
+}
+
+#[test]
+fn test_revoke_frees_index_slot_for_reissuance_under_new_id() {
+    // After revoke, the active count must drop so a new vc_id can take an
+    // index slot. (Re-using the same vc_id is forbidden by VCAlreadyExists,
+    // which is why we issue under a different id.)
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+    let id1 = String::from_str(&env, "vc-1");
+    client.issue(&owner, &id1, &data, &contract_id, &issuer, &issuer_did, &0_i128);
+    assert_eq!(client.list_vc_ids(&owner).len(), 1);
+    client.revoke(&owner, &id1, &String::from_str(&env, "2025-01-01T00:00:00Z"));
+    assert_eq!(client.list_vc_ids(&owner).len(), 0);
+    let id2 = String::from_str(&env, "vc-2");
+    client.issue(&owner, &id2, &data, &contract_id, &issuer, &issuer_did, &0_i128);
+    assert_eq!(client.list_vc_ids(&owner).len(), 1);
+}
+
+#[test]
+fn test_push_reindexes_source_and_destination() {
+    // After push, the source vault's index must shrink and the destination's
+    // must grow — both via the O(1) helpers.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let from_owner = Address::generate(&env);
+    let to_owner = Address::generate(&env);
+    client.create_vault(&from_owner, &String::from_str(&env, "did:from"));
+    client.create_vault(&to_owner, &String::from_str(&env, "did:to"));
+    client.authorize_issuer(&from_owner, &issuer);
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+    let id_a = String::from_str(&env, "vc-a");
+    let id_b = String::from_str(&env, "vc-b");
+    client.issue(&from_owner, &id_a, &data, &contract_id, &issuer, &issuer_did, &0_i128);
+    client.issue(&from_owner, &id_b, &data, &contract_id, &issuer, &issuer_did, &0_i128);
+    assert_eq!(client.list_vc_ids(&from_owner).len(), 2);
+    assert_eq!(client.list_vc_ids(&to_owner).len(), 0);
+
+    client.push(&from_owner, &to_owner, &id_a, &issuer);
+
+    let from_ids = client.list_vc_ids(&from_owner);
+    assert_eq!(from_ids.len(), 1);
+    assert!(from_ids.contains(id_b));
+    let to_ids = client.list_vc_ids(&to_owner);
+    assert_eq!(to_ids.len(), 1);
+    assert!(to_ids.contains(id_a));
+}
+
+#[test]
+fn test_push_moves_parent_link_to_destination() {
+    // Regression: VCParent must follow the VC into the destination so
+    // get_vc_parent(to_owner, vc_id) returns the link, and the source no
+    // longer reports a parent for a payload it does not hold.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let parent_owner = Address::generate(&env);
+    let from_owner = Address::generate(&env);
+    let to_owner = Address::generate(&env);
+    client.create_vault(&parent_owner, &String::from_str(&env, "did:parent"));
+    client.create_vault(&from_owner, &String::from_str(&env, "did:from"));
+    client.create_vault(&to_owner, &String::from_str(&env, "did:to"));
+    client.authorize_issuer(&parent_owner, &issuer);
+    client.authorize_issuer(&from_owner, &issuer);
+
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+    let parent_id = String::from_str(&env, "vc-parent");
+    let child_id = String::from_str(&env, "vc-child");
+
+    client.issue(
+        &parent_owner,
+        &parent_id,
+        &data,
+        &contract_id,
+        &issuer,
+        &issuer_did,
+        &0_i128,
+    );
+    client.issue_linked(
+        &issuer,
+        &from_owner,
+        &child_id,
+        &data,
+        &contract_id,
+        &issuer_did,
+        &parent_owner,
+        &parent_id,
+    );
+    // Sanity: parent link is at the source before push.
+    let pre = client.get_vc_parent(&from_owner, &child_id);
+    assert!(pre.is_some());
+    let (pre_owner, pre_id) = pre.unwrap();
+    assert_eq!(pre_owner, parent_owner);
+    assert_eq!(pre_id, parent_id);
+
+    client.push(&from_owner, &to_owner, &child_id, &issuer);
+
+    // Link followed the VC.
+    let post = client.get_vc_parent(&to_owner, &child_id);
+    assert!(post.is_some());
+    let (post_owner, post_id) = post.unwrap();
+    assert_eq!(post_owner, parent_owner);
+    assert_eq!(post_id, parent_id);
+    // Source no longer claims a link for a VC it does not hold.
+    assert!(client.get_vc_parent(&from_owner, &child_id).is_none());
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #14)")] // ParentVCInvalid
+fn test_issue_linked_rejects_pushed_away_parent() {
+    // Regression: issue_linked must check both parent payload AND status.
+    // Previously only status was checked; after push the source vault keeps a
+    // stale Valid status as a vc_id-uniqueness tombstone, which would let an
+    // attacker pass the source as parent for a payload that has moved away.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let parent_holder = Address::generate(&env);
+    let new_holder = Address::generate(&env);
+    let child_owner = Address::generate(&env);
+    client.create_vault(&parent_holder, &String::from_str(&env, "did:parent"));
+    client.create_vault(&new_holder, &String::from_str(&env, "did:new"));
+    client.create_vault(&child_owner, &String::from_str(&env, "did:child"));
+    client.authorize_issuer(&parent_holder, &issuer);
+    client.authorize_issuer(&child_owner, &issuer);
+
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+    let parent_id = String::from_str(&env, "vc-parent");
+
+    client.issue(
+        &parent_holder,
+        &parent_id,
+        &data,
+        &contract_id,
+        &issuer,
+        &issuer_did,
+        &0_i128,
+    );
+    // Push the parent away. parent_holder retains a stale Valid status tombstone.
+    client.push(&parent_holder, &new_holder, &parent_id, &issuer);
+
+    // Attempt to link a new child to the orphaned source — must be rejected.
+    let child_id = String::from_str(&env, "vc-child");
+    client.issue_linked(
+        &issuer,
+        &child_owner,
+        &child_id,
+        &data,
+        &contract_id,
+        &issuer_did,
+        &parent_holder,
+        &parent_id,
+    );
+}
+
+#[test]
+fn test_index_remains_consistent_after_many_issues_and_revokes() {
+    // Stress the swap-and-pop logic: issue 10 VCs, revoke half, ensure the
+    // index reflects exactly the surviving IDs.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+    let revoke_date = String::from_str(&env, "2025-01-01T00:00:00Z");
+
+    let labels = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+    let mut ids: soroban_sdk::Vec<String> = soroban_sdk::Vec::new(&env);
+    for label in labels.iter() {
+        let id = String::from_str(&env, label);
+        client.issue(&owner, &id, &data, &contract_id, &issuer, &issuer_did, &0_i128);
+        ids.push_back(id);
+    }
+    assert_eq!(client.list_vc_ids(&owner).len(), 10);
+
+    // Revoke every other VC.
+    for i in (0..10).step_by(2) {
+        let id = ids.get_unchecked(i);
+        client.revoke(&owner, &id, &revoke_date);
+    }
+    let remaining = client.list_vc_ids(&owner);
+    assert_eq!(remaining.len(), 5);
+    // Surviving VCs: indices 1, 3, 5, 7, 9 (b, d, f, h, j).
+    for i in (1..10).step_by(2) {
+        let id = ids.get_unchecked(i);
+        assert!(remaining.contains(id));
+    }
+}

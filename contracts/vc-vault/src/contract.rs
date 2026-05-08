@@ -198,10 +198,25 @@ impl VcVaultTrait for VcVaultContract {
         events::vault_revoked(&e, &owner);
     }
 
-    /// List VC IDs in owner's vault.
+    /// List VC IDs currently active in owner's vault. Reads from the O(1)
+    /// index by enumerating positions `0..count`. Returns the full list; a
+    /// paginated variant lands in a follow-up release.
+    ///
+    /// Each slot's TTL is refreshed during enumeration so vaults that are
+    /// only ever listed (without `get_vc` calls on individual VCs) keep
+    /// the index alive — otherwise `read_vc_id_at` could return None for
+    /// archived slots while `VaultVCCount` remains live, silently truncating
+    /// the result.
     fn list_vc_ids(e: Env, owner: Address) -> Vec<String> {
         storage::extend_vault_ttl(&e, &owner);
-        storage::read_vault_vc_ids(&e, &owner)
+        let count = storage::read_vc_count(&e, &owner);
+        let mut ids = Vec::new(&e);
+        for i in 0..count {
+            if let Some(vc_id) = storage::read_vc_id_at_extend(&e, &owner, i) {
+                ids.push_back(vc_id);
+            }
+        }
+        ids
     }
 
     /// Get VC payload by ID. Returns None if not found.
@@ -262,11 +277,30 @@ impl VcVaultTrait for VcVaultContract {
         }
         let vc = vc_opt.unwrap();
 
+        // Move the parent link with the VC so `get_vc_parent(to_owner, vc_id)`
+        // resolves correctly post-push and the source vault stops claiming a
+        // parent for a payload it no longer holds.
+        let parent = storage::read_vc_parent(&e, &from_owner, &vc_id);
+
         storage::remove_vault_vc(&e, &from_owner, &vc_id);
-        storage::remove_vault_vc_id(&e, &from_owner, &vc_id);
+        storage::remove_vc_from_index(&e, &from_owner, &vc_id);
+        if parent.is_some() {
+            storage::remove_vc_parent(&e, &from_owner, &vc_id);
+        }
+        // VCStatus(from_owner, vc_id) intentionally stays Valid as a tombstone
+        // marker. It preserves vc_id uniqueness within the source vault — a
+        // future `issue(from_owner, vc_id, ...)` panics with VCAlreadyExists
+        // because the second check below trips on the stale status. Code paths
+        // that need to know whether the payload still exists at the source
+        // (verify_vc, revoke, issue_linked) check the payload directly so this
+        // tombstone never causes a false-positive validation.
+
         storage::write_vault_vc(&e, &to_owner, &vc_id, &vc);
-        storage::append_vault_vc_id(&e, &to_owner, &vc_id);
+        storage::append_vc_to_index(&e, &to_owner, &vc_id);
         storage::write_vc_status(&e, &to_owner, &vc_id, &VCStatus::Valid);
+        if let Some((parent_owner, parent_vc_id)) = parent {
+            storage::write_vc_parent(&e, &to_owner, &vc_id, &parent_owner, &parent_vc_id);
+        }
 
         storage::extend_vault_ttl(&e, &from_owner);
         storage::extend_vault_ttl(&e, &to_owner);
@@ -320,7 +354,11 @@ impl VcVaultTrait for VcVaultContract {
         vc_id
     }
 
-    /// Revoke VC. Owner must sign.
+    /// Revoke VC. Owner must sign. The VC payload remains queryable via
+    /// `get_vc(owner, vc_id)`; only the active index entry is removed so the
+    /// vault doesn't fill up with revoked entries (each free slot can be
+    /// reissued under a new vc_id, preserving the `MAX_VCS_PER_VAULT` cap as
+    /// a *concurrent active* limit).
     fn revoke(e: Env, owner: Address, vc_id: String, date: String) {
         owner.require_auth();
         // VC must exist in this vault (not pushed away) and must not have been
@@ -333,6 +371,13 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::VCNotFound);
         }
         issuance::revoke_vc(&e, &owner, vc_id.clone(), date.clone());
+        storage::remove_vc_from_index(&e, &owner, &vc_id);
+        // remove_vc_from_index rewrites VaultVCCount and a moved VaultVCIndex
+        // slot. write_vc_count and write_vc_id_at extend their own TTLs, but
+        // the surrounding vault metadata (admin, did, revoked, issuers) also
+        // benefits from a refresh on any mutation path so a near-expiry vault
+        // stays consistent across all keys.
+        storage::extend_vault_ttl(&e, &owner);
         storage::extend_vc_status_ttl(&e, &owner, &vc_id);
         events::vc_revoked(&e, &owner, &vc_id, &date);
     }
@@ -360,7 +405,14 @@ impl VcVaultTrait for VcVaultContract {
         validate_vault_active(&e, &owner);
         validate_vault_initialized(&e, &parent_owner);
 
-        if storage::read_vc_status(&e, &parent_owner, &parent_vc_id) != VCStatus::Valid {
+        // Both checks are required. The status keeps a Valid tombstone at the
+        // source after `push` so vc_ids stay unique within a vault's history;
+        // checking only status would let an attacker pass a vc_id that has
+        // moved away (payload gone, status stale) and link a child to it. The
+        // payload presence check pins the parent to its current holder.
+        if storage::read_vault_vc(&e, &parent_owner, &parent_vc_id).is_none()
+            || storage::read_vc_status(&e, &parent_owner, &parent_vc_id) != VCStatus::Valid
+        {
             panic_with_error!(e, ContractError::ParentVCInvalid);
         }
 
