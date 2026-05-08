@@ -224,7 +224,7 @@ fn test_list_vc_ids_empty() {
     client.initialize(&admin);
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
-    assert_eq!(client.list_vc_ids(&owner).len(), 0);
+    assert_eq!(client.list_vc_ids(&owner, &0_u32, &200_u32).len(), 0);
 }
 
 #[test]
@@ -258,7 +258,7 @@ fn test_vault_authorize_and_store_and_list_and_get() {
     let vc_data = String::from_str(&env, "<ciphertext>");
     let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
     client.issue(&owner, &vc_id, &vc_data, &contract_id, &issuer, &issuer_did, &0_i128);
-    assert_eq!(client.list_vc_ids(&owner).len(), 1);
+    assert_eq!(client.list_vc_ids(&owner, &0_u32, &200_u32).len(), 1);
     assert_eq!(client.get_vc(&owner, &vc_id).unwrap().data, vc_data);
 }
 
@@ -498,7 +498,7 @@ fn test_issue_auto_authorizes_issuer() {
     let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
     client.issue(&owner, &vc_id, &vc_data, &contract_id, &issuer, &issuer_did, &0_i128);
     assert!(client.get_vc(&owner, &vc_id).is_some());
-    assert_eq!(client.list_vc_ids(&owner).len(), 1);
+    assert_eq!(client.list_vc_ids(&owner, &0_u32, &200_u32).len(), 1);
 }
 
 #[test]
@@ -511,7 +511,7 @@ fn test_issue_auto_authorizes_multiple_issuers() {
     let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
     client.issue(&owner, &String::from_str(&env, "vc-1"), &String::from_str(&env, "<data1>"), &contract_id, &issuer, &issuer_did, &0_i128);
     client.issue(&owner, &String::from_str(&env, "vc-2"), &String::from_str(&env, "<data2>"), &contract_id, &issuer2, &issuer_did, &0_i128);
-    assert_eq!(client.list_vc_ids(&owner).len(), 2);
+    assert_eq!(client.list_vc_ids(&owner, &0_u32, &200_u32).len(), 2);
 }
 
 #[test]
@@ -566,7 +566,7 @@ fn test_admin_creates_sponsored_vault() {
     let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
     client.create_sponsored_vault(&admin, &owner, &did_uri);
     // Vault exists: list_vc_ids returns empty without panicking.
-    assert_eq!(client.list_vc_ids(&owner).len(), 0);
+    assert_eq!(client.list_vc_ids(&owner, &0_u32, &200_u32).len(), 0);
 }
 
 #[test]
@@ -578,7 +578,7 @@ fn test_authorized_sponsor_creates_sponsored_vault() {
     let owner = Address::generate(&env);
     let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
     client.create_sponsored_vault(&sponsor, &owner, &did_uri);
-    assert_eq!(client.list_vc_ids(&owner).len(), 0);
+    assert_eq!(client.list_vc_ids(&owner, &0_u32, &200_u32).len(), 0);
 }
 
 #[test]
@@ -604,7 +604,7 @@ fn test_open_mode_allows_anyone_to_create_sponsored_vault() {
     let owner = Address::generate(&env);
     let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
     client.create_sponsored_vault(&random, &owner, &did_uri);
-    assert_eq!(client.list_vc_ids(&owner).len(), 0);
+    assert_eq!(client.list_vc_ids(&owner, &0_u32, &200_u32).len(), 0);
 }
 
 #[test]
@@ -1058,10 +1058,10 @@ fn test_index_remove_middle_uses_swap_and_pop() {
     client.issue(&owner, &id_a, &data, &contract_id, &issuer, &issuer_did, &0_i128);
     client.issue(&owner, &id_b, &data, &contract_id, &issuer, &issuer_did, &0_i128);
     client.issue(&owner, &id_c, &data, &contract_id, &issuer, &issuer_did, &0_i128);
-    assert_eq!(client.list_vc_ids(&owner).len(), 3);
+    assert_eq!(client.list_vc_ids(&owner, &0_u32, &200_u32).len(), 3);
 
     client.revoke(&owner, &id_b, &String::from_str(&env, "2025-01-01T00:00:00Z"));
-    let remaining = client.list_vc_ids(&owner);
+    let remaining = client.list_vc_ids(&owner, &0_u32, &200_u32);
     assert_eq!(remaining.len(), 2);
     assert!(remaining.contains(id_a.clone()));
     assert!(remaining.contains(id_c.clone()));
@@ -1091,12 +1091,12 @@ fn test_revoke_frees_index_slot_for_reissuance_under_new_id() {
     let data = String::from_str(&env, "<data>");
     let id1 = String::from_str(&env, "vc-1");
     client.issue(&owner, &id1, &data, &contract_id, &issuer, &issuer_did, &0_i128);
-    assert_eq!(client.list_vc_ids(&owner).len(), 1);
+    assert_eq!(client.list_vc_ids(&owner, &0_u32, &200_u32).len(), 1);
     client.revoke(&owner, &id1, &String::from_str(&env, "2025-01-01T00:00:00Z"));
-    assert_eq!(client.list_vc_ids(&owner).len(), 0);
+    assert_eq!(client.list_vc_ids(&owner, &0_u32, &200_u32).len(), 0);
     let id2 = String::from_str(&env, "vc-2");
     client.issue(&owner, &id2, &data, &contract_id, &issuer, &issuer_did, &0_i128);
-    assert_eq!(client.list_vc_ids(&owner).len(), 1);
+    assert_eq!(client.list_vc_ids(&owner, &0_u32, &200_u32).len(), 1);
 }
 
 #[test]
@@ -1116,15 +1116,15 @@ fn test_push_reindexes_source_and_destination() {
     let id_b = String::from_str(&env, "vc-b");
     client.issue(&from_owner, &id_a, &data, &contract_id, &issuer, &issuer_did, &0_i128);
     client.issue(&from_owner, &id_b, &data, &contract_id, &issuer, &issuer_did, &0_i128);
-    assert_eq!(client.list_vc_ids(&from_owner).len(), 2);
-    assert_eq!(client.list_vc_ids(&to_owner).len(), 0);
+    assert_eq!(client.list_vc_ids(&from_owner, &0_u32, &200_u32).len(), 2);
+    assert_eq!(client.list_vc_ids(&to_owner, &0_u32, &200_u32).len(), 0);
 
     client.push(&from_owner, &to_owner, &id_a, &issuer);
 
-    let from_ids = client.list_vc_ids(&from_owner);
+    let from_ids = client.list_vc_ids(&from_owner, &0_u32, &200_u32);
     assert_eq!(from_ids.len(), 1);
     assert!(from_ids.contains(id_b));
-    let to_ids = client.list_vc_ids(&to_owner);
+    let to_ids = client.list_vc_ids(&to_owner, &0_u32, &200_u32);
     assert_eq!(to_ids.len(), 1);
     assert!(to_ids.contains(id_a));
 }
@@ -1256,18 +1256,178 @@ fn test_index_remains_consistent_after_many_issues_and_revokes() {
         client.issue(&owner, &id, &data, &contract_id, &issuer, &issuer_did, &0_i128);
         ids.push_back(id);
     }
-    assert_eq!(client.list_vc_ids(&owner).len(), 10);
+    assert_eq!(client.list_vc_ids(&owner, &0_u32, &200_u32).len(), 10);
 
     // Revoke every other VC.
     for i in (0..10).step_by(2) {
         let id = ids.get_unchecked(i);
         client.revoke(&owner, &id, &revoke_date);
     }
-    let remaining = client.list_vc_ids(&owner);
+    let remaining = client.list_vc_ids(&owner, &0_u32, &200_u32);
     assert_eq!(remaining.len(), 5);
     // Surviving VCs: indices 1, 3, 5, 7, 9 (b, d, f, h, j).
     for i in (1..10).step_by(2) {
         let id = ids.get_unchecked(i);
         assert!(remaining.contains(id));
     }
+}
+
+// --- Pagination tests (issue #21) ---
+
+#[test]
+fn test_vc_count_is_zero_for_empty_vault() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    assert_eq!(client.vc_count(&owner), 0);
+}
+
+#[test]
+fn test_vc_count_tracks_issue_revoke_push() {
+    // vc_count must reflect the active set: increment on issue, decrement on
+    // revoke and on the source side of push, increment on the destination.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let from_owner = Address::generate(&env);
+    let to_owner = Address::generate(&env);
+    client.create_vault(&from_owner, &String::from_str(&env, "did:from"));
+    client.create_vault(&to_owner, &String::from_str(&env, "did:to"));
+    client.authorize_issuer(&from_owner, &issuer);
+
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+
+    assert_eq!(client.vc_count(&from_owner), 0);
+    let id_a = String::from_str(&env, "vc-a");
+    let id_b = String::from_str(&env, "vc-b");
+    client.issue(&from_owner, &id_a, &data, &contract_id, &issuer, &issuer_did, &0_i128);
+    client.issue(&from_owner, &id_b, &data, &contract_id, &issuer, &issuer_did, &0_i128);
+    assert_eq!(client.vc_count(&from_owner), 2);
+
+    client.revoke(&from_owner, &id_a, &String::from_str(&env, "2025-01-01T00:00:00Z"));
+    assert_eq!(client.vc_count(&from_owner), 1);
+
+    client.push(&from_owner, &to_owner, &id_b, &issuer);
+    assert_eq!(client.vc_count(&from_owner), 0);
+    assert_eq!(client.vc_count(&to_owner), 1);
+}
+
+#[test]
+fn test_list_vc_ids_paginates_consistently() {
+    // Issue 5 VCs. Querying with various (offset, limit) combinations must
+    // partition the set without duplicates or gaps.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+    for label in ["a", "b", "c", "d", "e"].iter() {
+        let id = String::from_str(&env, label);
+        client.issue(&owner, &id, &data, &contract_id, &issuer, &issuer_did, &0_i128);
+    }
+    assert_eq!(client.vc_count(&owner), 5);
+
+    // Full window.
+    let all = client.list_vc_ids(&owner, &0_u32, &200_u32);
+    assert_eq!(all.len(), 5);
+
+    // First two and last three must reconstruct the full set.
+    let first = client.list_vc_ids(&owner, &0_u32, &2_u32);
+    let rest = client.list_vc_ids(&owner, &2_u32, &10_u32);
+    assert_eq!(first.len(), 2);
+    assert_eq!(rest.len(), 3);
+    let mut joined = soroban_sdk::Vec::<String>::new(&env);
+    for id in first.iter() {
+        joined.push_back(id);
+    }
+    for id in rest.iter() {
+        joined.push_back(id);
+    }
+    assert_eq!(joined.len(), 5);
+    for id in all.iter() {
+        assert!(joined.contains(id));
+    }
+}
+
+#[test]
+fn test_list_vc_ids_zero_limit_returns_empty() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    client.issue(
+        &owner,
+        &String::from_str(&env, "vc-1"),
+        &String::from_str(&env, "<data>"),
+        &contract_id,
+        &issuer,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+    );
+    let result = client.list_vc_ids(&owner, &0_u32, &0_u32);
+    assert_eq!(result.len(), 0);
+}
+
+#[test]
+fn test_list_vc_ids_offset_beyond_count_returns_empty() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    client.issue(
+        &owner,
+        &String::from_str(&env, "vc-1"),
+        &String::from_str(&env, "<data>"),
+        &contract_id,
+        &issuer,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+    );
+    // Vault has 1 VC at position 0; asking from 5 onward returns empty.
+    let result = client.list_vc_ids(&owner, &5_u32, &10_u32);
+    assert_eq!(result.len(), 0);
+}
+
+#[test]
+fn test_list_vc_ids_limit_clamped_to_count() {
+    // Asking for more than count returns exactly count entries — no padding,
+    // no panic.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let issuer_did = String::from_str(&env, "did:issuer");
+    let data = String::from_str(&env, "<data>");
+    for label in ["a", "b", "c"].iter() {
+        let id = String::from_str(&env, label);
+        client.issue(&owner, &id, &data, &contract_id, &issuer, &issuer_did, &0_i128);
+    }
+    let result = client.list_vc_ids(&owner, &0_u32, &200_u32);
+    assert_eq!(result.len(), 3);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #16)")] // LimitTooLarge
+fn test_list_vc_ids_limit_above_max_panics() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    // MAX_LIST_LIMIT = 200; 201 must panic.
+    client.list_vc_ids(&owner, &0_u32, &201_u32);
+}
+
+#[test]
+fn test_vc_count_zero_for_unknown_vault() {
+    // No panic, no read failure — unknown vaults report 0 active VCs.
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let stranger = Address::generate(&env);
+    assert_eq!(client.vc_count(&stranger), 0);
 }

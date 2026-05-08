@@ -36,4 +36,6 @@ pub enum ContractError {
     ParentVCInvalid = 14,
     /// Vault has reached the maximum number of active VCs.
     VaultFull = 15,
+    /// Pagination `limit` exceeds `MAX_LIST_LIMIT`.
+    LimitTooLarge = 16,
 }
