@@ -198,10 +198,19 @@ impl VcVaultTrait for VcVaultContract {
         events::vault_revoked(&e, &owner);
     }
 
-    /// List VC IDs in owner's vault.
+    /// List VC IDs currently active in owner's vault. Reads from the O(1)
+    /// index by enumerating positions `0..count`. Returns the full list; a
+    /// paginated variant lands in a follow-up release.
     fn list_vc_ids(e: Env, owner: Address) -> Vec<String> {
         storage::extend_vault_ttl(&e, &owner);
-        storage::read_vault_vc_ids(&e, &owner)
+        let count = storage::read_vc_count(&e, &owner);
+        let mut ids = Vec::new(&e);
+        for i in 0..count {
+            if let Some(vc_id) = storage::read_vc_id_at(&e, &owner, i) {
+                ids.push_back(vc_id);
+            }
+        }
+        ids
     }
 
     /// Get VC payload by ID. Returns None if not found.
@@ -263,9 +272,9 @@ impl VcVaultTrait for VcVaultContract {
         let vc = vc_opt.unwrap();
 
         storage::remove_vault_vc(&e, &from_owner, &vc_id);
-        storage::remove_vault_vc_id(&e, &from_owner, &vc_id);
+        storage::remove_vc_from_index(&e, &from_owner, &vc_id);
         storage::write_vault_vc(&e, &to_owner, &vc_id, &vc);
-        storage::append_vault_vc_id(&e, &to_owner, &vc_id);
+        storage::append_vc_to_index(&e, &to_owner, &vc_id);
         storage::write_vc_status(&e, &to_owner, &vc_id, &VCStatus::Valid);
 
         storage::extend_vault_ttl(&e, &from_owner);
@@ -320,7 +329,11 @@ impl VcVaultTrait for VcVaultContract {
         vc_id
     }
 
-    /// Revoke VC. Owner must sign.
+    /// Revoke VC. Owner must sign. The VC payload remains queryable via
+    /// `get_vc(owner, vc_id)`; only the active index entry is removed so the
+    /// vault doesn't fill up with revoked entries (each free slot can be
+    /// reissued under a new vc_id, preserving the `MAX_VCS_PER_VAULT` cap as
+    /// a *concurrent active* limit).
     fn revoke(e: Env, owner: Address, vc_id: String, date: String) {
         owner.require_auth();
         // VC must exist in this vault (not pushed away) and must not have been
@@ -333,6 +346,7 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::VCNotFound);
         }
         issuance::revoke_vc(&e, &owner, vc_id.clone(), date.clone());
+        storage::remove_vc_from_index(&e, &owner, &vc_id);
         storage::extend_vc_status_ttl(&e, &owner, &vc_id);
         events::vc_revoked(&e, &owner, &vc_id, &date);
     }

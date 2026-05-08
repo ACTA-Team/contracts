@@ -34,4 +34,6 @@ pub enum ContractError {
     NoPendingAdmin = 13,
     /// The parent VC does not exist or has been revoked.
     ParentVCInvalid = 14,
+    /// Vault has reached the maximum number of active VCs.
+    VaultFull = 15,
 }
