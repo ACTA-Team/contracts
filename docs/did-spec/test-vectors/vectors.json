@@ -1,0 +1,229 @@
+{
+  "_comment": "did:stellar v0.1 normative test vectors. All vectors use network=testnet. Vectors 1-4 exercise on-chain contract behavior. Vectors 5-6 exercise the off-chain proof of control protocol. The controller field uses a representative Stellar StrKey-formatted address; conformance test runs SHOULD substitute a real funded testnet keypair.",
+  "method": "did:stellar",
+  "spec_version": "0.1",
+  "vectors": [
+    {
+      "id": "vector-1",
+      "description": "Minimal active DID: single authentication key, no assertion method, no key agreement, no services.",
+      "input": {
+        "did_id_bytes_hex": "000102030405060708090a0b0c0d0e0f",
+        "did_id_base32": "aaaqeayeaudaocajbifqydiob4",
+        "did": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+        "network": "testnet",
+        "controller": "GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGZMJV4P6W2WL6WXHNTQZM2",
+        "record": {
+          "authentication": [
+            { "public_key_multibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY" }
+          ],
+          "assertion_method": [],
+          "key_agreement": [],
+          "services": [],
+          "metadata_uri": null,
+          "metadata_hash": null,
+          "version": 1,
+          "created_ledger": 1000,
+          "updated_ledger": 1000,
+          "deactivated": false
+        }
+      },
+      "expected": {
+        "did_document": {
+          "@context": [
+            "https://www.w3.org/ns/did/v1",
+            "https://w3id.org/security/multikey/v1"
+          ],
+          "id": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+          "verificationMethod": [
+            {
+              "id": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4#auth-1",
+              "type": "Multikey",
+              "controller": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+              "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY"
+            }
+          ],
+          "authentication": [
+            "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4#auth-1"
+          ],
+          "assertionMethod": [],
+          "keyAgreement": [],
+          "service": []
+        },
+        "did_document_metadata": {
+          "versionId": "1",
+          "deactivated": false
+        }
+      }
+    },
+    {
+      "id": "vector-2",
+      "description": "Full DID: authentication + assertionMethod + keyAgreement + one service.",
+      "input": {
+        "did_id_bytes_hex": "000102030405060708090a0b0c0d0e0f",
+        "did_id_base32": "aaaqeayeaudaocajbifqydiob4",
+        "did": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+        "network": "testnet",
+        "controller": "GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGZMJV4P6W2WL6WXHNTQZM2",
+        "record": {
+          "authentication": [
+            { "public_key_multibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY" }
+          ],
+          "assertion_method": [
+            { "public_key_multibase": "z6Mkff3F4VMDGbMbMtgRyXMrgr7qyxaKsPo7QEPQ2AkNrx2X" }
+          ],
+          "key_agreement": [
+            { "public_key_multibase": "z6LSnGSQaEk7SBZMmMLHTCqz6YUuiVVCmBNdAqSVdepqYAW1" }
+          ],
+          "services": [
+            {
+              "id_suffix": "issuer",
+              "service_type": "LinkedDomains",
+              "service_endpoint": "https://issuer.example.com"
+            }
+          ],
+          "metadata_uri": null,
+          "metadata_hash": null,
+          "version": 1,
+          "created_ledger": 1000,
+          "updated_ledger": 1000,
+          "deactivated": false
+        }
+      },
+      "expected": {
+        "did_document": {
+          "@context": [
+            "https://www.w3.org/ns/did/v1",
+            "https://w3id.org/security/multikey/v1"
+          ],
+          "id": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+          "verificationMethod": [
+            {
+              "id": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4#auth-1",
+              "type": "Multikey",
+              "controller": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+              "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY"
+            },
+            {
+              "id": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4#assert-1",
+              "type": "Multikey",
+              "controller": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+              "publicKeyMultibase": "z6Mkff3F4VMDGbMbMtgRyXMrgr7qyxaKsPo7QEPQ2AkNrx2X"
+            },
+            {
+              "id": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4#keyagr-1",
+              "type": "Multikey",
+              "controller": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+              "publicKeyMultibase": "z6LSnGSQaEk7SBZMmMLHTCqz6YUuiVVCmBNdAqSVdepqYAW1"
+            }
+          ],
+          "authentication": [
+            "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4#auth-1"
+          ],
+          "assertionMethod": [
+            "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4#assert-1"
+          ],
+          "keyAgreement": [
+            "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4#keyagr-1"
+          ],
+          "service": [
+            {
+              "id": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4#service-issuer",
+              "type": "LinkedDomains",
+              "serviceEndpoint": "https://issuer.example.com"
+            }
+          ]
+        },
+        "did_document_metadata": {
+          "versionId": "1",
+          "deactivated": false
+        }
+      }
+    },
+    {
+      "id": "vector-3",
+      "description": "Deactivated DID: tombstone document after deactivate() is called on vector 1.",
+      "input": {
+        "did": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+        "record_after_deactivation": {
+          "authentication": [],
+          "assertion_method": [],
+          "key_agreement": [],
+          "services": [],
+          "version": 2,
+          "deactivated": true
+        }
+      },
+      "expected": {
+        "http_status": 410,
+        "did_document": {
+          "@context": ["https://www.w3.org/ns/did/v1"],
+          "id": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+          "verificationMethod": [],
+          "authentication": [],
+          "assertionMethod": [],
+          "keyAgreement": [],
+          "service": []
+        },
+        "did_document_metadata": {
+          "versionId": "2",
+          "deactivated": true
+        }
+      }
+    },
+    {
+      "id": "vector-4",
+      "description": "Concurrent update conflict: two callers both read version=1 and both attempt update(expected_version=1). First succeeds; second fails with VersionMismatch.",
+      "input": {
+        "did": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+        "initial_version": 1,
+        "caller_a_update": { "expected_version": 1, "new_version_after": 2 },
+        "caller_b_update": { "expected_version": 1, "error": "VersionMismatch" }
+      },
+      "expected": {
+        "caller_a": "success — version becomes 2",
+        "caller_b": "error VersionMismatch — on-chain version is now 2, not 1"
+      }
+    },
+    {
+      "id": "vector-5",
+      "description": "Valid proof of control: fixed challenge + fixed Ed25519 key → signature verifies.",
+      "_note": "Exact signature computed by the reference implementation. Values below will be populated when the TypeScript reference implementation is complete.",
+      "input": {
+        "did": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+        "auth_key_public_multibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY",
+        "auth_key_private_hex": "TODO: fixed 32-byte Ed25519 private key (reference implementation)",
+        "challenge": {
+          "did": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+          "domain": "verifier.example.com",
+          "nonce": "5f9b2a1c0d3e4f6789012345abcdef01",
+          "timestamp": "2026-04-26T12:34:56Z"
+        },
+        "challenge_jcs_hex": "TODO: JCS-canonicalized challenge bytes (reference implementation)",
+        "signature_base64url": "TODO: Ed25519 signature base64url (reference implementation)"
+      },
+      "expected": {
+        "result": "valid",
+        "verification_passed": true
+      }
+    },
+    {
+      "id": "vector-6",
+      "description": "Invalid proof of control: timestamp out of the ±5 minute window. Verification MUST fail before checking the signature.",
+      "input": {
+        "did": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+        "challenge": {
+          "did": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
+          "domain": "verifier.example.com",
+          "nonce": "5f9b2a1c0d3e4f6789012345abcdef01",
+          "timestamp": "2020-01-01T00:00:00Z"
+        },
+        "signature_base64url": "TODO: any signature (irrelevant; timestamp check fires first)"
+      },
+      "expected": {
+        "result": "invalid",
+        "verification_passed": false,
+        "failure_reason": "timestamp out of ±5 minute window"
+      }
+    }
+  ]
+}

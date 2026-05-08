@@ -1,12 +1,13 @@
 [package]
-name = "vc-vault-contract"
+name = "did-stellar-registry"
 version = "0.1.0"
 edition = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
 
 [lib]
-crate-type = ["rlib", "cdylib"]
+crate-type = ["cdylib", "rlib"]
+doctest = false
 
 [dependencies]
 soroban-sdk = { workspace = true }

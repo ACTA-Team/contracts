@@ -3,7 +3,7 @@
 use soroban_sdk::{contracttype, String};
 
 /// Status of a VC in the issuance registry.
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 #[contracttype]
 pub enum VCStatus {
     /// VC exists and is currently valid.

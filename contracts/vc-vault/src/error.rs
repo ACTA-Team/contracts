@@ -26,4 +26,14 @@ pub enum ContractError {
     NotInitialized = 9,
     /// vault_contract param is not this contract.
     InvalidVaultContract = 10,
+    /// Signer is not the contract admin nor an authorized sponsor.
+    NotAuthorizedSponsor = 11,
+    /// vc_id already exists in this vault; re-issuance is not allowed.
+    VCAlreadyExists = 12,
+    /// accept_contract_admin called but no admin nomination is pending.
+    NoPendingAdmin = 13,
+    /// The parent VC does not exist or has been revoked.
+    ParentVCInvalid = 14,
+    /// Vault has reached the maximum number of active VCs.
+    VaultFull = 15,
 }

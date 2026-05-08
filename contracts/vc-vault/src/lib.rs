@@ -7,10 +7,11 @@
 #![allow(dead_code)]
 
 mod api;
-mod contract;
+pub mod contract;
 mod error;
+mod events;
 mod issuance;
-mod model;
+pub mod model;
 mod storage;
 mod vault;
 

@@ -1,5 +1,11 @@
-/target
-/Cargo.lock
+**/target
+**/Cargo.lock
 tarpaulin-report.html
 **/test_snapshots/
 .soroban/
+**/fuzz/corpus/
+**/fuzz/artifacts/
+docs/refactor/
+.agents/
+skills-lock.json
+docs/did-spec/did-stellar-v0.1 copy.md

@@ -1,0 +1,6 @@
+version: 2
+ignore-paths:
+  # Test vectors contain Ed25519 public keys in Multikey multibase format (z6Mk...).
+  # These are public keys — not secrets — and are intentionally included as
+  # normative test data for the did:stellar v0.1 specification.
+  - docs/did-spec/test-vectors/

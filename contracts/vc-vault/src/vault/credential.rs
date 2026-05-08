@@ -4,7 +4,12 @@ use crate::model::VerifiableCredential;
 use crate::storage;
 use soroban_sdk::{Address, Env, String};
 
-/// Write VC to vault and append ID to index.
+/// Write VC to vault and append ID to the O(1) index.
+///
+/// `append_vc_to_index` panics with `VaultFull` once the vault hits
+/// `MAX_VCS_PER_VAULT`, so the VC payload is intentionally written first:
+/// callers that catch the panic will not leave a payload without an index
+/// entry (the transaction reverts atomically).
 pub fn store_vc(
     e: &Env,
     owner: &Address,
@@ -20,5 +25,5 @@ pub fn store_vc(
         issuer_did,
     };
     storage::write_vault_vc(e, owner, &id, &new_vc);
-    storage::append_vault_vc_id(e, owner, &id);
+    storage::append_vc_to_index(e, owner, &id);
 }
