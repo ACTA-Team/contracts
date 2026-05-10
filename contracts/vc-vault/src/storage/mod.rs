@@ -30,6 +30,36 @@ pub const MAX_LIST_LIMIT: u32 = 200;
 /// entries) under Soroban's ~25 entries-per-transaction default.
 pub const MAX_BATCH_SIZE: u32 = 5;
 
+// --- Per-field input length caps ---
+//
+// Caps user-controlled string inputs at every write entrypoint to bound
+// storage rent and CPU cost. Reads that take a vc_id are also capped so an
+// attacker can't force the contract to spend instructions on a 1MB key
+// before the lookup misses.
+//
+// Numbers chosen with a 4-10× safety margin over realistic values:
+// - vc_id: typical UUIDs are 36 chars; 64 covers prefixed schemes like
+//   `urn:uuid:...`.
+// - vc_data: encrypted credential payloads typically 1-5KB; 10KB allows
+//   complex schemas without inviting state bloat.
+// - did_uri / issuer_did: longest realistic DIDs (`did:pkh:stellar:...:G...`)
+//   are ~60 chars; 256 is a comfortable upper bound aligned with the
+//   did:stellar v0.1 spec.
+// - date: ISO 8601 timestamps are 20-30 chars; 64 is sufficient.
+
+/// Maximum bytes for `vc_id` strings.
+pub const MAX_VC_ID_LEN: u32 = 64;
+/// Maximum bytes for `vc_data` payloads.
+pub const MAX_VC_DATA_LEN: u32 = 10_000;
+/// Maximum bytes for vault `did_uri`.
+pub const MAX_DID_URI_LEN: u32 = 256;
+/// Maximum bytes for `issuer_did`.
+pub const MAX_ISSUER_DID_LEN: u32 = 256;
+/// Maximum bytes for revocation `date` strings (ISO 8601).
+pub const MAX_DATE_LEN: u32 = 64;
+/// Maximum number of addresses accepted by `authorize_issuers(list)`.
+pub const MAX_ISSUERS_LIST: u32 = 100;
+
 /// Storage keys. Instance = admin, fees, flags. Persistent = vault metadata, VCs, status.
 #[derive(Clone)]
 #[contracttype]

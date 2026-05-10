@@ -1037,7 +1037,7 @@ fn test_push_revoked_vc_returns_already_revoked_error() {
     client.push(&from_owner, &to_owner, &vc_id, &issuer);
 }
 
-// --- O(1) index tests (issue #20) ---
+// --- O(1) index tests ---
 
 #[test]
 fn test_index_remove_middle_uses_swap_and_pop() {
@@ -1272,7 +1272,7 @@ fn test_index_remains_consistent_after_many_issues_and_revokes() {
     }
 }
 
-// --- Pagination tests (issue #21) ---
+// --- Pagination tests ---
 
 #[test]
 fn test_vc_count_is_zero_for_empty_vault() {
@@ -1432,7 +1432,7 @@ fn test_vc_count_zero_for_unknown_vault() {
     assert_eq!(client.vc_count(&stranger), 0);
 }
 
-// --- migrate_vc_index tests (issue #22) ---
+// --- migrate_vc_index tests ---
 
 /// Write a legacy `VaultVCIds(owner)` entry as if produced by v0.1. The new
 /// O(1) index introduced in #20 has no public writer for this key, so tests
@@ -1553,7 +1553,7 @@ fn test_migrate_vc_index_requires_no_auth() {
     assert_eq!(client.vc_count(&owner), 2);
 }
 
-// --- batch_issue tests (issue #24) ---
+// --- batch_issue tests ---
 
 #[test]
 fn test_batch_issue_writes_all_vcs_in_order() {
@@ -1824,4 +1824,212 @@ fn test_migrate_vc_index_preserves_legacy_order() {
     assert_eq!(listed.get_unchecked(0), String::from_str(&env, "first"));
     assert_eq!(listed.get_unchecked(1), String::from_str(&env, "second"));
     assert_eq!(listed.get_unchecked(2), String::from_str(&env, "third"));
+}
+
+// --- Input length cap tests ---
+//
+// Each cap is enforced at every entrypoint that accepts the field, so the
+// tests pick the entrypoint where each input first reaches the contract:
+// `vc_id` and `vc_data` via issue(), `did_uri` via create_vault(),
+// `issuer_did` via issue(), `date` via revoke(), and the issuers-list
+// length via authorize_issuers().
+//
+// Strings exactly at the cap must succeed; one byte over must panic with
+// InputTooLong (#19) — except for the issuer-list cap, which uses
+// IssuerListTooLong (#20).
+
+fn long_string(env: &Env, byte: u8, n: usize) -> String {
+    extern crate alloc;
+    let v: alloc::vec::Vec<u8> = (0..n).map(|_| byte).collect();
+    String::from_bytes(env, &v)
+}
+
+#[test]
+fn test_create_vault_accepts_did_uri_at_max_len() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    let did_uri = long_string(&env, b'd', 256); // MAX_DID_URI_LEN
+    client.create_vault(&owner, &did_uri);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #19)")] // InputTooLong
+fn test_create_vault_rejects_did_uri_over_max_len() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    let did_uri = long_string(&env, b'd', 257);
+    client.create_vault(&owner, &did_uri);
+}
+
+#[test]
+fn test_issue_accepts_vc_id_at_max_len() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let vc_id = long_string(&env, b'a', 64); // MAX_VC_ID_LEN
+    client.issue(
+        &owner,
+        &vc_id,
+        &String::from_str(&env, "<data>"),
+        &contract_id,
+        &issuer,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+    );
+    assert_eq!(client.vc_count(&owner), 1);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #19)")] // InputTooLong
+fn test_issue_rejects_vc_id_over_max_len() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let vc_id = long_string(&env, b'a', 65);
+    client.issue(
+        &owner,
+        &vc_id,
+        &String::from_str(&env, "<data>"),
+        &contract_id,
+        &issuer,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+    );
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #19)")] // InputTooLong
+fn test_issue_rejects_vc_data_over_max_len() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    // MAX_VC_DATA_LEN is 10_000; 10_001 bytes must reject.
+    let vc_data = long_string(&env, b'd', 10_001);
+    client.issue(
+        &owner,
+        &String::from_str(&env, "vc-1"),
+        &vc_data,
+        &contract_id,
+        &issuer,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+    );
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #19)")] // InputTooLong
+fn test_issue_rejects_issuer_did_over_max_len() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let issuer_did = long_string(&env, b'i', 257);
+    client.issue(
+        &owner,
+        &String::from_str(&env, "vc-1"),
+        &String::from_str(&env, "<data>"),
+        &contract_id,
+        &issuer,
+        &issuer_did,
+        &0_i128,
+    );
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #19)")] // InputTooLong
+fn test_revoke_rejects_date_over_max_len() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let vc_id = String::from_str(&env, "vc-1");
+    client.issue(
+        &owner,
+        &vc_id,
+        &String::from_str(&env, "<data>"),
+        &contract_id,
+        &issuer,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+    );
+    let date = long_string(&env, b'X', 65); // MAX_DATE_LEN = 64
+    client.revoke(&owner, &vc_id, &date);
+}
+
+#[test]
+fn test_authorize_issuers_accepts_max_list_size() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    let mut issuers = soroban_sdk::Vec::<Address>::new(&env);
+    for _ in 0..100 {
+        // MAX_ISSUERS_LIST
+        issuers.push_back(Address::generate(&env));
+    }
+    client.authorize_issuers(&owner, &issuers);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #20)")] // IssuerListTooLong
+fn test_authorize_issuers_rejects_oversized_list() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    let mut issuers = soroban_sdk::Vec::<Address>::new(&env);
+    for _ in 0..101 {
+        issuers.push_back(Address::generate(&env));
+    }
+    client.authorize_issuers(&owner, &issuers);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #19)")] // InputTooLong
+fn test_batch_issue_rejects_oversized_vc_id_within_batch() {
+    // The cap applies inside batch_issue too: even if 4 entries are valid, a
+    // 5th oversize id rejects the whole batch.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let data = String::from_str(&env, "<data>");
+    let bad_id = long_string(&env, b'z', 65);
+    let vcs = soroban_sdk::vec![
+        &env,
+        (String::from_str(&env, "vc-1"), data.clone()),
+        (bad_id, data),
+    ];
+    client.batch_issue(
+        &issuer,
+        &owner,
+        &contract_id,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+        &vcs,
+    );
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #19)")] // InputTooLong
+fn test_get_vc_rejects_oversized_vc_id() {
+    // Read paths cap the input too so an attacker can't force the contract
+    // to spend instructions hashing a 1MB key before the lookup misses.
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    let vc_id = long_string(&env, b'q', 65);
+    client.get_vc(&owner, &vc_id);
 }
