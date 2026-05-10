@@ -42,4 +42,9 @@ pub enum ContractError {
     BatchTooLarge = 17,
     /// Batch issuance called with an empty `vcs` list.
     BatchEmpty = 18,
+    /// String input exceeds its per-field maximum length (vc_id, vc_data,
+    /// did_uri, issuer_did, or date).
+    InputTooLong = 19,
+    /// `authorize_issuers` called with a list larger than `MAX_ISSUERS_LIST`.
+    IssuerListTooLong = 20,
 }

@@ -135,6 +135,7 @@ impl VcVaultTrait for VcVaultContract {
     }
 
     fn create_vault(e: Env, owner: Address, did_uri: String) {
+        require_did_uri_len(&e, &did_uri);
         if !storage::has_contract_admin(&e) {
             panic_with_error!(e, ContractError::NotInitialized);
         }
@@ -162,6 +163,7 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Replace full issuer list. Vault admin only.
     fn authorize_issuers(e: Env, owner: Address, issuers: Vec<Address>) {
+        require_issuers_list_len(&e, &issuers);
         validate_vault_admin(&e, &owner);
         validate_vault_active(&e, &owner);
         vault::authorize_issuers(&e, &owner, &issuers);
@@ -248,6 +250,7 @@ impl VcVaultTrait for VcVaultContract {
         owner: Address,
         vc_id: String,
     ) -> Option<crate::model::VerifiableCredential> {
+        require_vc_id_len(&e, &vc_id);
         storage::extend_vault_ttl(&e, &owner);
         let vc = storage::read_vault_vc(&e, &owner, &vc_id);
         if vc.is_some() {
@@ -258,6 +261,7 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Verify VC status. Returns VCStatus::Valid, VCStatus::Revoked(date), or VCStatus::Invalid.
     fn verify_vc(e: Env, owner: Address, vc_id: String) -> VCStatus {
+        require_vc_id_len(&e, &vc_id);
         storage::extend_vault_ttl(&e, &owner);
         let vc_opt = storage::read_vault_vc(&e, &owner, &vc_id);
         if vc_opt.is_none() {
@@ -278,6 +282,7 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Moves a Valid VC from one vault to another; source owner and an authorized issuer must sign.
     fn push(e: Env, from_owner: Address, to_owner: Address, vc_id: String, issuer_addr: Address) {
+        require_vc_id_len(&e, &vc_id);
         validate_vault_active(&e, &from_owner);
         validate_vault_active(&e, &to_owner);
         from_owner.require_auth();
@@ -344,6 +349,9 @@ impl VcVaultTrait for VcVaultContract {
         issuer_did: String,
         fee_override: i128,
     ) -> String {
+        require_vc_id_len(&e, &vc_id);
+        require_vc_data_len(&e, &vc_data);
+        require_issuer_did_len(&e, &issuer_did);
         issuer_addr.require_auth();
         let this = e.current_contract_address();
         if vault_contract != this {
@@ -403,6 +411,14 @@ impl VcVaultTrait for VcVaultContract {
         fee_override: i128,
         vcs: Vec<(String, String)>,
     ) -> Vec<String> {
+        require_issuer_did_len(&e, &issuer_did);
+        // Validate every (vc_id, vc_data) pair up front so an oversize entry
+        // late in the batch doesn't waste CPU on the earlier valid ones.
+        for entry in vcs.iter() {
+            let (vc_id, vc_data) = entry;
+            require_vc_id_len(&e, &vc_id);
+            require_vc_data_len(&e, &vc_data);
+        }
         issuer_addr.require_auth();
         let n = vcs.len();
         if n == 0 {
@@ -477,6 +493,8 @@ impl VcVaultTrait for VcVaultContract {
     /// reissued under a new vc_id, preserving the `MAX_VCS_PER_VAULT` cap as
     /// a *concurrent active* limit).
     fn revoke(e: Env, owner: Address, vc_id: String, date: String) {
+        require_vc_id_len(&e, &vc_id);
+        require_date_len(&e, &date);
         owner.require_auth();
         // VC must exist in this vault (not pushed away) and must not have been
         // revoked already. Checking vault_vc guards against the pushed-away case
@@ -514,6 +532,10 @@ impl VcVaultTrait for VcVaultContract {
         parent_owner: Address,
         parent_vc_id: String,
     ) {
+        require_vc_id_len(&e, &vc_id);
+        require_vc_data_len(&e, &data);
+        require_issuer_did_len(&e, &issuer_did);
+        require_vc_id_len(&e, &parent_vc_id);
         issuer.require_auth();
         let this = e.current_contract_address();
         if issuance_contract != this {
@@ -553,6 +575,7 @@ impl VcVaultTrait for VcVaultContract {
     /// Returns Some((parent_owner, parent_vc_id)) if the VC was issued via issue_linked,
     /// or None if it is a regular VC with no parent link.
     fn get_vc_parent(e: Env, owner: Address, vc_id: String) -> Option<(Address, String)> {
+        require_vc_id_len(&e, &vc_id);
         storage::extend_instance_ttl(&e);
         storage::read_vc_parent(&e, &owner, &vc_id)
     }
@@ -561,6 +584,7 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Creates a vault on behalf of owner; sponsor must sign and be authorized unless open_to_all is enabled.
     fn create_sponsored_vault(e: Env, sponsor: Address, owner: Address, did_uri: String) {
+        require_did_uri_len(&e, &did_uri);
         sponsor.require_auth();
         if !storage::has_contract_admin(&e) {
             panic_with_error!(e, ContractError::NotInitialized);
@@ -745,4 +769,47 @@ fn store_vc_payload(
         }
     }
     vault::store_vc(e, owner, vc_id, vc_data, issuance_contract, issuer_did);
+}
+
+// --- Input length validators ---
+//
+// Each public entrypoint that accepts user-controlled strings calls these
+// before doing any storage I/O. Violations panic with `InputTooLong` so the
+// transaction reverts before the contract spends instructions hashing or
+// indexing oversized payloads.
+
+fn require_vc_id_len(e: &Env, vc_id: &String) {
+    if vc_id.len() > storage::MAX_VC_ID_LEN {
+        panic_with_error!(e, ContractError::InputTooLong);
+    }
+}
+
+fn require_vc_data_len(e: &Env, vc_data: &String) {
+    if vc_data.len() > storage::MAX_VC_DATA_LEN {
+        panic_with_error!(e, ContractError::InputTooLong);
+    }
+}
+
+fn require_did_uri_len(e: &Env, did_uri: &String) {
+    if did_uri.len() > storage::MAX_DID_URI_LEN {
+        panic_with_error!(e, ContractError::InputTooLong);
+    }
+}
+
+fn require_issuer_did_len(e: &Env, issuer_did: &String) {
+    if issuer_did.len() > storage::MAX_ISSUER_DID_LEN {
+        panic_with_error!(e, ContractError::InputTooLong);
+    }
+}
+
+fn require_date_len(e: &Env, date: &String) {
+    if date.len() > storage::MAX_DATE_LEN {
+        panic_with_error!(e, ContractError::InputTooLong);
+    }
+}
+
+fn require_issuers_list_len(e: &Env, issuers: &Vec<Address>) {
+    if issuers.len() > storage::MAX_ISSUERS_LIST {
+        panic_with_error!(e, ContractError::IssuerListTooLong);
+    }
 }
