@@ -5,10 +5,22 @@ use crate::storage;
 use soroban_sdk::{panic_with_error, Address, Env, Vec};
 
 /// Adds an issuer to the vault's authorized list; panics if already present.
+///
+/// Enforces `MAX_ISSUERS_LIST` here rather than at the entrypoint so the cap
+/// covers every growth path:
+///   - direct `authorize_issuer(owner, issuer)` calls
+///   - auto-authorization triggered by `issue` / `batch_issue` /
+///     `issue_linked` via `ensure_issuer_authorized`
+///
+/// `authorize_issuers(list)` is checked at its entrypoint instead because it
+/// fully replaces the stored list (the cap on the new list is what matters).
 pub fn authorize_issuer(e: &Env, owner: &Address, issuer: &Address) {
     let mut issuers: Vec<Address> = storage::read_vault_issuers(e, owner);
     if is_authorized(&issuers, issuer) {
         panic_with_error!(e, ContractError::IssuerAlreadyAuthorized)
+    }
+    if issuers.len() >= storage::MAX_ISSUERS_LIST {
+        panic_with_error!(e, ContractError::IssuerListTooLong)
     }
     issuers.push_front(issuer.clone());
     storage::write_vault_issuers(e, owner, &issuers);

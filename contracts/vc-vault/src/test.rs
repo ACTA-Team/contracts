@@ -2033,3 +2033,51 @@ fn test_get_vc_rejects_oversized_vc_id() {
     let vc_id = long_string(&env, b'q', 65);
     client.get_vc(&owner, &vc_id);
 }
+
+#[test]
+#[should_panic(expected = "Error(Contract, #20)")] // IssuerListTooLong
+fn test_authorize_issuer_rejects_when_list_at_cap() {
+    // Cap must apply to single-add too, not just the bulk replace path.
+    // Fill the list to MAX_ISSUERS_LIST=100 via authorize_issuers (which is
+    // capped at exactly that count), then authorize_issuer one more — must
+    // panic with IssuerListTooLong instead of silently growing past the cap.
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    let mut issuers = soroban_sdk::Vec::<Address>::new(&env);
+    for _ in 0..100 {
+        issuers.push_back(Address::generate(&env));
+    }
+    client.authorize_issuers(&owner, &issuers);
+    let extra = Address::generate(&env);
+    client.authorize_issuer(&owner, &extra);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #20)")] // IssuerListTooLong
+fn test_issue_rejects_auto_authorization_when_list_at_cap() {
+    // Auto-authorization inside ensure_issuer_authorized is the silent
+    // growth path CodeRabbit flagged: an attacker could spam issue() from
+    // many fresh addresses to grow VaultIssuers past the cap. The fix moves
+    // the cap check into vault::authorize_issuer, which fires on this path.
+    let (env, admin, _issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    let mut issuers = soroban_sdk::Vec::<Address>::new(&env);
+    for _ in 0..100 {
+        issuers.push_back(Address::generate(&env));
+    }
+    client.authorize_issuers(&owner, &issuers);
+    let attacker = Address::generate(&env);
+    client.issue(
+        &owner,
+        &String::from_str(&env, "vc-1"),
+        &String::from_str(&env, "<data>"),
+        &contract_id,
+        &attacker,
+        &String::from_str(&env, "did:attacker"),
+        &0_i128,
+    );
+}
