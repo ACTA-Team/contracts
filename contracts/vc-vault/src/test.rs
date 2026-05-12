@@ -2081,3 +2081,200 @@ fn test_issue_rejects_auto_authorization_when_list_at_cap() {
         &0_i128,
     );
 }
+
+// --- Event emission tests ---
+//
+// env.events().all() returns events from the last invocation only, so each
+// test calls the entrypoint and asserts the event count immediately —
+// before any other contract call that would clear the event buffer.
+
+#[test]
+fn test_initialize_emits_contract_initialized() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(VcVaultContract, ());
+    let client = VcVaultContractClient::new(&env, &contract_id);
+    client.initialize(&admin);
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+fn test_nominate_admin_emits_admin_nominated() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let nominee = Address::generate(&env);
+    client.nominate_admin(&nominee);
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+fn test_accept_contract_admin_emits_admin_transferred() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let nominee = Address::generate(&env);
+    client.nominate_admin(&nominee);
+    client.accept_contract_admin();
+    // accept_contract_admin emits one event in its own invocation; the prior
+    // nominate_admin event is in a separate invocation and not in this buffer.
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+fn test_set_fee_enabled_emits_fee_enabled_changed() {
+    let (_env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    // setup's env mocks auths; reuse without renaming.
+    let env_ref = client.env.clone();
+    client.set_fee_enabled(&true);
+    assert_eq!(env_ref.events().all().len(), 1);
+}
+
+#[test]
+fn test_set_fee_config_emits_fee_config_set() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let token = Address::generate(&env);
+    let dest = Address::generate(&env);
+    client.set_fee_config(&token, &dest, &1_500_000_i128);
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+fn test_set_fee_admin_emits_fee_admin_set() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    client.set_fee_admin(&500_i128);
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+fn test_set_fee_standard_emits_fee_standard_set() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    client.set_fee_standard(&2_000_000_i128);
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+fn test_set_fee_early_emits_fee_early_set() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    client.set_fee_early(&350_000_i128);
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+fn test_set_fee_custom_emits_fee_custom_set() {
+    let (env, admin, issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    client.set_fee_custom(&issuer, &100_000_i128);
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+fn test_set_sponsored_vault_open_to_all_emits_event() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    client.set_sponsored_vault_open_to_all(&true);
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+fn test_add_sponsored_vault_sponsor_emits_sponsor_added() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let sponsor = Address::generate(&env);
+    client.add_sponsored_vault_sponsor(&sponsor);
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+fn test_remove_sponsored_vault_sponsor_emits_sponsor_removed() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let sponsor = Address::generate(&env);
+    client.add_sponsored_vault_sponsor(&sponsor);
+    client.remove_sponsored_vault_sponsor(&sponsor);
+    // The remove call is the last invocation; the add was a separate one.
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+fn test_migrate_vc_index_emits_event_with_count() {
+    let (env, admin, _issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    seed_legacy_vault_vc_ids(&env, &contract_id, &owner, &["x", "y", "z"]);
+    client.migrate_vc_index(&owner);
+    // migrate_vc_index is the last invocation; we don't care about events from
+    // create_vault (different invocation). The exact event count for this
+    // invocation is 1 (VaultIndexMigrated).
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+fn test_migrate_vc_index_noop_still_emits_event() {
+    // Even a no-op migration (vault that never had legacy data) emits the
+    // event so indexers see the migration attempt resolved.
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.migrate_vc_index(&owner);
+    assert_eq!(env.events().all().len(), 1);
+}
+
+/// Seed a legacy `LegacyVaultVCs(owner)` entry as if produced by v0 (pre
+/// VaultVC + VaultVCIds split). Mirrors `seed_legacy_vault_vc_ids` but for
+/// the older schema consumed by `migrate(owner)`.
+fn seed_legacy_vault_vcs(
+    env: &Env,
+    contract_id: &Address,
+    owner: &Address,
+    ids: &[&str],
+    data: &str,
+    issuance_contract: &Address,
+    issuer_did: &str,
+) {
+    env.as_contract(contract_id, || {
+        let mut vec_vcs =
+            soroban_sdk::Vec::<crate::model::VerifiableCredential>::new(env);
+        for id in ids.iter() {
+            vec_vcs.push_back(crate::model::VerifiableCredential {
+                id: String::from_str(env, id),
+                data: String::from_str(env, data),
+                issuance_contract: issuance_contract.clone(),
+                issuer_did: String::from_str(env, issuer_did),
+            });
+        }
+        let key = crate::storage::DataKey::LegacyVaultVCs(owner.clone());
+        env.storage().persistent().set(&key, &vec_vcs);
+    });
+}
+
+#[test]
+fn test_migrate_emits_vault_migrated() {
+    // Simulate a v0 vault with one VC in LegacyVaultVCs and verify migrate()
+    // emits VaultMigrated. The legacy schema is reached only via the v0 →
+    // v0.1 migration path, which is what migrate() is for.
+    let (env, admin, _issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    seed_legacy_vault_vcs(
+        &env,
+        &contract_id,
+        &owner,
+        &["legacy-vc-1"],
+        "<data>",
+        &contract_id,
+        "did:issuer",
+    );
+    client.migrate(&owner);
+    // migrate() writes via vault::store_vc which appends to the new index,
+    // but emits VaultMigrated as the only event from this entrypoint (the
+    // VC-level writes do not emit events because vault::store_vc never has).
+    assert_eq!(env.events().all().len(), 1);
+}
