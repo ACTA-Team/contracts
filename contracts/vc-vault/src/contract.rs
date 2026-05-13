@@ -159,7 +159,6 @@ impl VcVaultTrait for VcVaultContract {
         storage::write_vault_admin(&e, &owner, &owner);
         storage::write_vault_did(&e, &owner, &did_uri);
         storage::write_vault_revoked(&e, &owner, &false);
-        storage::write_vault_issuers(&e, &owner, &Vec::new(&e));
         storage::extend_vault_ttl(&e, &owner);
         events::vault_created(&e, &owner, &did_uri);
     }
@@ -614,7 +613,6 @@ impl VcVaultTrait for VcVaultContract {
         storage::write_vault_admin(&e, &owner, &owner);
         storage::write_vault_did(&e, &owner, &did_uri);
         storage::write_vault_revoked(&e, &owner, &false);
-        storage::write_vault_issuers(&e, &owner, &Vec::new(&e));
         storage::extend_vault_ttl(&e, &owner);
         storage::extend_instance_ttl(&e);
         events::sponsored_vault_created(&e, &sponsor, &owner, &did_uri);
@@ -712,6 +710,91 @@ impl VcVaultTrait for VcVaultContract {
         storage::extend_vault_ttl(&e, &owner);
         events::vault_index_migrated(&e, &owner, migrated_count);
     }
+
+    /// Migrate legacy `VaultIssuers` / `VaultDeniedIssuers` Vec entries into the
+    /// O(1) index. No auth required. Panics `IssuersAlreadyMigrated` on double-call.
+    fn migrate_issuer_index(e: Env, owner: Address) {
+        if storage::read_issuer_count(&e, &owner) > 0 {
+            panic_with_error!(e, ContractError::IssuersAlreadyMigrated);
+        }
+        let auth_count;
+        if storage::has_legacy_vault_issuers(&e, &owner) {
+            let legacy_auth = storage::read_vault_issuers(&e, &owner);
+            auth_count = legacy_auth.len();
+            for issuer in legacy_auth.iter() {
+                storage::append_issuer_to_index(&e, &owner, &issuer);
+            }
+        } else {
+            auth_count = 0;
+        }
+        let legacy_denied = storage::read_vault_denied_issuers(&e, &owner);
+        let denied_count = legacy_denied.len();
+        for issuer in legacy_denied.iter() {
+            storage::append_denied_issuer_to_index(&e, &owner, &issuer);
+        }
+        if storage::has_legacy_vault_issuers(&e, &owner) {
+            storage::remove_legacy_vault_issuers(&e, &owner);
+        }
+        if storage::has_legacy_vault_denied_issuers(&e, &owner) {
+            storage::remove_legacy_vault_denied_issuers(&e, &owner);
+        }
+        storage::extend_vault_ttl(&e, &owner);
+        events::issuer_index_migrated(&e, &owner, auth_count, denied_count);
+    }
+
+    fn list_authorized_issuers(e: Env, owner: Address, offset: u32, limit: u32) -> Vec<Address> {
+        if limit > storage::MAX_LIST_LIMIT {
+            panic_with_error!(e, ContractError::LimitTooLarge);
+        }
+        storage::extend_vault_ttl(&e, &owner);
+        let mut result = Vec::new(&e);
+        if limit == 0 {
+            return result;
+        }
+        let count = storage::read_issuer_count(&e, &owner);
+        if offset >= count {
+            return result;
+        }
+        let end = offset.saturating_add(limit).min(count);
+        for i in offset..end {
+            if let Some(addr) = storage::read_issuer_at_extend(&e, &owner, i) {
+                result.push_back(addr);
+            }
+        }
+        result
+    }
+
+    fn list_denied_issuers(e: Env, owner: Address, offset: u32, limit: u32) -> Vec<Address> {
+        if limit > storage::MAX_LIST_LIMIT {
+            panic_with_error!(e, ContractError::LimitTooLarge);
+        }
+        storage::extend_vault_ttl(&e, &owner);
+        let mut result = Vec::new(&e);
+        if limit == 0 {
+            return result;
+        }
+        let count = storage::read_denied_issuer_count(&e, &owner);
+        if offset >= count {
+            return result;
+        }
+        let end = offset.saturating_add(limit).min(count);
+        for i in offset..end {
+            if let Some(addr) = storage::read_denied_issuer_at_extend(&e, &owner, i) {
+                result.push_back(addr);
+            }
+        }
+        result
+    }
+
+    fn authorized_issuer_count(e: Env, owner: Address) -> u32 {
+        storage::extend_vault_ttl(&e, &owner);
+        storage::read_issuer_count(&e, &owner)
+    }
+
+    fn denied_issuer_count(e: Env, owner: Address) -> u32 {
+        storage::extend_vault_ttl(&e, &owner);
+        storage::read_denied_issuer_count(&e, &owner)
+    }
 }
 
 // --- Validation helpers ---
@@ -748,21 +831,19 @@ fn validate_vault_active(e: &Env, owner: &Address) {
     }
 }
 
-/// Ensure issuer is in vault's authorized list. No signature check.
+/// Ensure issuer is in vault's authorized index. No signature check.
 fn validate_issuer_authorized_only(e: &Env, owner: &Address, issuer_addr: &Address) {
     validate_vault_initialized(e, owner);
-    let issuers = storage::read_vault_issuers(e, owner);
-    if !vault::is_authorized(&issuers, issuer_addr) {
+    if !vault::is_authorized(e, owner, issuer_addr) {
         panic_with_error!(e, ContractError::IssuerNotAuthorized)
     }
 }
 
-/// Auto-authorizes issuer if not present in vault's list; panics if issuer is in the denied list.
+/// Auto-authorizes issuer if not in the authorized index; panics if in the denied index.
 fn ensure_issuer_authorized(e: &Env, owner: &Address, issuer_addr: &Address) {
     validate_vault_initialized(e, owner);
-    let issuers = storage::read_vault_issuers(e, owner);
-    if !vault::is_authorized(&issuers, issuer_addr) {
-        if storage::is_issuer_denied(e, owner, issuer_addr) {
+    if !vault::is_authorized(e, owner, issuer_addr) {
+        if storage::denied_issuer_index_contains(e, owner, issuer_addr) {
             panic_with_error!(e, ContractError::IssuerNotAuthorized)
         }
         vault::authorize_issuer(e, owner, issuer_addr);

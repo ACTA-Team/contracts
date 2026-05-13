@@ -349,3 +349,24 @@ pub fn vault_index_migrated(e: &Env, owner: &Address, migrated_count: u32) {
     }
     .publish(e);
 }
+
+#[contractevent]
+pub struct IssuerIndexMigrated {
+    pub owner: Address,
+    pub authorized_count: u32,
+    pub denied_count: u32,
+}
+
+pub fn issuer_index_migrated(
+    e: &Env,
+    owner: &Address,
+    authorized_count: u32,
+    denied_count: u32,
+) {
+    IssuerIndexMigrated {
+        owner: owner.clone(),
+        authorized_count,
+        denied_count,
+    }
+    .publish(e);
+}

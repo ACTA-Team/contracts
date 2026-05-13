@@ -47,4 +47,6 @@ pub enum ContractError {
     InputTooLong = 19,
     /// `authorize_issuers` called with a list larger than `MAX_ISSUERS_LIST`.
     IssuerListTooLong = 20,
+    /// Issuer index already migrated; nothing to do.
+    IssuersAlreadyMigrated = 21,
 }

@@ -69,6 +69,11 @@ pub trait VcVaultTrait {
     fn get_vc_parent(e: Env, owner: Address, vc_id: String) -> Option<(Address, String)>;
     fn migrate(e: Env, owner: Address);
     fn migrate_vc_index(e: Env, owner: Address);
+    fn migrate_issuer_index(e: Env, owner: Address);
+    fn list_authorized_issuers(e: Env, owner: Address, offset: u32, limit: u32) -> Vec<Address>;
+    fn list_denied_issuers(e: Env, owner: Address, offset: u32, limit: u32) -> Vec<Address>;
+    fn authorized_issuer_count(e: Env, owner: Address) -> u32;
+    fn denied_issuer_count(e: Env, owner: Address) -> u32;
     fn create_sponsored_vault(e: Env, sponsor: Address, owner: Address, did_uri: String);
     fn set_sponsored_vault_open_to_all(e: Env, open: bool);
     fn get_sponsored_vault_open_to_all(e: Env) -> bool;

@@ -2428,3 +2428,188 @@ fn test_migrate_emits_vault_migrated() {
         Map::<Symbol, Val>::try_from_val(&env, &expected.data(&env)).unwrap(),
     );
 }
+
+// --- Issuer O(1) index tests ---
+
+fn seed_legacy_vault_issuers(
+    env: &Env,
+    contract_id: &Address,
+    owner: &Address,
+    addrs: &[&Address],
+) {
+    env.as_contract(contract_id, || {
+        let mut vec_issuers = soroban_sdk::Vec::<Address>::new(env);
+        for addr in addrs.iter() {
+            vec_issuers.push_back((*addr).clone());
+        }
+        let key = crate::storage::DataKey::VaultIssuers(owner.clone());
+        env.storage().persistent().set(&key, &vec_issuers);
+    });
+}
+
+fn seed_legacy_vault_denied_issuers(
+    env: &Env,
+    contract_id: &Address,
+    owner: &Address,
+    addrs: &[&Address],
+) {
+    env.as_contract(contract_id, || {
+        let mut vec_denied = soroban_sdk::Vec::<Address>::new(env);
+        for addr in addrs.iter() {
+            vec_denied.push_back((*addr).clone());
+        }
+        let key = crate::storage::DataKey::VaultDeniedIssuers(owner.clone());
+        env.storage().persistent().set(&key, &vec_denied);
+    });
+}
+
+#[test]
+fn test_migrate_issuer_index_no_legacy() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    // No legacy issuer data — migrating is a no-op but must succeed.
+    client.migrate_issuer_index(&owner);
+    assert_eq!(client.authorized_issuer_count(&owner), 0);
+    assert_eq!(client.denied_issuer_count(&owner), 0);
+}
+
+#[test]
+fn test_migrate_issuer_index_with_issuers() {
+    let (env, admin, _issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    let issuer1 = Address::generate(&env);
+    let issuer2 = Address::generate(&env);
+    seed_legacy_vault_issuers(&env, &contract_id, &owner, &[&issuer1, &issuer2]);
+    client.migrate_issuer_index(&owner);
+    assert_eq!(client.authorized_issuer_count(&owner), 2);
+    let listed = client.list_authorized_issuers(&owner, &0_u32, &100_u32);
+    assert!(listed.contains(issuer1));
+    assert!(listed.contains(issuer2));
+}
+
+#[test]
+fn test_migrate_issuer_index_with_denied() {
+    let (env, admin, _issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    let denied1 = Address::generate(&env);
+    seed_legacy_vault_denied_issuers(&env, &contract_id, &owner, &[&denied1]);
+    client.migrate_issuer_index(&owner);
+    assert_eq!(client.denied_issuer_count(&owner), 1);
+    let listed = client.list_denied_issuers(&owner, &0_u32, &100_u32);
+    assert!(listed.contains(denied1));
+}
+
+#[test]
+#[should_panic]
+fn test_migrate_issuer_index_already_done() {
+    let (env, admin, issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    // Authorize an issuer to populate the new index.
+    client.authorize_issuer(&owner, &issuer);
+    // Second call must panic because the index already has entries.
+    client.migrate_issuer_index(&owner);
+}
+
+#[test]
+fn test_migrate_issuer_index_emits_event() {
+    let (env, admin, _issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    let i1 = Address::generate(&env);
+    let i2 = Address::generate(&env);
+    let d1 = Address::generate(&env);
+    seed_legacy_vault_issuers(&env, &contract_id, &owner, &[&i1, &i2]);
+    seed_legacy_vault_denied_issuers(&env, &contract_id, &owner, &[&d1]);
+    client.migrate_issuer_index(&owner);
+    assert_eq!(env.events().all().len(), 1);
+}
+
+#[test]
+fn test_list_authorized_issuers_pagination() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    let i1 = Address::generate(&env);
+    let i2 = Address::generate(&env);
+    let i3 = Address::generate(&env);
+    client.authorize_issuer(&owner, &i1);
+    client.authorize_issuer(&owner, &i2);
+    client.authorize_issuer(&owner, &i3);
+    // Full page.
+    let all = client.list_authorized_issuers(&owner, &0_u32, &100_u32);
+    assert_eq!(all.len(), 3);
+    // Paginated first two.
+    let page1 = client.list_authorized_issuers(&owner, &0_u32, &2_u32);
+    assert_eq!(page1.len(), 2);
+    // Offset past end.
+    let empty = client.list_authorized_issuers(&owner, &10_u32, &100_u32);
+    assert_eq!(empty.len(), 0);
+}
+
+#[test]
+fn test_list_denied_issuers_pagination() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    let i1 = Address::generate(&env);
+    let i2 = Address::generate(&env);
+    client.authorize_issuer(&owner, &i1);
+    client.authorize_issuer(&owner, &i2);
+    client.revoke_issuer(&owner, &i1);
+    client.revoke_issuer(&owner, &i2);
+    let all = client.list_denied_issuers(&owner, &0_u32, &100_u32);
+    assert_eq!(all.len(), 2);
+    let page1 = client.list_denied_issuers(&owner, &0_u32, &1_u32);
+    assert_eq!(page1.len(), 1);
+    let empty = client.list_denied_issuers(&owner, &5_u32, &100_u32);
+    assert_eq!(empty.len(), 0);
+}
+
+#[test]
+fn test_authorized_issuer_count() {
+    let (env, admin, issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    assert_eq!(client.authorized_issuer_count(&owner), 0);
+    client.authorize_issuer(&owner, &issuer);
+    assert_eq!(client.authorized_issuer_count(&owner), 1);
+}
+
+#[test]
+fn test_is_authorized_o1() {
+    let (env, admin, issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let listed = client.list_authorized_issuers(&owner, &0_u32, &100_u32);
+    assert!(listed.contains(issuer));
+}
+
+#[test]
+fn test_revoke_issuer_updates_index() {
+    let (env, admin, issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    assert_eq!(client.authorized_issuer_count(&owner), 1);
+    assert_eq!(client.denied_issuer_count(&owner), 0);
+    client.revoke_issuer(&owner, &issuer);
+    assert_eq!(client.authorized_issuer_count(&owner), 0);
+    assert_eq!(client.denied_issuer_count(&owner), 1);
+    let denied = client.list_denied_issuers(&owner, &0_u32, &100_u32);
+    assert!(denied.contains(issuer));
+}
