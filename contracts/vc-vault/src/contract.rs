@@ -846,7 +846,7 @@ fn ensure_issuer_authorized(e: &Env, owner: &Address, issuer_addr: &Address) {
         if storage::denied_issuer_index_contains(e, owner, issuer_addr) {
             panic_with_error!(e, ContractError::IssuerNotAuthorized)
         }
-        vault::authorize_issuer(e, owner, issuer_addr);
+        storage::append_issuer_to_index(e, owner, issuer_addr);
     }
 }
 
