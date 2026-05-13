@@ -77,6 +77,11 @@ Linked VCs establish a parent–child relationship between credentials across va
 | Function | Auth | Description |
 |---|---|---|
 | `migrate(owner)` | vault admin | Migrate VCs from the legacy storage format to the current format. Fails with `VCSAlreadyMigrated` if migration has already been run. |
+| `migrate_vc_index(owner)` | none | Migrate the v0.1 `Vec<String>` VC index to the O(1) index. Safe for vaults with ≤ 10 legacy entries. |
+| `migrate_vc_index_chunk(owner, chunk_size)` | none | Chunked variant for large legacy vaults. Migrates up to `chunk_size` entries (max 10) per call. Returns remaining count; 0 means done. Call repeatedly until 0. |
+| `migrate_issuer_index(owner)` | none | Migrate legacy `Vec<Address>` issuer lists to the O(1) index. |
+
+Vaults have no per-vault VC cap; the limit is the u32 position counter (~4.3 billion) and storage rent paid by transactors.
 
 ---
 
@@ -112,6 +117,15 @@ Authorization is enforced via `require_auth()` on every privileged operation. Re
 | 12 | `VCAlreadyExists` | `issue` or `push` would create a duplicate VC ID in the target vault |
 | 13 | `NoPendingAdmin` | `accept_contract_admin` called with no active nomination |
 | 14 | `ParentVCInvalid` | `issue_linked` called with a parent VC that does not exist or is revoked |
+| 15 | `VaultFull` | u32 VC position counter would overflow (~4.3 billion VCs) |
+| 16 | `LimitTooLarge` | `list_vc_ids` / `list_authorized_issuers` `limit` exceeds `MAX_LIST_LIMIT` (200) |
+| 17 | `BatchTooLarge` | `batch_issue` request exceeds `MAX_BATCH_SIZE` (5) |
+| 18 | `BatchEmpty` | `batch_issue` called with an empty VC list |
+| 19 | `InputTooLong` | A string field exceeds its per-field length cap |
+| 20 | `IssuerListTooLong` | `authorize_issuers` called with a list exceeding `MAX_ISSUERS_LIST` (100) |
+| 21 | `IssuersAlreadyMigrated` | `migrate_issuer_index` called after migration is complete |
+| 22 | `InvalidFeeAmount` | Fee amount is negative |
+| 23 | `FeeOutOfBounds` | Fee amount exceeds `MAX_FEE_AMOUNT` (10^18 stroops) |
 
 ---
 

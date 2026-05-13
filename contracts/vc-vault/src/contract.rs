@@ -718,6 +718,50 @@ impl VcVaultTrait for VcVaultContract {
         events::vault_index_migrated(&e, &owner, migrated_count);
     }
 
+    /// Chunked variant of `migrate_vc_index` for large legacy vaults.
+    /// Migrates up to `chunk_size` entries per call (clamped to [1, MAX_MIGRATION_BATCH]).
+    /// Returns the number of entries still remaining; 0 means migration is complete.
+    /// No auth required. Panics `VCSAlreadyMigrated` on double-call after completion.
+    fn migrate_vc_index_chunk(e: Env, owner: Address, chunk_size: u32) -> u32 {
+        let chunk_size = chunk_size
+            .max(1)
+            .min(storage::MAX_MIGRATION_BATCH);
+
+        let legacy_ids = storage::read_legacy_vault_vc_ids(&e, &owner);
+        let cursor = storage::read_migration_cursor(&e, &owner);
+        let total = legacy_ids.len();
+
+        if total == 0 && cursor == 0 {
+            if storage::read_vc_count(&e, &owner) > 0 {
+                panic_with_error!(e, ContractError::VCSAlreadyMigrated);
+            }
+            storage::extend_vault_ttl(&e, &owner);
+            events::vault_index_migrated(&e, &owner, 0);
+            return 0;
+        }
+
+        let end = (cursor + chunk_size).min(total);
+        for i in cursor..end {
+            if let Some(vc_id) = legacy_ids.get(i) {
+                storage::append_vc_to_index(&e, &owner, &vc_id);
+            }
+        }
+
+        if end >= total {
+            storage::remove_legacy_vault_vc_ids(&e, &owner);
+            if storage::has_migration_cursor(&e, &owner) {
+                storage::remove_migration_cursor(&e, &owner);
+            }
+            storage::extend_vault_ttl(&e, &owner);
+            events::vault_index_migrated(&e, &owner, total);
+            0
+        } else {
+            storage::write_migration_cursor(&e, &owner, end);
+            storage::extend_vault_ttl(&e, &owner);
+            total - end
+        }
+    }
+
     /// Migrate legacy `VaultIssuers` / `VaultDeniedIssuers` Vec entries into the
     /// O(1) index. No auth required. Panics `IssuersAlreadyMigrated` on double-call.
     fn migrate_issuer_index(e: Env, owner: Address) {
