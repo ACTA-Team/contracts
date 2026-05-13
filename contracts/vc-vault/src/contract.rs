@@ -36,14 +36,16 @@ impl VcVaultTrait for VcVaultContract {
         storage::write_contract_admin(&e, &contract_admin);
         storage::write_fee_enabled(&e, &false);
         storage::extend_instance_ttl(&e);
+        events::contract_initialized(&e, &contract_admin);
     }
 
     /// Nominate a new contract admin. Current admin must sign.
     /// The nominee must call accept_contract_admin to complete the transfer.
     fn nominate_admin(e: Env, new_admin: Address) {
-        let _ = validate_contract_admin(&e);
+        let current = validate_contract_admin(&e);
         storage::write_pending_admin(&e, &new_admin);
         storage::extend_instance_ttl(&e);
+        events::admin_nominated(&e, &current, &new_admin);
     }
 
     /// Accept a pending admin nomination. Nominee must sign.
@@ -53,9 +55,13 @@ impl VcVaultTrait for VcVaultContract {
             None => panic_with_error!(e, ContractError::NoPendingAdmin),
         };
         pending.require_auth();
+        // Capture the outgoing admin before overwriting so the event carries both
+        // sides of the transfer.
+        let old_admin = storage::read_contract_admin(&e);
         storage::write_contract_admin(&e, &pending);
         storage::remove_pending_admin(&e);
         storage::extend_instance_ttl(&e);
+        events::admin_transferred(&e, &old_admin, &pending);
     }
 
     /// Configure fee: token, destination, amount. Admin only.
@@ -65,6 +71,7 @@ impl VcVaultTrait for VcVaultContract {
         storage::write_fee_dest(&e, &fee_dest);
         storage::write_fee_amount(&e, &fee_amount);
         storage::extend_instance_ttl(&e);
+        events::fee_config_set(&e, &token_contract, &fee_dest, fee_amount);
     }
 
     /// Enable or disable fee charging on issue. Admin only.
@@ -72,30 +79,35 @@ impl VcVaultTrait for VcVaultContract {
         validate_contract_admin(&e);
         storage::write_fee_enabled(&e, &enabled);
         storage::extend_instance_ttl(&e);
+        events::fee_enabled_changed(&e, enabled);
     }
 
     fn set_fee_admin(e: Env, fee_amount: i128) {
         validate_contract_admin(&e);
         storage::write_fee_admin(&e, &fee_amount);
         storage::extend_instance_ttl(&e);
+        events::fee_admin_set(&e, fee_amount);
     }
 
     fn set_fee_standard(e: Env, fee_amount: i128) {
         validate_contract_admin(&e);
         storage::write_fee_standard(&e, &fee_amount);
         storage::extend_instance_ttl(&e);
+        events::fee_standard_set(&e, fee_amount);
     }
 
     fn set_fee_early(e: Env, fee_amount: i128) {
         validate_contract_admin(&e);
         storage::write_fee_early(&e, &fee_amount);
         storage::extend_instance_ttl(&e);
+        events::fee_early_set(&e, fee_amount);
     }
 
     fn set_fee_custom(e: Env, issuer: Address, fee_amount: i128) {
         validate_contract_admin(&e);
         storage::write_fee_custom(&e, &issuer, &fee_amount);
         storage::extend_instance_ttl(&e);
+        events::fee_custom_set(&e, &issuer, fee_amount);
     }
 
     fn get_fee_admin(e: Env) -> i128 {
@@ -122,6 +134,7 @@ impl VcVaultTrait for VcVaultContract {
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
         validate_contract_admin(&e);
         storage::extend_instance_ttl(&e);
+        events::contract_upgraded(&e, &new_wasm_hash);
         e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
 
@@ -612,6 +625,7 @@ impl VcVaultTrait for VcVaultContract {
         validate_contract_admin(&e);
         storage::write_sponsored_vault_open_to_all(&e, &open);
         storage::extend_instance_ttl(&e);
+        events::sponsor_open_to_all_changed(&e, open);
     }
 
     /// Query whether sponsored vault creation is open to all.
@@ -625,6 +639,7 @@ impl VcVaultTrait for VcVaultContract {
         validate_contract_admin(&e);
         storage::add_sponsored_vault_sponsor(&e, &sponsor);
         storage::extend_instance_ttl(&e);
+        events::sponsor_added(&e, &sponsor);
     }
 
     /// Remove an address from the authorized sponsors list. Admin only.
@@ -632,6 +647,7 @@ impl VcVaultTrait for VcVaultContract {
         validate_contract_admin(&e);
         storage::remove_sponsored_vault_sponsor(&e, &sponsor);
         storage::extend_instance_ttl(&e);
+        events::sponsor_removed(&e, &sponsor);
     }
 
     // --- Migrations ---
@@ -655,6 +671,7 @@ impl VcVaultTrait for VcVaultContract {
         }
         storage::remove_legacy_vault_vcs(&e, &owner);
         storage::extend_vault_ttl(&e, &owner);
+        events::vault_migrated(&e, &owner);
     }
 
     /// Migrate the v0.1 `Vec<String>` index at `VaultVCIds(owner)` into the
@@ -681,6 +698,11 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::VCSAlreadyMigrated);
         }
         let legacy_ids = storage::read_legacy_vault_vc_ids(&e, &owner);
+        // Capture the count up front so the event reports the exact number
+        // moved — append_vc_to_index increments VaultVCCount on every call,
+        // so reading it after the loop would also work, but the explicit
+        // pre-loop read is unambiguous about intent.
+        let migrated_count = legacy_ids.len();
         for vc_id in legacy_ids.iter() {
             storage::append_vc_to_index(&e, &owner, &vc_id);
         }
@@ -688,6 +710,7 @@ impl VcVaultTrait for VcVaultContract {
             storage::remove_legacy_vault_vc_ids(&e, &owner);
         }
         storage::extend_vault_ttl(&e, &owner);
+        events::vault_index_migrated(&e, &owner, migrated_count);
     }
 }
 
