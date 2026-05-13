@@ -14,8 +14,6 @@ pub enum ContractError {
     IssuerAlreadyAuthorized = 3,
     /// Vault is revoked; writes blocked.
     VaultRevoked = 4,
-    /// Migration already done; nothing to migrate.
-    VCSAlreadyMigrated = 5,
     /// VC not found in vault or status registry.
     VCNotFound = 6,
     /// VC already revoked.
@@ -47,8 +45,6 @@ pub enum ContractError {
     InputTooLong = 19,
     /// `authorize_issuers` called with a list larger than `MAX_ISSUERS_LIST`.
     IssuerListTooLong = 20,
-    /// Issuer index already migrated; nothing to do.
-    IssuersAlreadyMigrated = 21,
     /// Fee amount is negative.
     InvalidFeeAmount = 22,
     /// Fee amount exceeds `MAX_FEE_AMOUNT`.

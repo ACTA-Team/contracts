@@ -239,19 +239,6 @@ pub struct SponsorRemoved {
     pub sponsor: Address,
 }
 
-// --- Migration events ---
-
-#[contractevent]
-pub struct VaultMigrated {
-    pub owner: Address,
-}
-
-#[contractevent]
-pub struct VaultIndexMigrated {
-    pub owner: Address,
-    pub migrated_count: u32,
-}
-
 // --- Publishers ---
 
 pub fn contract_initialized(e: &Env, admin: &Address) {
@@ -335,38 +322,3 @@ pub fn sponsor_removed(e: &Env, sponsor: &Address) {
     .publish(e);
 }
 
-pub fn vault_migrated(e: &Env, owner: &Address) {
-    VaultMigrated {
-        owner: owner.clone(),
-    }
-    .publish(e);
-}
-
-pub fn vault_index_migrated(e: &Env, owner: &Address, migrated_count: u32) {
-    VaultIndexMigrated {
-        owner: owner.clone(),
-        migrated_count,
-    }
-    .publish(e);
-}
-
-#[contractevent]
-pub struct IssuerIndexMigrated {
-    pub owner: Address,
-    pub authorized_count: u32,
-    pub denied_count: u32,
-}
-
-pub fn issuer_index_migrated(
-    e: &Env,
-    owner: &Address,
-    authorized_count: u32,
-    denied_count: u32,
-) {
-    IssuerIndexMigrated {
-        owner: owner.clone(),
-        authorized_count,
-        denied_count,
-    }
-    .publish(e);
-}

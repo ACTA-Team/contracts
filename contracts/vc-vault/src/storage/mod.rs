@@ -2,16 +2,13 @@
 
 use crate::error::ContractError;
 use crate::model::{VCStatus, VerifiableCredential};
-use soroban_sdk::{contracttype, panic_with_error, Address, Env, Map, String, Vec};
+use soroban_sdk::{contracttype, panic_with_error, Address, Env, String};
 
 // TTL constants at ~5-second ledger close: 518_400 ≈ 30 days, 3_110_400 ≈ 180 days.
 const INSTANCE_TTL_THRESHOLD: u32 = 518_400;
 const INSTANCE_TTL_EXTEND_TO: u32 = 3_110_400;
 const PERSISTENT_TTL_THRESHOLD: u32 = 518_400;
 const PERSISTENT_TTL_EXTEND_TO: u32 = 3_110_400;
-
-/// Maximum entries migrated per `migrate_vc_index_chunk` call.
-pub const MAX_MIGRATION_BATCH: u32 = 10;
 
 /// Maximum number of vc_ids that may be returned by a single `list_vc_ids`
 /// call. Each slot read costs ~3-5k instructions in Soroban; capping at 200
@@ -78,10 +75,6 @@ pub enum DataKey {
     VaultAdmin(Address),
     VaultDid(Address),
     VaultRevoked(Address),
-    /// **Legacy.** `Vec<Address>` issuer list; read only by `migrate_issuer_index`.
-    VaultIssuers(Address),
-    /// **Legacy.** `Vec<Address>` denied issuer list; read only by `migrate_issuer_index`.
-    VaultDeniedIssuers(Address),
     /// Number of authorized issuers. O(1) read.
     VaultIssuerCount(Address),
     /// Authorized issuer at a given position (0-indexed).
@@ -95,12 +88,6 @@ pub enum DataKey {
     /// Position of a given denied issuer. Used for O(1) existence and removal.
     VaultDeniedIssuerPosition(Address, Address),
     VaultVC(Address, String),
-    /// **Legacy v0.1 index.** A monolithic `Vec<String>` of vc_ids per vault.
-    /// New issuance writes to the O(1) index keys below; this entry is read
-    /// only by `migrate_vc_index(owner)` to bridge data forward.
-    VaultVCIds(Address),
-    /// Cursor for chunked migration; absent when migration is not in progress.
-    LegacyMigrationCursor(Address),
     /// Number of active VCs in this vault. O(1) read.
     VaultVCCount(Address),
     /// vc_id at a given position (0-indexed). Used to enumerate the index.
@@ -109,21 +96,8 @@ pub enum DataKey {
     VaultVCPosition(Address, String),
     VCStatus(Address, String),
     VCParent(Address, String),
-    LegacyIssuanceRevocations,
-    LegacyIssuanceVCs,
-    LegacyVaultVCs(Address),
     SponsoredVaultOpenToAll,
     SponsoredVaultSponsor(Address),
-}
-
-/// Legacy revocation record for migration.
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct LegacyRevocation {
-    /// VC ID.
-    pub vc_id: String,
-    /// Revocation date (ISO-8601).
-    pub date: String,
 }
 
 // --- Global config (instance) ---
@@ -328,69 +302,6 @@ pub fn write_vault_revoked(e: &Env, owner: &Address, revoked: &bool) {
         .set(&DataKey::VaultRevoked(owner.clone()), revoked);
 }
 
-// --- Vault issuers (persistent) ---
-// Expected maximum: ~20 issuers per vault. Reads and existence checks are O(n);
-// larger lists increase CPU cost linearly. Enforce a cap at the call-site if needed.
-
-pub fn read_vault_issuers(e: &Env, owner: &Address) -> Vec<Address> {
-    e.storage().persistent().get(&DataKey::VaultIssuers(owner.clone())).unwrap()
-}
-
-pub fn write_vault_issuers(e: &Env, owner: &Address, issuers: &Vec<Address>) {
-    e.storage().persistent().set(&DataKey::VaultIssuers(owner.clone()), issuers)
-}
-
-// --- Vault denied issuers (persistent) ---
-
-pub fn read_vault_denied_issuers(e: &Env, owner: &Address) -> Vec<Address> {
-    e.storage()
-        .persistent()
-        .get(&DataKey::VaultDeniedIssuers(owner.clone()))
-        .unwrap_or_else(|| Vec::new(e))
-}
-
-pub fn write_vault_denied_issuers(e: &Env, owner: &Address, denied: &Vec<Address>) {
-    e.storage()
-        .persistent()
-        .set(&DataKey::VaultDeniedIssuers(owner.clone()), denied);
-}
-
-pub fn is_issuer_denied(e: &Env, owner: &Address, issuer: &Address) -> bool {
-    read_vault_denied_issuers(e, owner).contains(issuer.clone())
-}
-
-pub fn add_denied_issuer(e: &Env, owner: &Address, issuer: &Address) {
-    let mut denied = read_vault_denied_issuers(e, owner);
-    if !denied.contains(issuer.clone()) {
-        denied.push_front(issuer.clone());
-        write_vault_denied_issuers(e, owner, &denied);
-    }
-}
-
-pub fn remove_denied_issuer(e: &Env, owner: &Address, issuer: &Address) {
-    let mut denied = read_vault_denied_issuers(e, owner);
-    if let Some(idx) = denied.first_index_of(issuer.clone()) {
-        denied.remove(idx);
-        write_vault_denied_issuers(e, owner, &denied);
-    }
-}
-
-pub fn has_legacy_vault_issuers(e: &Env, owner: &Address) -> bool {
-    e.storage().persistent().has(&DataKey::VaultIssuers(owner.clone()))
-}
-
-pub fn remove_legacy_vault_issuers(e: &Env, owner: &Address) {
-    e.storage().persistent().remove(&DataKey::VaultIssuers(owner.clone()));
-}
-
-pub fn has_legacy_vault_denied_issuers(e: &Env, owner: &Address) -> bool {
-    e.storage().persistent().has(&DataKey::VaultDeniedIssuers(owner.clone()))
-}
-
-pub fn remove_legacy_vault_denied_issuers(e: &Env, owner: &Address) {
-    e.storage().persistent().remove(&DataKey::VaultDeniedIssuers(owner.clone()));
-}
-
 // --- Authorized issuer index ---
 
 pub fn read_issuer_count(e: &Env, owner: &Address) -> u32 {
@@ -581,7 +492,7 @@ pub fn denied_issuer_index_contains(e: &Env, owner: &Address, issuer: &Address) 
         .has(&DataKey::VaultDeniedIssuerPosition(owner.clone(), issuer.clone()))
 }
 
-/// Append an issuer to the denied index. O(1). No cap enforced (mirrors add_denied_issuer).
+/// Append an issuer to the denied index. O(1). No-op if already present.
 pub fn append_denied_issuer_to_index(e: &Env, owner: &Address, issuer: &Address) {
     if denied_issuer_index_contains(e, owner, issuer) {
         return;
@@ -766,61 +677,6 @@ pub fn remove_vc_from_index(e: &Env, owner: &Address, vc_id: &String) {
     write_vc_count(e, owner, last);
 }
 
-// --- Legacy v0.1 index (read-only; consumed by migrate_vc_index) ---
-
-/// Read the legacy `Vec<String>` index for a vault. Returns an empty Vec when
-/// no legacy entry exists (either never written or already migrated).
-pub fn read_legacy_vault_vc_ids(e: &Env, owner: &Address) -> Vec<String> {
-    match e.storage().persistent().get(&DataKey::VaultVCIds(owner.clone())) {
-        Some(v) => v,
-        None => Vec::new(e),
-    }
-}
-
-/// Returns true if the legacy index entry exists for this vault.
-pub fn has_legacy_vault_vc_ids(e: &Env, owner: &Address) -> bool {
-    e.storage()
-        .persistent()
-        .has(&DataKey::VaultVCIds(owner.clone()))
-}
-
-/// Delete the legacy `VaultVCIds` entry. Called by `migrate_vc_index` after
-/// the new O(1) index has been populated.
-pub fn remove_legacy_vault_vc_ids(e: &Env, owner: &Address) {
-    e.storage()
-        .persistent()
-        .remove(&DataKey::VaultVCIds(owner.clone()));
-}
-
-// --- Chunked migration cursor ---
-
-pub fn read_migration_cursor(e: &Env, owner: &Address) -> u32 {
-    e.storage()
-        .persistent()
-        .get(&DataKey::LegacyMigrationCursor(owner.clone()))
-        .unwrap_or(0)
-}
-
-pub fn write_migration_cursor(e: &Env, owner: &Address, cursor: u32) {
-    let key = DataKey::LegacyMigrationCursor(owner.clone());
-    e.storage().persistent().set(&key, &cursor);
-    e.storage()
-        .persistent()
-        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
-}
-
-pub fn has_migration_cursor(e: &Env, owner: &Address) -> bool {
-    e.storage()
-        .persistent()
-        .has(&DataKey::LegacyMigrationCursor(owner.clone()))
-}
-
-pub fn remove_migration_cursor(e: &Env, owner: &Address) {
-    e.storage()
-        .persistent()
-        .remove(&DataKey::LegacyMigrationCursor(owner.clone()));
-}
-
 // --- VC parent links (persistent) ---
 
 /// Write a parent link: (owner, vc_id) → (parent_owner, parent_vc_id).
@@ -986,31 +842,3 @@ pub fn remove_sponsored_vault_sponsor(e: &Env, sponsor: &Address) {
         .remove(&DataKey::SponsoredVaultSponsor(sponsor.clone()));
 }
 
-// --- Legacy (migration) ---
-
-pub fn read_legacy_issuance_vcs(e: &Env) -> Option<Vec<String>> {
-    e.storage().persistent().get(&DataKey::LegacyIssuanceVCs)
-}
-
-pub fn remove_legacy_issuance_vcs(e: &Env) {
-    e.storage().persistent().remove(&DataKey::LegacyIssuanceVCs);
-}
-
-pub fn read_legacy_issuance_revocations(e: &Env) -> Map<String, LegacyRevocation> {
-    e.storage()
-        .persistent()
-        .get(&DataKey::LegacyIssuanceRevocations)
-        .unwrap_or_else(|| Map::new(e))
-}
-
-pub fn remove_legacy_issuance_revocations(e: &Env) {
-    e.storage().persistent().remove(&DataKey::LegacyIssuanceRevocations);
-}
-
-pub fn read_legacy_vault_vcs(e: &Env, owner: &Address) -> Option<Vec<VerifiableCredential>> {
-    e.storage().persistent().get(&DataKey::LegacyVaultVCs(owner.clone()))
-}
-
-pub fn remove_legacy_vault_vcs(e: &Env, owner: &Address) {
-    e.storage().persistent().remove(&DataKey::LegacyVaultVCs(owner.clone()));
-}
