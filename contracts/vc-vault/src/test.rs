@@ -2613,3 +2613,23 @@ fn test_revoke_issuer_updates_index() {
     let denied = client.list_denied_issuers(&owner, &0_u32, &100_u32);
     assert!(denied.contains(issuer));
 }
+
+#[test]
+fn test_auto_authorize_on_repeated_issue() {
+    // Exercises the auto-authorize path in ensure_issuer_authorized across
+    // multiple issuances: issuer must end up in the index exactly once.
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    let issuer_did = String::from_str(&env, "did:issuer");
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+
+    let vc_data = String::from_str(&env, "data");
+    for id in ["vc-0","vc-1","vc-2","vc-3","vc-4","vc-5","vc-6","vc-7","vc-8","vc-9"] {
+        let vc_id = String::from_str(&env, id);
+        client.issue(&owner, &vc_id, &vc_data, &contract_id, &issuer, &issuer_did, &0_i128);
+    }
+
+    assert_eq!(client.authorized_issuer_count(&owner), 1);
+    assert_eq!(client.vc_count(&owner), 10);
+}
