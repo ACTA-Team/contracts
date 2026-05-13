@@ -49,4 +49,8 @@ pub enum ContractError {
     IssuerListTooLong = 20,
     /// Issuer index already migrated; nothing to do.
     IssuersAlreadyMigrated = 21,
+    /// Fee amount is negative.
+    InvalidFeeAmount = 22,
+    /// Fee amount exceeds `MAX_FEE_AMOUNT`.
+    FeeOutOfBounds = 23,
 }
