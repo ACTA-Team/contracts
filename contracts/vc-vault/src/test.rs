@@ -2633,3 +2633,141 @@ fn test_auto_authorize_on_repeated_issue() {
     assert_eq!(client.authorized_issuer_count(&owner), 1);
     assert_eq!(client.vc_count(&owner), 10);
 }
+
+// --- Fee bounds validation tests ---
+
+#[test]
+#[should_panic(expected = "Error(Contract, #22)")]
+fn test_set_fee_config_rejects_negative_amount() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let token = Address::generate(&env);
+    let dest = Address::generate(&env);
+    client.set_fee_config(&token, &dest, &-1_i128);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #23)")]
+fn test_set_fee_config_rejects_amount_over_max() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let token = Address::generate(&env);
+    let dest = Address::generate(&env);
+    client.set_fee_config(&token, &dest, &1_000_000_000_000_000_001_i128);
+}
+
+#[test]
+fn test_set_fee_config_accepts_zero() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let token = Address::generate(&env);
+    let dest = Address::generate(&env);
+    client.set_fee_config(&token, &dest, &0_i128);
+    assert_eq!(client.fee_config().fee_amount, Some(0));
+}
+
+#[test]
+fn test_set_fee_config_accepts_max() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let token = Address::generate(&env);
+    let dest = Address::generate(&env);
+    client.set_fee_config(&token, &dest, &1_000_000_000_000_000_000_i128);
+    assert_eq!(client.fee_config().fee_amount, Some(1_000_000_000_000_000_000));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #22)")]
+fn test_set_fee_admin_rejects_negative() {
+    let (_env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    client.set_fee_admin(&-1_i128);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #22)")]
+fn test_set_fee_standard_rejects_negative() {
+    let (_env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    client.set_fee_standard(&-1_i128);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #22)")]
+fn test_set_fee_early_rejects_negative() {
+    let (_env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    client.set_fee_early(&-1_i128);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #22)")]
+fn test_set_fee_custom_rejects_negative() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let issuer = Address::generate(&env);
+    client.set_fee_custom(&issuer, &-1_i128);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #22)")]
+fn test_issue_rejects_negative_fee_override() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    client.issue(
+        &owner,
+        &String::from_str(&env, "vc-1"),
+        &String::from_str(&env, "data"),
+        &contract_id,
+        &issuer,
+        &String::from_str(&env, "did:issuer"),
+        &-1_i128,
+    );
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #23)")]
+fn test_issue_rejects_fee_override_over_max() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    client.issue(
+        &owner,
+        &String::from_str(&env, "vc-1"),
+        &String::from_str(&env, "data"),
+        &contract_id,
+        &issuer,
+        &String::from_str(&env, "did:issuer"),
+        &1_000_000_000_000_000_001_i128,
+    );
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #22)")]
+fn test_batch_issue_rejects_negative_fee_override() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+    let vcs = vec![
+        &env,
+        (
+            String::from_str(&env, "vc-1"),
+            String::from_str(&env, "data"),
+        ),
+    ];
+    client.batch_issue(
+        &issuer,
+        &owner,
+        &contract_id,
+        &String::from_str(&env, "did:issuer"),
+        &-1_i128,
+        &vcs,
+    );
+}

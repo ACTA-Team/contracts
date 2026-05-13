@@ -59,6 +59,8 @@ pub const MAX_ISSUER_DID_LEN: u32 = 256;
 pub const MAX_DATE_LEN: u32 = 64;
 /// Maximum number of addresses accepted by `authorize_issuers(list)`.
 pub const MAX_ISSUERS_LIST: u32 = 100;
+/// Maximum accepted fee amount in stroops (10^18).
+pub const MAX_FEE_AMOUNT: i128 = 1_000_000_000_000_000_000;
 
 /// Storage keys. Instance = admin, fees, flags. Persistent = vault metadata, VCs, status.
 #[derive(Clone)]

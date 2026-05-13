@@ -66,6 +66,7 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Configure fee: token, destination, amount. Admin only.
     fn set_fee_config(e: Env, token_contract: Address, fee_dest: Address, fee_amount: i128) {
+        require_fee_amount(&e, fee_amount);
         validate_contract_admin(&e);
         storage::write_fee_token_contract(&e, &token_contract);
         storage::write_fee_dest(&e, &fee_dest);
@@ -83,6 +84,7 @@ impl VcVaultTrait for VcVaultContract {
     }
 
     fn set_fee_admin(e: Env, fee_amount: i128) {
+        require_fee_amount(&e, fee_amount);
         validate_contract_admin(&e);
         storage::write_fee_admin(&e, &fee_amount);
         storage::extend_instance_ttl(&e);
@@ -90,6 +92,7 @@ impl VcVaultTrait for VcVaultContract {
     }
 
     fn set_fee_standard(e: Env, fee_amount: i128) {
+        require_fee_amount(&e, fee_amount);
         validate_contract_admin(&e);
         storage::write_fee_standard(&e, &fee_amount);
         storage::extend_instance_ttl(&e);
@@ -97,6 +100,7 @@ impl VcVaultTrait for VcVaultContract {
     }
 
     fn set_fee_early(e: Env, fee_amount: i128) {
+        require_fee_amount(&e, fee_amount);
         validate_contract_admin(&e);
         storage::write_fee_early(&e, &fee_amount);
         storage::extend_instance_ttl(&e);
@@ -104,6 +108,7 @@ impl VcVaultTrait for VcVaultContract {
     }
 
     fn set_fee_custom(e: Env, issuer: Address, fee_amount: i128) {
+        require_fee_amount(&e, fee_amount);
         validate_contract_admin(&e);
         storage::write_fee_custom(&e, &issuer, &fee_amount);
         storage::extend_instance_ttl(&e);
@@ -364,6 +369,7 @@ impl VcVaultTrait for VcVaultContract {
         require_vc_id_len(&e, &vc_id);
         require_vc_data_len(&e, &vc_data);
         require_issuer_did_len(&e, &issuer_did);
+        require_fee_amount(&e, fee_override);
         issuer_addr.require_auth();
         let this = e.current_contract_address();
         if vault_contract != this {
@@ -424,6 +430,7 @@ impl VcVaultTrait for VcVaultContract {
         vcs: Vec<(String, String)>,
     ) -> Vec<String> {
         require_issuer_did_len(&e, &issuer_did);
+        require_fee_amount(&e, fee_override);
         // Validate every (vc_id, vc_data) pair up front so an oversize entry
         // late in the batch doesn't waste CPU on the earlier valid ones.
         for entry in vcs.iter() {
@@ -915,5 +922,14 @@ fn require_date_len(e: &Env, date: &String) {
 fn require_issuers_list_len(e: &Env, issuers: &Vec<Address>) {
     if issuers.len() > storage::MAX_ISSUERS_LIST {
         panic_with_error!(e, ContractError::IssuerListTooLong);
+    }
+}
+
+fn require_fee_amount(e: &Env, amount: i128) {
+    if amount < 0 {
+        panic_with_error!(e, ContractError::InvalidFeeAmount);
+    }
+    if amount > storage::MAX_FEE_AMOUNT {
+        panic_with_error!(e, ContractError::FeeOutOfBounds);
     }
 }
