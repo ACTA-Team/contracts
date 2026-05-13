@@ -2686,6 +2686,7 @@ fn test_migrate_vc_index_chunk_fresh_vault_noop() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #15)")] // VaultFull
 fn test_vault_full_at_u32_max() {
     let (env, admin, issuer, contract_id, client) = setup();
     client.initialize(&admin);
@@ -2699,8 +2700,7 @@ fn test_vault_full_at_u32_max() {
         env.storage().persistent().set(&key, &u32::MAX);
     });
 
-    // issue must panic with VaultFull (#15) because checked_add overflows.
-    let result = client.try_issue(
+    client.issue(
         &owner,
         &String::from_str(&env, "overflow-vc"),
         &String::from_str(&env, "data"),
@@ -2709,5 +2709,4 @@ fn test_vault_full_at_u32_max() {
         &String::from_str(&env, "did:issuer"),
         &0_i128,
     );
-    assert!(result.is_err());
 }

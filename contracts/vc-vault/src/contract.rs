@@ -740,7 +740,7 @@ impl VcVaultTrait for VcVaultContract {
             return 0;
         }
 
-        let end = (cursor + chunk_size).min(total);
+        let end = cursor.saturating_add(chunk_size).min(total);
         for i in cursor..end {
             if let Some(vc_id) = legacy_ids.get(i) {
                 storage::append_vc_to_index(&e, &owner, &vc_id);
