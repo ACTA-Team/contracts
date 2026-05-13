@@ -10,9 +10,8 @@ const INSTANCE_TTL_EXTEND_TO: u32 = 3_110_400;
 const PERSISTENT_TTL_THRESHOLD: u32 = 518_400;
 const PERSISTENT_TTL_EXTEND_TO: u32 = 3_110_400;
 
-/// Maximum number of active VCs that may be tracked in a single vault. Hitting
-/// this cap prevents new issuance until VCs are revoked or pushed away.
-pub const MAX_VCS_PER_VAULT: u32 = 1_000;
+/// Maximum entries migrated per `migrate_vc_index_chunk` call.
+pub const MAX_MIGRATION_BATCH: u32 = 10;
 
 /// Maximum number of vc_ids that may be returned by a single `list_vc_ids`
 /// call. Each slot read costs ~3-5k instructions in Soroban; capping at 200
@@ -100,6 +99,8 @@ pub enum DataKey {
     /// New issuance writes to the O(1) index keys below; this entry is read
     /// only by `migrate_vc_index(owner)` to bridge data forward.
     VaultVCIds(Address),
+    /// Cursor for chunked migration; absent when migration is not in progress.
+    LegacyMigrationCursor(Address),
     /// Number of active VCs in this vault. O(1) read.
     VaultVCCount(Address),
     /// vc_id at a given position (0-indexed). Used to enumerate the index.
@@ -727,17 +728,17 @@ pub fn vc_index_contains(e: &Env, owner: &Address, vc_id: &String) -> bool {
         .has(&DataKey::VaultVCPosition(owner.clone(), vc_id.clone()))
 }
 
-/// Append vc_id to the index. O(1). Panics with `VaultFull` if the cap is hit.
+/// Append vc_id to the index. O(1). Panics with `VaultFull` on u32 overflow.
 /// Caller must guarantee vc_id is not already indexed (issuance/push paths
 /// already check `read_vault_vc(...).is_some()`).
 pub fn append_vc_to_index(e: &Env, owner: &Address, vc_id: &String) {
     let count = read_vc_count(e, owner);
-    if count >= MAX_VCS_PER_VAULT {
-        panic_with_error!(e, ContractError::VaultFull);
-    }
+    let next = count
+        .checked_add(1)
+        .unwrap_or_else(|| panic_with_error!(e, ContractError::VaultFull));
     write_vc_id_at(e, owner, count, vc_id);
     write_vc_position(e, owner, vc_id, count);
-    write_vc_count(e, owner, count + 1);
+    write_vc_count(e, owner, next);
 }
 
 /// Remove vc_id from the index using swap-and-pop. O(1). No-op when vc_id is
@@ -789,6 +790,35 @@ pub fn remove_legacy_vault_vc_ids(e: &Env, owner: &Address) {
     e.storage()
         .persistent()
         .remove(&DataKey::VaultVCIds(owner.clone()));
+}
+
+// --- Chunked migration cursor ---
+
+pub fn read_migration_cursor(e: &Env, owner: &Address) -> u32 {
+    e.storage()
+        .persistent()
+        .get(&DataKey::LegacyMigrationCursor(owner.clone()))
+        .unwrap_or(0)
+}
+
+pub fn write_migration_cursor(e: &Env, owner: &Address, cursor: u32) {
+    let key = DataKey::LegacyMigrationCursor(owner.clone());
+    e.storage().persistent().set(&key, &cursor);
+    e.storage()
+        .persistent()
+        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
+}
+
+pub fn has_migration_cursor(e: &Env, owner: &Address) -> bool {
+    e.storage()
+        .persistent()
+        .has(&DataKey::LegacyMigrationCursor(owner.clone()))
+}
+
+pub fn remove_migration_cursor(e: &Env, owner: &Address) {
+    e.storage()
+        .persistent()
+        .remove(&DataKey::LegacyMigrationCursor(owner.clone()));
 }
 
 // --- VC parent links (persistent) ---

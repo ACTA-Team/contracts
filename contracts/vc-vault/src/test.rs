@@ -2771,3 +2771,92 @@ fn test_batch_issue_rejects_negative_fee_override() {
         &vcs,
     );
 }
+
+// --- migrate_vc_index_chunk tests ---
+
+#[test]
+fn test_migrate_vc_index_chunk_partial_then_complete() {
+    let (env, admin, _issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+
+    seed_legacy_vault_vc_ids(
+        &env,
+        &contract_id,
+        &owner,
+        &[
+            "vc-0", "vc-1", "vc-2", "vc-3", "vc-4",
+            "vc-5", "vc-6", "vc-7", "vc-8", "vc-9",
+            "vc-10", "vc-11", "vc-12", "vc-13", "vc-14",
+        ],
+    );
+
+    // First chunk: migrates 10, returns 5 remaining.
+    let remaining = client.migrate_vc_index_chunk(&owner, &10_u32);
+    assert_eq!(remaining, 5);
+    assert_eq!(client.vc_count(&owner), 10);
+
+    // Second chunk: completes migration, returns 0.
+    let remaining = client.migrate_vc_index_chunk(&owner, &10_u32);
+    assert_eq!(remaining, 0);
+    assert_eq!(client.vc_count(&owner), 15);
+
+    let listed = client.list_vc_ids(&owner, &0_u32, &200_u32);
+    assert_eq!(listed.len(), 15);
+    assert!(listed.contains(String::from_str(&env, "vc-0")));
+    assert!(listed.contains(String::from_str(&env, "vc-7")));
+    assert!(listed.contains(String::from_str(&env, "vc-14")));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")] // VCSAlreadyMigrated
+fn test_migrate_vc_index_chunk_already_migrated() {
+    let (env, admin, _issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    seed_legacy_vault_vc_ids(&env, &contract_id, &owner, &["vc-1"]);
+
+    client.migrate_vc_index(&owner);
+    // Now vc_count > 0 and no legacy entry; chunk call must panic.
+    client.migrate_vc_index_chunk(&owner, &10_u32);
+}
+
+#[test]
+fn test_migrate_vc_index_chunk_fresh_vault_noop() {
+    let (env, admin, _issuer, _contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+
+    let remaining = client.migrate_vc_index_chunk(&owner, &10_u32);
+    assert_eq!(remaining, 0);
+    assert_eq!(client.vc_count(&owner), 0);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #15)")] // VaultFull
+fn test_vault_full_at_u32_max() {
+    let (env, admin, issuer, contract_id, client) = setup();
+    client.initialize(&admin);
+    let owner = Address::generate(&env);
+    client.create_vault(&owner, &String::from_str(&env, "did:owner"));
+    client.authorize_issuer(&owner, &issuer);
+
+    // Seed VaultVCCount = u32::MAX directly to simulate overflow boundary.
+    env.as_contract(&contract_id, || {
+        let key = crate::storage::DataKey::VaultVCCount(owner.clone());
+        env.storage().persistent().set(&key, &u32::MAX);
+    });
+
+    client.issue(
+        &owner,
+        &String::from_str(&env, "overflow-vc"),
+        &String::from_str(&env, "data"),
+        &contract_id,
+        &issuer,
+        &String::from_str(&env, "did:issuer"),
+        &0_i128,
+    );
+}
