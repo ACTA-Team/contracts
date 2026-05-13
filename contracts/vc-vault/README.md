@@ -72,17 +72,6 @@ Linked VCs establish a parent–child relationship between credentials across va
 | `issue_linked(issuer, owner, vc_id, data, issuance_contract, issuer_did, parent_owner, parent_vc_id)` | `issuer` | Issue a VC that references a parent VC. Validates that the parent is `Valid` at issuance time. |
 | `get_vc_parent(owner, vc_id)` | none | Return `Some((parent_owner, parent_vc_id))` for linked VCs, or `None` for regular VCs. |
 
-### Migration
-
-| Function | Auth | Description |
-|---|---|---|
-| `migrate(owner)` | vault admin | Migrate VCs from the legacy storage format to the current format. Fails with `VCSAlreadyMigrated` if migration has already been run. |
-| `migrate_vc_index(owner)` | none | Migrate the v0.1 `Vec<String>` VC index to the O(1) index. Safe for vaults with ≤ 10 legacy entries. |
-| `migrate_vc_index_chunk(owner, chunk_size)` | none | Chunked variant for large legacy vaults. Migrates up to `chunk_size` entries (max 10) per call. Returns remaining count; 0 means done. Call repeatedly until 0. |
-| `migrate_issuer_index(owner)` | none | Migrate legacy `Vec<Address>` issuer lists to the O(1) index. |
-
-Vaults have no per-vault VC cap; the limit is the u32 position counter (~4.3 billion) and storage rent paid by transactors.
-
 ---
 
 ## Authorization
@@ -107,7 +96,6 @@ Authorization is enforced via `require_auth()` on every privileged operation. Re
 | 2 | `IssuerNotAuthorized` | Issuer not in vault's allowlist (and not eligible for auto-auth) |
 | 3 | `IssuerAlreadyAuthorized` | `authorize_issuer` called for an issuer already in the list |
 | 4 | `VaultRevoked` | Write attempted on a revoked vault |
-| 5 | `VCSAlreadyMigrated` | `migrate` called after migration has already been completed |
 | 6 | `VCNotFound` | VC not present in the vault or status registry |
 | 7 | `VCAlreadyRevoked` | `push` attempted on a revoked VC |
 | 8 | `VaultNotInitialized` | Operation on a vault that has not been created |
@@ -123,7 +111,6 @@ Authorization is enforced via `require_auth()` on every privileged operation. Re
 | 18 | `BatchEmpty` | `batch_issue` called with an empty VC list |
 | 19 | `InputTooLong` | A string field exceeds its per-field length cap |
 | 20 | `IssuerListTooLong` | `authorize_issuers` called with a list exceeding `MAX_ISSUERS_LIST` (100) |
-| 21 | `IssuersAlreadyMigrated` | `migrate_issuer_index` called after migration is complete |
 | 22 | `InvalidFeeAmount` | Fee amount is negative |
 | 23 | `FeeOutOfBounds` | Fee amount exceeds `MAX_FEE_AMOUNT` (10^18 stroops) |
 
@@ -166,10 +153,16 @@ All state-changing operations emit a typed `#[contractevent]` for on-chain obser
 | `VaultAdmin(owner)` (persistent) | `Address` | Current admin of this vault |
 | `VaultDid(owner)` (persistent) | `String` | DID URI associated with the vault |
 | `VaultRevoked(owner)` (persistent) | `bool` | Whether this vault is permanently revoked |
-| `VaultIssuers(owner)` (persistent) | `Vec<Address>` | Authorized issuer list |
-| `VaultDeniedIssuers(owner)` (persistent) | `Vec<Address>` | Denied issuer list (cannot be re-authorized automatically) |
+| `VaultIssuerCount(owner)` (persistent) | `u32` | Number of authorized issuers |
+| `VaultIssuerIndex(owner, pos)` (persistent) | `Address` | Authorized issuer at position `pos` |
+| `VaultIssuerPosition(owner, issuer)` (persistent) | `u32` | Position of `issuer` in the authorized index |
+| `VaultDeniedIssuerCount(owner)` (persistent) | `u32` | Number of denied issuers |
+| `VaultDeniedIssuerIndex(owner, pos)` (persistent) | `Address` | Denied issuer at position `pos` |
+| `VaultDeniedIssuerPosition(owner, issuer)` (persistent) | `u32` | Position of `issuer` in the denied index |
 | `VaultVC(owner, vc_id)` (persistent) | `VerifiableCredential` | VC payload |
-| `VaultVCIds(owner)` (persistent) | `Vec<String>` | Index of VC IDs in this vault |
+| `VaultVCCount(owner)` (persistent) | `u32` | Number of active VCs |
+| `VaultVCIndex(owner, pos)` (persistent) | `String` | VC ID at position `pos` |
+| `VaultVCPosition(owner, vc_id)` (persistent) | `u32` | Position of `vc_id` in the VC index |
 | `VCStatus(owner, vc_id)` (persistent) | `VCStatus` | `Valid`, `Revoked(date)`, or `Invalid` (default) |
 | `VCParent(owner, vc_id)` (persistent) | `(Address, String)` | Parent vault + VC ID for linked credentials |
 | `SponsoredVaultSponsor(sponsor)` (persistent) | `bool` | Presence flag for authorized sponsors |
