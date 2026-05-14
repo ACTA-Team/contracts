@@ -100,10 +100,11 @@ pub fn remove_issuer_from_index(e: &Env, owner: &Address, issuer: &Address) {
     }
     let last = count - 1;
     if position != last {
-        if let Some(last_addr) = read_issuer_at(e, owner, last) {
-            write_issuer_at(e, owner, position, &last_addr);
-            write_issuer_position(e, owner, &last_addr, position);
-        }
+        // Tail slot must exist if count is consistent; panic to avoid
+        // partial mutation that would leave a stale forward index entry.
+        let last_addr = read_issuer_at(e, owner, last).unwrap();
+        write_issuer_at(e, owner, position, &last_addr);
+        write_issuer_position(e, owner, &last_addr, position);
     }
     remove_issuer_at(e, owner, last);
     remove_issuer_position(e, owner, issuer);
@@ -218,10 +219,11 @@ pub fn remove_denied_issuer_from_index(e: &Env, owner: &Address, issuer: &Addres
     }
     let last = count - 1;
     if position != last {
-        if let Some(last_addr) = read_denied_issuer_at(e, owner, last) {
-            write_denied_issuer_at(e, owner, position, &last_addr);
-            write_denied_issuer_position(e, owner, &last_addr, position);
-        }
+        // Tail slot must exist if count is consistent; panic to avoid
+        // partial mutation that would leave a stale forward index entry.
+        let last_addr = read_denied_issuer_at(e, owner, last).unwrap();
+        write_denied_issuer_at(e, owner, position, &last_addr);
+        write_denied_issuer_position(e, owner, &last_addr, position);
     }
     remove_denied_issuer_at(e, owner, last);
     remove_denied_issuer_position(e, owner, issuer);

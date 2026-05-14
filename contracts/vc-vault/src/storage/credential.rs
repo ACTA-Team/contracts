@@ -131,10 +131,11 @@ pub fn remove_vc_from_index(e: &Env, owner: &Address, vc_id: &String) {
     }
     let last = count - 1;
     if position != last {
-        if let Some(last_id) = read_vc_id_at(e, owner, last) {
-            write_vc_id_at(e, owner, position, &last_id);
-            write_vc_position(e, owner, &last_id, position);
-        }
+        // Tail slot must exist if count is consistent; panic to avoid
+        // partial mutation that would leave a stale forward index entry.
+        let last_id = read_vc_id_at(e, owner, last).unwrap();
+        write_vc_id_at(e, owner, position, &last_id);
+        write_vc_position(e, owner, &last_id, position);
     }
     remove_vc_id_at(e, owner, last);
     remove_vc_position(e, owner, vc_id);
