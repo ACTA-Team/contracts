@@ -98,6 +98,7 @@ pub fn push_vc(e: &Env, from_owner: &Address, to_owner: &Address, vc_id: &String
 
     storage::extend_vault_ttl(e, from_owner);
     storage::extend_vault_ttl(e, to_owner);
+    storage::extend_vc_status_ttl(e, from_owner, vc_id);
     storage::extend_vc_ttl(e, to_owner, vc_id);
     crate::events::vc_pushed(e, from_owner, to_owner, vc_id);
 }
