@@ -2,7 +2,7 @@
 
 use soroban_sdk::{Address, BytesN, Env, String, Vec};
 
-use crate::model::{VCStatus, VerifiableCredential};
+use crate::types::{VCStatus, VerifiableCredential};
 use crate::storage::FeeConfig;
 
 /// Trait defining all public contract entrypoints.

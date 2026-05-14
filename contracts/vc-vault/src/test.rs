@@ -1,7 +1,7 @@
 //! Unit tests for VC Vault contract.
 
 use crate::contract::{VcVaultContract, VcVaultContractClient};
-use crate::model::VCStatus;
+use crate::types::VCStatus;
 use soroban_sdk::{
     testutils::{Address as _, Events, MockAuth, MockAuthInvoke},
     vec, Address, Env, IntoVal, String,
@@ -663,7 +663,7 @@ fn test_issue_linked_requires_valid_parent_vc() {
         &parent_vc_id,
     );
 
-    assert_eq!(client.verify_vc(&empresario, &linked_vc_id), crate::model::VCStatus::Valid);
+    assert_eq!(client.verify_vc(&empresario, &linked_vc_id), crate::types::VCStatus::Valid);
 }
 
 #[test]
@@ -789,7 +789,7 @@ fn test_foundation_flow_end_to_end() {
         &issuer_did,
         &0_i128,
     );
-    assert_eq!(client.verify_vc(&foundation, &parent_vc_id), crate::model::VCStatus::Valid);
+    assert_eq!(client.verify_vc(&foundation, &parent_vc_id), crate::types::VCStatus::Valid);
 
     // Step 4: Empresario issues an endorsed VC linked to the foundation's VC.
     let linked_vc_id = String::from_str(&env, "vc-endorse-001");
@@ -805,8 +805,8 @@ fn test_foundation_flow_end_to_end() {
     );
 
     // Step 5: Verify both VCs and confirm the parent link.
-    assert_eq!(client.verify_vc(&foundation, &parent_vc_id), crate::model::VCStatus::Valid);
-    assert_eq!(client.verify_vc(&empresario, &linked_vc_id), crate::model::VCStatus::Valid);
+    assert_eq!(client.verify_vc(&foundation, &parent_vc_id), crate::types::VCStatus::Valid);
+    assert_eq!(client.verify_vc(&empresario, &linked_vc_id), crate::types::VCStatus::Valid);
     let parent_link = client.get_vc_parent(&empresario, &linked_vc_id).unwrap();
     assert_eq!(parent_link.0, foundation);
     assert_eq!(parent_link.1, parent_vc_id);
@@ -942,11 +942,11 @@ fn test_index_remove_middle_uses_swap_and_pop() {
     // The revoked VC payload survives — only the active index is freed.
     assert_eq!(
         client.verify_vc(&owner, &id_a),
-        crate::model::VCStatus::Valid
+        crate::types::VCStatus::Valid
     );
     assert_eq!(
         client.verify_vc(&owner, &id_c),
-        crate::model::VCStatus::Valid
+        crate::types::VCStatus::Valid
     );
 }
 

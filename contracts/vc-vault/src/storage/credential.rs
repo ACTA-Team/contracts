@@ -2,7 +2,7 @@
 
 use crate::constants::{PERSISTENT_TTL_EXTEND_TO, PERSISTENT_TTL_THRESHOLD};
 use crate::error::ContractError;
-use crate::model::{VCStatus, VerifiableCredential};
+use crate::types::{VCStatus, VerifiableCredential};
 use super::VcVaultDataKey;
 use soroban_sdk::{panic_with_error, Address, Env, String};
 
