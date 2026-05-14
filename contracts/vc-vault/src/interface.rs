@@ -8,7 +8,6 @@ use crate::storage::FeeConfig;
 /// Trait defining all public contract entrypoints.
 #[allow(dead_code)]
 pub trait VcVaultTrait {
-    fn initialize(e: Env, contract_admin: Address);
     fn nominate_admin(e: Env, new_admin: Address);
     fn accept_contract_admin(e: Env);
     fn set_fee_enabled(e: Env, enabled: bool);

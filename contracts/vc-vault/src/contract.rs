@@ -25,19 +25,18 @@ contractmeta!(
 pub struct VcVaultContract;
 
 #[contractimpl]
-impl VcVaultTrait for VcVaultContract {
-    // --- Global config ---
-
-    fn initialize(e: Env, contract_admin: Address) {
-        contract_admin.require_auth();
-        if storage::has_contract_admin(&e) {
-            panic_with_error!(e, ContractError::AlreadyInitialized);
-        }
+impl VcVaultContract {
+    pub fn __constructor(e: Env, contract_admin: Address) {
         storage::write_contract_admin(&e, &contract_admin);
         storage::write_fee_enabled(&e, &false);
         storage::extend_instance_ttl(&e);
         events::contract_initialized(&e, &contract_admin);
     }
+}
+
+#[contractimpl]
+impl VcVaultTrait for VcVaultContract {
+    // --- Global config ---
 
     /// Nominate a new contract admin. Current admin must sign.
     /// The nominee must call accept_contract_admin to complete the transfer.
