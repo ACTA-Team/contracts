@@ -1,11 +1,11 @@
-//! Contract implementation: public entrypoints and validation helpers.
+//! Contract implementation: public entrypoints.
 
-use crate::api::VcVaultTrait;
+use crate::interface::VcVaultTrait;
 use crate::error::ContractError;
 use crate::events;
-use crate::issuance;
 use crate::model::VCStatus;
 use crate::storage;
+use crate::validator::*;
 use crate::vault;
 use soroban_sdk::{
     contract, contractimpl, contractmeta, panic_with_error, symbol_short, Address, BytesN, Env,
@@ -42,7 +42,7 @@ impl VcVaultTrait for VcVaultContract {
     /// Nominate a new contract admin. Current admin must sign.
     /// The nominee must call accept_contract_admin to complete the transfer.
     fn nominate_admin(e: Env, new_admin: Address) {
-        let current = validate_contract_admin(&e);
+        let current = require_contract_admin(&e);
         storage::write_pending_admin(&e, &new_admin);
         storage::extend_instance_ttl(&e);
         events::admin_nominated(&e, &current, &new_admin);
@@ -67,7 +67,7 @@ impl VcVaultTrait for VcVaultContract {
     /// Configure fee: token, destination, amount. Admin only.
     fn set_fee_config(e: Env, token_contract: Address, fee_dest: Address, fee_amount: i128) {
         require_fee_amount(&e, fee_amount);
-        validate_contract_admin(&e);
+        require_contract_admin(&e);
         storage::write_fee_token_contract(&e, &token_contract);
         storage::write_fee_dest(&e, &fee_dest);
         storage::write_fee_amount(&e, &fee_amount);
@@ -77,7 +77,7 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Enable or disable fee charging on issue. Admin only.
     fn set_fee_enabled(e: Env, enabled: bool) {
-        validate_contract_admin(&e);
+        require_contract_admin(&e);
         storage::write_fee_enabled(&e, &enabled);
         storage::extend_instance_ttl(&e);
         events::fee_enabled_changed(&e, enabled);
@@ -85,7 +85,7 @@ impl VcVaultTrait for VcVaultContract {
 
     fn set_fee_admin(e: Env, fee_amount: i128) {
         require_fee_amount(&e, fee_amount);
-        validate_contract_admin(&e);
+        require_contract_admin(&e);
         storage::write_fee_admin(&e, &fee_amount);
         storage::extend_instance_ttl(&e);
         events::fee_admin_set(&e, fee_amount);
@@ -93,7 +93,7 @@ impl VcVaultTrait for VcVaultContract {
 
     fn set_fee_standard(e: Env, fee_amount: i128) {
         require_fee_amount(&e, fee_amount);
-        validate_contract_admin(&e);
+        require_contract_admin(&e);
         storage::write_fee_standard(&e, &fee_amount);
         storage::extend_instance_ttl(&e);
         events::fee_standard_set(&e, fee_amount);
@@ -101,7 +101,7 @@ impl VcVaultTrait for VcVaultContract {
 
     fn set_fee_early(e: Env, fee_amount: i128) {
         require_fee_amount(&e, fee_amount);
-        validate_contract_admin(&e);
+        require_contract_admin(&e);
         storage::write_fee_early(&e, &fee_amount);
         storage::extend_instance_ttl(&e);
         events::fee_early_set(&e, fee_amount);
@@ -109,7 +109,7 @@ impl VcVaultTrait for VcVaultContract {
 
     fn set_fee_custom(e: Env, issuer: Address, fee_amount: i128) {
         require_fee_amount(&e, fee_amount);
-        validate_contract_admin(&e);
+        require_contract_admin(&e);
         storage::write_fee_custom(&e, &issuer, &fee_amount);
         storage::extend_instance_ttl(&e);
         events::fee_custom_set(&e, &issuer, fee_amount);
@@ -137,7 +137,7 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Upgrade contract WASM. Admin only.
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-        validate_contract_admin(&e);
+        require_contract_admin(&e);
         storage::extend_instance_ttl(&e);
         events::contract_upgraded(&e, &new_wasm_hash);
         e.deployer().update_current_contract_wasm(new_wasm_hash);
@@ -170,8 +170,8 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Set vault admin. Current vault admin must sign.
     fn set_vault_admin(e: Env, owner: Address, new_admin: Address) {
-        validate_vault_admin(&e, &owner);
-        validate_vault_active(&e, &owner);
+        require_vault_admin(&e, &owner);
+        require_vault_active(&e, &owner);
         let old_admin = storage::read_vault_admin(&e, &owner);
         storage::write_vault_admin(&e, &owner, &new_admin);
         storage::extend_vault_ttl(&e, &owner);
@@ -181,8 +181,8 @@ impl VcVaultTrait for VcVaultContract {
     /// Replace full issuer list. Vault admin only.
     fn authorize_issuers(e: Env, owner: Address, issuers: Vec<Address>) {
         require_issuers_list_len(&e, &issuers);
-        validate_vault_admin(&e, &owner);
-        validate_vault_active(&e, &owner);
+        require_vault_admin(&e, &owner);
+        require_vault_active(&e, &owner);
         vault::authorize_issuers(&e, &owner, &issuers);
         storage::extend_vault_ttl(&e, &owner);
         for issuer in issuers.iter() {
@@ -192,8 +192,8 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Add single issuer. Vault admin only.
     fn authorize_issuer(e: Env, owner: Address, issuer_addr: Address) {
-        validate_vault_admin(&e, &owner);
-        validate_vault_active(&e, &owner);
+        require_vault_admin(&e, &owner);
+        require_vault_active(&e, &owner);
         vault::authorize_issuer(&e, &owner, &issuer_addr);
         storage::extend_vault_ttl(&e, &owner);
         events::issuer_authorized(&e, &owner, &issuer_addr);
@@ -201,8 +201,8 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Remove issuer from list. Vault admin only.
     fn revoke_issuer(e: Env, owner: Address, issuer_addr: Address) {
-        validate_vault_admin(&e, &owner);
-        validate_vault_active(&e, &owner);
+        require_vault_admin(&e, &owner);
+        require_vault_active(&e, &owner);
         vault::revoke_issuer(&e, &owner, &issuer_addr);
         storage::extend_vault_ttl(&e, &owner);
         events::issuer_revoked(&e, &owner, &issuer_addr);
@@ -210,8 +210,8 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Revoke vault. Blocks all writes. Vault admin only.
     fn revoke_vault(e: Env, owner: Address) {
-        validate_vault_admin(&e, &owner);
-        validate_vault_active(&e, &owner);
+        require_vault_admin(&e, &owner);
+        require_vault_active(&e, &owner);
         storage::write_vault_revoked(&e, &owner, &true);
         storage::extend_vault_ttl(&e, &owner);
         events::vault_revoked(&e, &owner);
@@ -300,10 +300,10 @@ impl VcVaultTrait for VcVaultContract {
     /// Moves a Valid VC from one vault to another; source owner and an authorized issuer must sign.
     fn push(e: Env, from_owner: Address, to_owner: Address, vc_id: String, issuer_addr: Address) {
         require_vc_id_len(&e, &vc_id);
-        validate_vault_active(&e, &from_owner);
-        validate_vault_active(&e, &to_owner);
+        require_vault_active(&e, &from_owner);
+        require_vault_active(&e, &to_owner);
         from_owner.require_auth();
-        validate_issuer_authorized_only(&e, &from_owner, &issuer_addr);
+        require_issuer_authorized(&e, &from_owner, &issuer_addr);
 
         let vc_opt = storage::read_vault_vc(&e, &from_owner, &vc_id);
         if vc_opt.is_none() {
@@ -375,7 +375,7 @@ impl VcVaultTrait for VcVaultContract {
         if vault_contract != this {
             panic_with_error!(e, ContractError::InvalidVaultContract);
         }
-        validate_vault_active(&e, &owner);
+        require_vault_active(&e, &owner);
         ensure_issuer_authorized(&e, &owner, &issuer_addr);
 
         if storage::read_vault_vc(&e, &owner, &vc_id).is_some()
@@ -384,7 +384,7 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::VCAlreadyExists);
         }
 
-        store_vc_payload(
+        vault::store_vc_with_fee(
             &e,
             &owner,
             vc_id.clone(),
@@ -450,7 +450,7 @@ impl VcVaultTrait for VcVaultContract {
         if vault_contract != this {
             panic_with_error!(e, ContractError::InvalidVaultContract);
         }
-        validate_vault_active(&e, &owner);
+        require_vault_active(&e, &owner);
         ensure_issuer_authorized(&e, &owner, &issuer_addr);
 
         // Single fee transfer for the entire batch, if enabled and the
@@ -524,7 +524,7 @@ impl VcVaultTrait for VcVaultContract {
         {
             panic_with_error!(e, ContractError::VCNotFound);
         }
-        issuance::revoke_vc(&e, &owner, vc_id.clone(), date.clone());
+        vault::revoke_vc(&e, &owner, vc_id.clone(), date.clone());
         storage::remove_vc_from_index(&e, &owner, &vc_id);
         // remove_vc_from_index rewrites VaultVCCount and a moved VaultVCIndex
         // slot. write_vc_count and write_vc_id_at extend their own TTLs, but
@@ -560,8 +560,8 @@ impl VcVaultTrait for VcVaultContract {
         if issuance_contract != this {
             panic_with_error!(e, ContractError::InvalidVaultContract);
         }
-        validate_vault_active(&e, &owner);
-        validate_vault_initialized(&e, &parent_owner);
+        require_vault_active(&e, &owner);
+        require_vault_initialized(&e, &parent_owner);
 
         // Both checks are required. The status keeps a Valid tombstone at the
         // source after `push` so vc_ids stay unique within a vault's history;
@@ -582,7 +582,7 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::VCAlreadyExists);
         }
 
-        store_vc_payload(&e, &owner, vc_id.clone(), data, &issuer, issuer_did, this, 0);
+        vault::store_vc_with_fee(&e, &owner, vc_id.clone(), data, &issuer, issuer_did, this, 0);
 
         storage::write_vc_status(&e, &owner, &vc_id, &VCStatus::Valid);
         storage::write_vc_parent(&e, &owner, &vc_id, &parent_owner, &parent_vc_id);
@@ -627,7 +627,7 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Sets whether sponsored vault creation is restricted to authorized sponsors or open to all. Admin only.
     fn set_sponsored_vault_open_to_all(e: Env, open: bool) {
-        validate_contract_admin(&e);
+        require_contract_admin(&e);
         storage::write_sponsored_vault_open_to_all(&e, &open);
         storage::extend_instance_ttl(&e);
         events::sponsor_open_to_all_changed(&e, open);
@@ -641,7 +641,7 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Add an address to the authorized sponsors list. Admin only.
     fn add_sponsored_vault_sponsor(e: Env, sponsor: Address) {
-        validate_contract_admin(&e);
+        require_contract_admin(&e);
         storage::add_sponsored_vault_sponsor(&e, &sponsor);
         storage::extend_instance_ttl(&e);
         events::sponsor_added(&e, &sponsor);
@@ -649,7 +649,7 @@ impl VcVaultTrait for VcVaultContract {
 
     /// Remove an address from the authorized sponsors list. Admin only.
     fn remove_sponsored_vault_sponsor(e: Env, sponsor: Address) {
-        validate_contract_admin(&e);
+        require_contract_admin(&e);
         storage::remove_sponsored_vault_sponsor(&e, &sponsor);
         storage::extend_instance_ttl(&e);
         events::sponsor_removed(&e, &sponsor);
@@ -710,132 +710,4 @@ impl VcVaultTrait for VcVaultContract {
     }
 }
 
-// --- Validation helpers ---
 
-/// Ensure contract admin exists and has signed. Returns admin address.
-fn validate_contract_admin(e: &Env) -> Address {
-    if !storage::has_contract_admin(e) {
-        panic_with_error!(e, ContractError::NotInitialized)
-    }
-    let admin = storage::read_contract_admin(e);
-    admin.require_auth();
-    admin
-}
-
-/// Ensure vault exists for owner.
-fn validate_vault_initialized(e: &Env, owner: &Address) {
-    if !storage::has_vault_admin(e, owner) {
-        panic_with_error!(e, ContractError::VaultNotInitialized)
-    }
-}
-
-/// Ensure vault exists and caller is vault admin (has signed).
-fn validate_vault_admin(e: &Env, owner: &Address) {
-    validate_vault_initialized(e, owner);
-    let admin = storage::read_vault_admin(e, owner);
-    admin.require_auth();
-}
-
-/// Ensure vault exists and is not revoked.
-fn validate_vault_active(e: &Env, owner: &Address) {
-    validate_vault_initialized(e, owner);
-    if storage::read_vault_revoked(e, owner) {
-        panic_with_error!(e, ContractError::VaultRevoked)
-    }
-}
-
-/// Ensure issuer is in vault's authorized index. No signature check.
-fn validate_issuer_authorized_only(e: &Env, owner: &Address, issuer_addr: &Address) {
-    validate_vault_initialized(e, owner);
-    if !vault::is_authorized(e, owner, issuer_addr) {
-        panic_with_error!(e, ContractError::IssuerNotAuthorized)
-    }
-}
-
-/// Auto-authorizes issuer if not in the authorized index; panics if in the denied index.
-fn ensure_issuer_authorized(e: &Env, owner: &Address, issuer_addr: &Address) {
-    validate_vault_initialized(e, owner);
-    if !vault::is_authorized(e, owner, issuer_addr) {
-        if storage::denied_issuer_index_contains(e, owner, issuer_addr) {
-            panic_with_error!(e, ContractError::IssuerNotAuthorized)
-        }
-        storage::append_issuer_to_index(e, owner, issuer_addr);
-    }
-}
-
-/// Store VC in vault and charge fee if enabled.
-fn store_vc_payload(
-    e: &Env,
-    owner: &Address,
-    vc_id: String,
-    vc_data: String,
-    issuer_addr: &Address,
-    issuer_did: String,
-    issuance_contract: Address,
-    fee_override: i128,
-) {
-    if storage::read_fee_enabled(e) {
-        let fee_token = storage::read_fee_token_contract(e);
-        let fee_dest = storage::read_fee_dest(e);
-        if fee_override > 0 {
-            e.invoke_contract::<()>(
-                &fee_token,
-                &symbol_short!("transfer"),
-                (issuer_addr.clone(), fee_dest, fee_override).into_val(e),
-            );
-        }
-    }
-    vault::store_vc(e, owner, vc_id, vc_data, issuance_contract, issuer_did);
-}
-
-// --- Input length validators ---
-//
-// Each public entrypoint that accepts user-controlled strings calls these
-// before doing any storage I/O. Violations panic with `InputTooLong` so the
-// transaction reverts before the contract spends instructions hashing or
-// indexing oversized payloads.
-
-fn require_vc_id_len(e: &Env, vc_id: &String) {
-    if vc_id.len() > storage::MAX_VC_ID_LEN {
-        panic_with_error!(e, ContractError::InputTooLong);
-    }
-}
-
-fn require_vc_data_len(e: &Env, vc_data: &String) {
-    if vc_data.len() > storage::MAX_VC_DATA_LEN {
-        panic_with_error!(e, ContractError::InputTooLong);
-    }
-}
-
-fn require_did_uri_len(e: &Env, did_uri: &String) {
-    if did_uri.len() > storage::MAX_DID_URI_LEN {
-        panic_with_error!(e, ContractError::InputTooLong);
-    }
-}
-
-fn require_issuer_did_len(e: &Env, issuer_did: &String) {
-    if issuer_did.len() > storage::MAX_ISSUER_DID_LEN {
-        panic_with_error!(e, ContractError::InputTooLong);
-    }
-}
-
-fn require_date_len(e: &Env, date: &String) {
-    if date.len() > storage::MAX_DATE_LEN {
-        panic_with_error!(e, ContractError::InputTooLong);
-    }
-}
-
-fn require_issuers_list_len(e: &Env, issuers: &Vec<Address>) {
-    if issuers.len() > storage::MAX_ISSUERS_LIST {
-        panic_with_error!(e, ContractError::IssuerListTooLong);
-    }
-}
-
-fn require_fee_amount(e: &Env, amount: i128) {
-    if amount < 0 {
-        panic_with_error!(e, ContractError::InvalidFeeAmount);
-    }
-    if amount > storage::MAX_FEE_AMOUNT {
-        panic_with_error!(e, ContractError::FeeOutOfBounds);
-    }
-}
