@@ -6,8 +6,8 @@ use soroban_sdk::contracterror;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum ContractError {
-    /// Resource already initialized (contract or vault).
-    AlreadyInitialized = 1,
+    /// Vault already exists for this owner.
+    VaultAlreadyExists = 1,
     /// Issuer not in vault's authorized list.
     IssuerNotAuthorized = 2,
     /// Issuer already authorized.
