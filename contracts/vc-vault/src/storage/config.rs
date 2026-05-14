@@ -2,37 +2,37 @@
 
 use crate::constants::PERSISTENT_TTL_EXTEND_TO;
 use crate::constants::PERSISTENT_TTL_THRESHOLD;
-use super::DataKey;
+use super::VcVaultDataKey;
 use soroban_sdk::{contracttype, Address, Env};
 
 // --- Admin ---
 
 pub fn has_contract_admin(e: &Env) -> bool {
-    e.storage().instance().has(&DataKey::ContractAdmin)
+    e.storage().instance().has(&VcVaultDataKey::ContractAdmin)
 }
 
 pub fn read_contract_admin(e: &Env) -> Address {
-    e.storage().instance().get(&DataKey::ContractAdmin).unwrap()
+    e.storage().instance().get(&VcVaultDataKey::ContractAdmin).unwrap()
 }
 
 pub fn write_contract_admin(e: &Env, admin: &Address) {
-    e.storage().instance().set(&DataKey::ContractAdmin, admin);
+    e.storage().instance().set(&VcVaultDataKey::ContractAdmin, admin);
 }
 
 pub fn has_pending_admin(e: &Env) -> bool {
-    e.storage().instance().has(&DataKey::PendingAdmin)
+    e.storage().instance().has(&VcVaultDataKey::PendingAdmin)
 }
 
 pub fn read_pending_admin(e: &Env) -> Option<Address> {
-    e.storage().instance().get(&DataKey::PendingAdmin)
+    e.storage().instance().get(&VcVaultDataKey::PendingAdmin)
 }
 
 pub fn write_pending_admin(e: &Env, admin: &Address) {
-    e.storage().instance().set(&DataKey::PendingAdmin, admin);
+    e.storage().instance().set(&VcVaultDataKey::PendingAdmin, admin);
 }
 
 pub fn remove_pending_admin(e: &Env) {
-    e.storage().instance().remove(&DataKey::PendingAdmin);
+    e.storage().instance().remove(&VcVaultDataKey::PendingAdmin);
 }
 
 // --- Fee config ---
@@ -49,50 +49,50 @@ pub struct FeeConfig {
 }
 
 pub fn read_fee_enabled(e: &Env) -> bool {
-    match e.storage().instance().get(&DataKey::FeeEnabled) {
+    match e.storage().instance().get(&VcVaultDataKey::FeeEnabled) {
         Some(v) => v,
         None => false,
     }
 }
 
 pub fn write_fee_enabled(e: &Env, enabled: &bool) {
-    e.storage().instance().set(&DataKey::FeeEnabled, enabled);
+    e.storage().instance().set(&VcVaultDataKey::FeeEnabled, enabled);
 }
 
 pub fn write_fee_token_contract(e: &Env, addr: &Address) {
-    e.storage().instance().set(&DataKey::FeeTokenContract, addr);
+    e.storage().instance().set(&VcVaultDataKey::FeeTokenContract, addr);
 }
 
 pub fn read_fee_token_contract(e: &Env) -> Address {
-    e.storage().instance().get(&DataKey::FeeTokenContract).unwrap()
+    e.storage().instance().get(&VcVaultDataKey::FeeTokenContract).unwrap()
 }
 
 pub fn write_fee_dest(e: &Env, addr: &Address) {
-    e.storage().instance().set(&DataKey::FeeDest, addr);
+    e.storage().instance().set(&VcVaultDataKey::FeeDest, addr);
 }
 
 pub fn read_fee_dest(e: &Env) -> Address {
-    e.storage().instance().get(&DataKey::FeeDest).unwrap()
+    e.storage().instance().get(&VcVaultDataKey::FeeDest).unwrap()
 }
 
 pub fn write_fee_amount(e: &Env, amount: &i128) {
-    e.storage().instance().set(&DataKey::FeeAmount, amount);
+    e.storage().instance().set(&VcVaultDataKey::FeeAmount, amount);
 }
 
 pub fn read_fee_amount(e: &Env) -> i128 {
-    e.storage().instance().get(&DataKey::FeeAmount).unwrap()
+    e.storage().instance().get(&VcVaultDataKey::FeeAmount).unwrap()
 }
 
 pub fn try_read_fee_token_contract(e: &Env) -> Option<Address> {
-    e.storage().instance().get(&DataKey::FeeTokenContract)
+    e.storage().instance().get(&VcVaultDataKey::FeeTokenContract)
 }
 
 pub fn try_read_fee_dest(e: &Env) -> Option<Address> {
-    e.storage().instance().get(&DataKey::FeeDest)
+    e.storage().instance().get(&VcVaultDataKey::FeeDest)
 }
 
 pub fn try_read_fee_amount(e: &Env) -> Option<i128> {
-    e.storage().instance().get(&DataKey::FeeAmount)
+    e.storage().instance().get(&VcVaultDataKey::FeeAmount)
 }
 
 pub fn read_fee_config(e: &Env) -> FeeConfig {
@@ -111,11 +111,11 @@ pub fn read_fee_config(e: &Env) -> FeeConfig {
 }
 
 pub fn write_fee_admin(e: &Env, amount: &i128) {
-    e.storage().instance().set(&DataKey::FeeAdmin, amount);
+    e.storage().instance().set(&VcVaultDataKey::FeeAdmin, amount);
 }
 
 pub fn try_read_fee_admin(e: &Env) -> Option<i128> {
-    e.storage().instance().get(&DataKey::FeeAdmin)
+    e.storage().instance().get(&VcVaultDataKey::FeeAdmin)
 }
 
 pub fn read_fee_admin(e: &Env) -> i128 {
@@ -123,11 +123,11 @@ pub fn read_fee_admin(e: &Env) -> i128 {
 }
 
 pub fn write_fee_standard(e: &Env, amount: &i128) {
-    e.storage().instance().set(&DataKey::FeeStandard, amount);
+    e.storage().instance().set(&VcVaultDataKey::FeeStandard, amount);
 }
 
 pub fn try_read_fee_standard(e: &Env) -> Option<i128> {
-    e.storage().instance().get(&DataKey::FeeStandard)
+    e.storage().instance().get(&VcVaultDataKey::FeeStandard)
 }
 
 pub fn read_fee_standard(e: &Env) -> i128 {
@@ -135,11 +135,11 @@ pub fn read_fee_standard(e: &Env) -> i128 {
 }
 
 pub fn write_fee_early(e: &Env, amount: &i128) {
-    e.storage().instance().set(&DataKey::FeeEarly, amount);
+    e.storage().instance().set(&VcVaultDataKey::FeeEarly, amount);
 }
 
 pub fn try_read_fee_early(e: &Env) -> Option<i128> {
-    e.storage().instance().get(&DataKey::FeeEarly)
+    e.storage().instance().get(&VcVaultDataKey::FeeEarly)
 }
 
 pub fn read_fee_early(e: &Env) -> i128 {
@@ -147,7 +147,7 @@ pub fn read_fee_early(e: &Env) -> i128 {
 }
 
 pub fn write_fee_custom(e: &Env, issuer: &Address, amount: &i128) {
-    let key = DataKey::FeeCustom(issuer.clone());
+    let key = VcVaultDataKey::FeeCustom(issuer.clone());
     e.storage().persistent().set(&key, amount);
     e.storage()
         .persistent()
@@ -155,7 +155,7 @@ pub fn write_fee_custom(e: &Env, issuer: &Address, amount: &i128) {
 }
 
 pub fn try_read_fee_custom(e: &Env, issuer: &Address) -> Option<i128> {
-    e.storage().persistent().get(&DataKey::FeeCustom(issuer.clone()))
+    e.storage().persistent().get(&VcVaultDataKey::FeeCustom(issuer.clone()))
 }
 
 pub fn read_fee_custom(e: &Env, issuer: &Address) -> i128 {

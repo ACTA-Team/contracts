@@ -321,4 +321,3 @@ pub fn sponsor_removed(e: &Env, sponsor: &Address) {
     }
     .publish(e);
 }
-

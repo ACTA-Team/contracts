@@ -3,7 +3,7 @@
 use crate::interface::VcVaultTrait;
 use crate::error::ContractError;
 use crate::events;
-use crate::model::VCStatus;
+use crate::types::VCStatus;
 use crate::storage;
 use crate::validator::*;
 use crate::vault;
@@ -25,19 +25,18 @@ contractmeta!(
 pub struct VcVaultContract;
 
 #[contractimpl]
-impl VcVaultTrait for VcVaultContract {
-    // --- Global config ---
-
-    fn initialize(e: Env, contract_admin: Address) {
-        contract_admin.require_auth();
-        if storage::has_contract_admin(&e) {
-            panic_with_error!(e, ContractError::AlreadyInitialized);
-        }
+impl VcVaultContract {
+    pub fn __constructor(e: Env, contract_admin: Address) {
         storage::write_contract_admin(&e, &contract_admin);
         storage::write_fee_enabled(&e, &false);
         storage::extend_instance_ttl(&e);
         events::contract_initialized(&e, &contract_admin);
     }
+}
+
+#[contractimpl]
+impl VcVaultTrait for VcVaultContract {
+    // --- Global config ---
 
     /// Nominate a new contract admin. Current admin must sign.
     /// The nominee must call accept_contract_admin to complete the transfer.
@@ -159,7 +158,7 @@ impl VcVaultTrait for VcVaultContract {
         }
         owner.require_auth();
         if storage::has_vault_admin(&e, &owner) {
-            panic_with_error!(e, ContractError::AlreadyInitialized);
+            panic_with_error!(e, ContractError::VaultAlreadyExists);
         }
         storage::write_vault_admin(&e, &owner, &owner);
         storage::write_vault_did(&e, &owner, &did_uri);
@@ -266,7 +265,7 @@ impl VcVaultTrait for VcVaultContract {
         e: Env,
         owner: Address,
         vc_id: String,
-    ) -> Option<crate::model::VerifiableCredential> {
+    ) -> Option<crate::types::VerifiableCredential> {
         require_vc_id_len(&e, &vc_id);
         storage::extend_vault_ttl(&e, &owner);
         let vc = storage::read_vault_vc(&e, &owner, &vc_id);
@@ -304,53 +303,7 @@ impl VcVaultTrait for VcVaultContract {
         require_vault_active(&e, &to_owner);
         from_owner.require_auth();
         require_issuer_authorized(&e, &from_owner, &issuer_addr);
-
-        let vc_opt = storage::read_vault_vc(&e, &from_owner, &vc_id);
-        if vc_opt.is_none() {
-            panic_with_error!(e, ContractError::VCNotFound);
-        }
-        // Only Valid VCs may be pushed. A revoked VC cannot be transferred to
-        // another vault; use the dedicated VCAlreadyRevoked error so callers
-        // can distinguish "not found" from "found but revoked".
-        if storage::read_vc_status(&e, &from_owner, &vc_id) != VCStatus::Valid {
-            panic_with_error!(e, ContractError::VCAlreadyRevoked);
-        }
-        if storage::read_vault_vc(&e, &to_owner, &vc_id).is_some()
-            || storage::read_vc_status(&e, &to_owner, &vc_id) != VCStatus::Invalid
-        {
-            panic_with_error!(e, ContractError::VCAlreadyExists);
-        }
-        let vc = vc_opt.unwrap();
-
-        // Move the parent link with the VC so `get_vc_parent(to_owner, vc_id)`
-        // resolves correctly post-push and the source vault stops claiming a
-        // parent for a payload it no longer holds.
-        let parent = storage::read_vc_parent(&e, &from_owner, &vc_id);
-
-        storage::remove_vault_vc(&e, &from_owner, &vc_id);
-        storage::remove_vc_from_index(&e, &from_owner, &vc_id);
-        if parent.is_some() {
-            storage::remove_vc_parent(&e, &from_owner, &vc_id);
-        }
-        // VCStatus(from_owner, vc_id) intentionally stays Valid as a tombstone
-        // marker. It preserves vc_id uniqueness within the source vault — a
-        // future `issue(from_owner, vc_id, ...)` panics with VCAlreadyExists
-        // because the second check below trips on the stale status. Code paths
-        // that need to know whether the payload still exists at the source
-        // (verify_vc, revoke, issue_linked) check the payload directly so this
-        // tombstone never causes a false-positive validation.
-
-        storage::write_vault_vc(&e, &to_owner, &vc_id, &vc);
-        storage::append_vc_to_index(&e, &to_owner, &vc_id);
-        storage::write_vc_status(&e, &to_owner, &vc_id, &VCStatus::Valid);
-        if let Some((parent_owner, parent_vc_id)) = parent {
-            storage::write_vc_parent(&e, &to_owner, &vc_id, &parent_owner, &parent_vc_id);
-        }
-
-        storage::extend_vault_ttl(&e, &from_owner);
-        storage::extend_vault_ttl(&e, &to_owner);
-        storage::extend_vc_ttl(&e, &to_owner, &vc_id);
-        events::vc_pushed(&e, &from_owner, &to_owner, &vc_id);
+        vault::push_vc(&e, &from_owner, &to_owner, &vc_id);
     }
 
     // --- Issuance ---
@@ -615,7 +568,7 @@ impl VcVaultTrait for VcVaultContract {
             }
         }
         if storage::has_vault_admin(&e, &owner) {
-            panic_with_error!(e, ContractError::AlreadyInitialized);
+            panic_with_error!(e, ContractError::VaultAlreadyExists);
         }
         storage::write_vault_admin(&e, &owner, &owner);
         storage::write_vault_did(&e, &owner, &did_uri);

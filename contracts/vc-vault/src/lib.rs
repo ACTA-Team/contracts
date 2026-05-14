@@ -12,7 +12,7 @@ pub mod contract;
 mod validator;
 mod error;
 mod events;
-pub mod model;
+pub mod types;
 mod storage;
 mod vault;
 

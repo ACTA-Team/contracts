@@ -1,6 +1,6 @@
 //! Storage layout. Instance = global config; persistent = per-owner and per-VC.
 //!
-//! The DataKey enum and FeeConfig struct live here. All domain helpers are in
+//! The VcVaultDataKey enum and FeeConfig struct live here. All domain helpers are in
 //! sub-modules, re-exported flat so callers use `storage::read_vault_vc(...)`.
 
 mod config;
@@ -23,7 +23,7 @@ use soroban_sdk::{contracttype, Address, String};
 /// Storage keys. Instance = admin, fees, flags. Persistent = vault metadata, VCs, status.
 #[derive(Clone)]
 #[contracttype]
-pub enum DataKey {
+pub enum VcVaultDataKey {
     ContractAdmin,
     PendingAdmin,
     FeeEnabled,

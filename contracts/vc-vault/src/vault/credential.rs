@@ -1,7 +1,7 @@
 //! Credential lifecycle: store, issue with fee, revoke.
 
 use crate::error::ContractError;
-use crate::model::{VCStatus, VerifiableCredential};
+use crate::types::{VCStatus, VerifiableCredential};
 use crate::storage;
 use soroban_sdk::{panic_with_error, symbol_short, Address, Env, IntoVal, String};
 
@@ -61,4 +61,44 @@ pub fn revoke_vc(e: &Env, owner: &Address, vc_id: String, date: String) {
         panic_with_error!(e, ContractError::VCAlreadyRevoked)
     }
     storage::write_vc_status(e, owner, &vc_id, &VCStatus::Revoked(date))
+}
+
+/// Transfer a VC from one vault to another. Tombstones the source status
+/// entry so vc_id stays unique in the source vault index.
+pub fn push_vc(e: &Env, from_owner: &Address, to_owner: &Address, vc_id: &String) {
+    let vc_opt = storage::read_vault_vc(e, from_owner, vc_id);
+    if vc_opt.is_none() {
+        panic_with_error!(e, ContractError::VCNotFound);
+    }
+    if storage::read_vc_status(e, from_owner, vc_id) != VCStatus::Valid {
+        panic_with_error!(e, ContractError::VCAlreadyRevoked);
+    }
+    if storage::read_vault_vc(e, to_owner, vc_id).is_some()
+        || storage::read_vc_status(e, to_owner, vc_id) != VCStatus::Invalid
+    {
+        panic_with_error!(e, ContractError::VCAlreadyExists);
+    }
+    let vc = vc_opt.unwrap();
+    let parent = storage::read_vc_parent(e, from_owner, vc_id);
+
+    storage::remove_vault_vc(e, from_owner, vc_id);
+    storage::remove_vc_from_index(e, from_owner, vc_id);
+    if parent.is_some() {
+        storage::remove_vc_parent(e, from_owner, vc_id);
+    }
+    // VCStatus(from_owner, vc_id) stays Valid as tombstone — preserves
+    // vc_id uniqueness in the source vault.
+
+    storage::write_vault_vc(e, to_owner, vc_id, &vc);
+    storage::append_vc_to_index(e, to_owner, vc_id);
+    storage::write_vc_status(e, to_owner, vc_id, &VCStatus::Valid);
+    if let Some((parent_owner, parent_vc_id)) = parent {
+        storage::write_vc_parent(e, to_owner, vc_id, &parent_owner, &parent_vc_id);
+    }
+
+    storage::extend_vault_ttl(e, from_owner);
+    storage::extend_vault_ttl(e, to_owner);
+    storage::extend_vc_status_ttl(e, from_owner, vc_id);
+    storage::extend_vc_ttl(e, to_owner, vc_id);
+    crate::events::vc_pushed(e, from_owner, to_owner, vc_id);
 }
