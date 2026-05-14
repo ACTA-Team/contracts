@@ -2,7 +2,7 @@
 
 use crate::constants::{MAX_ISSUERS_LIST, PERSISTENT_TTL_EXTEND_TO, PERSISTENT_TTL_THRESHOLD};
 use crate::error::ContractError;
-use super::DataKey;
+use super::VcVaultDataKey;
 use soroban_sdk::{panic_with_error, Address, Env};
 
 // --- Authorized issuer index ---
@@ -10,12 +10,12 @@ use soroban_sdk::{panic_with_error, Address, Env};
 pub fn read_issuer_count(e: &Env, owner: &Address) -> u32 {
     e.storage()
         .persistent()
-        .get(&DataKey::VaultIssuerCount(owner.clone()))
+        .get(&VcVaultDataKey::VaultIssuerCount(owner.clone()))
         .unwrap_or(0)
 }
 
 pub fn write_issuer_count(e: &Env, owner: &Address, count: u32) {
-    let key = DataKey::VaultIssuerCount(owner.clone());
+    let key = VcVaultDataKey::VaultIssuerCount(owner.clone());
     e.storage().persistent().set(&key, &count);
     e.storage()
         .persistent()
@@ -25,11 +25,11 @@ pub fn write_issuer_count(e: &Env, owner: &Address, count: u32) {
 pub fn read_issuer_at(e: &Env, owner: &Address, position: u32) -> Option<Address> {
     e.storage()
         .persistent()
-        .get(&DataKey::VaultIssuerIndex(owner.clone(), position))
+        .get(&VcVaultDataKey::VaultIssuerIndex(owner.clone(), position))
 }
 
 pub fn read_issuer_at_extend(e: &Env, owner: &Address, position: u32) -> Option<Address> {
-    let key = DataKey::VaultIssuerIndex(owner.clone(), position);
+    let key = VcVaultDataKey::VaultIssuerIndex(owner.clone(), position);
     if !e.storage().persistent().has(&key) {
         return None;
     }
@@ -40,7 +40,7 @@ pub fn read_issuer_at_extend(e: &Env, owner: &Address, position: u32) -> Option<
 }
 
 pub fn write_issuer_at(e: &Env, owner: &Address, position: u32, issuer: &Address) {
-    let key = DataKey::VaultIssuerIndex(owner.clone(), position);
+    let key = VcVaultDataKey::VaultIssuerIndex(owner.clone(), position);
     e.storage().persistent().set(&key, issuer);
     e.storage()
         .persistent()
@@ -50,17 +50,17 @@ pub fn write_issuer_at(e: &Env, owner: &Address, position: u32, issuer: &Address
 pub fn remove_issuer_at(e: &Env, owner: &Address, position: u32) {
     e.storage()
         .persistent()
-        .remove(&DataKey::VaultIssuerIndex(owner.clone(), position));
+        .remove(&VcVaultDataKey::VaultIssuerIndex(owner.clone(), position));
 }
 
 pub fn read_issuer_position(e: &Env, owner: &Address, issuer: &Address) -> Option<u32> {
     e.storage()
         .persistent()
-        .get(&DataKey::VaultIssuerPosition(owner.clone(), issuer.clone()))
+        .get(&VcVaultDataKey::VaultIssuerPosition(owner.clone(), issuer.clone()))
 }
 
 pub fn write_issuer_position(e: &Env, owner: &Address, issuer: &Address, position: u32) {
-    let key = DataKey::VaultIssuerPosition(owner.clone(), issuer.clone());
+    let key = VcVaultDataKey::VaultIssuerPosition(owner.clone(), issuer.clone());
     e.storage().persistent().set(&key, &position);
     e.storage()
         .persistent()
@@ -70,13 +70,13 @@ pub fn write_issuer_position(e: &Env, owner: &Address, issuer: &Address, positio
 pub fn remove_issuer_position(e: &Env, owner: &Address, issuer: &Address) {
     e.storage()
         .persistent()
-        .remove(&DataKey::VaultIssuerPosition(owner.clone(), issuer.clone()));
+        .remove(&VcVaultDataKey::VaultIssuerPosition(owner.clone(), issuer.clone()));
 }
 
 pub fn issuer_index_contains(e: &Env, owner: &Address, issuer: &Address) -> bool {
     e.storage()
         .persistent()
-        .has(&DataKey::VaultIssuerPosition(owner.clone(), issuer.clone()))
+        .has(&VcVaultDataKey::VaultIssuerPosition(owner.clone(), issuer.clone()))
 }
 
 pub fn append_issuer_to_index(e: &Env, owner: &Address, issuer: &Address) {
@@ -127,12 +127,12 @@ pub fn clear_issuer_index(e: &Env, owner: &Address) {
 pub fn read_denied_issuer_count(e: &Env, owner: &Address) -> u32 {
     e.storage()
         .persistent()
-        .get(&DataKey::VaultDeniedIssuerCount(owner.clone()))
+        .get(&VcVaultDataKey::VaultDeniedIssuerCount(owner.clone()))
         .unwrap_or(0)
 }
 
 pub fn write_denied_issuer_count(e: &Env, owner: &Address, count: u32) {
-    let key = DataKey::VaultDeniedIssuerCount(owner.clone());
+    let key = VcVaultDataKey::VaultDeniedIssuerCount(owner.clone());
     e.storage().persistent().set(&key, &count);
     e.storage()
         .persistent()
@@ -142,11 +142,11 @@ pub fn write_denied_issuer_count(e: &Env, owner: &Address, count: u32) {
 pub fn read_denied_issuer_at(e: &Env, owner: &Address, position: u32) -> Option<Address> {
     e.storage()
         .persistent()
-        .get(&DataKey::VaultDeniedIssuerIndex(owner.clone(), position))
+        .get(&VcVaultDataKey::VaultDeniedIssuerIndex(owner.clone(), position))
 }
 
 pub fn read_denied_issuer_at_extend(e: &Env, owner: &Address, position: u32) -> Option<Address> {
-    let key = DataKey::VaultDeniedIssuerIndex(owner.clone(), position);
+    let key = VcVaultDataKey::VaultDeniedIssuerIndex(owner.clone(), position);
     if !e.storage().persistent().has(&key) {
         return None;
     }
@@ -157,7 +157,7 @@ pub fn read_denied_issuer_at_extend(e: &Env, owner: &Address, position: u32) -> 
 }
 
 pub fn write_denied_issuer_at(e: &Env, owner: &Address, position: u32, issuer: &Address) {
-    let key = DataKey::VaultDeniedIssuerIndex(owner.clone(), position);
+    let key = VcVaultDataKey::VaultDeniedIssuerIndex(owner.clone(), position);
     e.storage().persistent().set(&key, issuer);
     e.storage()
         .persistent()
@@ -167,17 +167,17 @@ pub fn write_denied_issuer_at(e: &Env, owner: &Address, position: u32, issuer: &
 pub fn remove_denied_issuer_at(e: &Env, owner: &Address, position: u32) {
     e.storage()
         .persistent()
-        .remove(&DataKey::VaultDeniedIssuerIndex(owner.clone(), position));
+        .remove(&VcVaultDataKey::VaultDeniedIssuerIndex(owner.clone(), position));
 }
 
 pub fn read_denied_issuer_position(e: &Env, owner: &Address, issuer: &Address) -> Option<u32> {
     e.storage()
         .persistent()
-        .get(&DataKey::VaultDeniedIssuerPosition(owner.clone(), issuer.clone()))
+        .get(&VcVaultDataKey::VaultDeniedIssuerPosition(owner.clone(), issuer.clone()))
 }
 
 pub fn write_denied_issuer_position(e: &Env, owner: &Address, issuer: &Address, position: u32) {
-    let key = DataKey::VaultDeniedIssuerPosition(owner.clone(), issuer.clone());
+    let key = VcVaultDataKey::VaultDeniedIssuerPosition(owner.clone(), issuer.clone());
     e.storage().persistent().set(&key, &position);
     e.storage()
         .persistent()
@@ -187,13 +187,13 @@ pub fn write_denied_issuer_position(e: &Env, owner: &Address, issuer: &Address, 
 pub fn remove_denied_issuer_position(e: &Env, owner: &Address, issuer: &Address) {
     e.storage()
         .persistent()
-        .remove(&DataKey::VaultDeniedIssuerPosition(owner.clone(), issuer.clone()));
+        .remove(&VcVaultDataKey::VaultDeniedIssuerPosition(owner.clone(), issuer.clone()));
 }
 
 pub fn denied_issuer_index_contains(e: &Env, owner: &Address, issuer: &Address) -> bool {
     e.storage()
         .persistent()
-        .has(&DataKey::VaultDeniedIssuerPosition(owner.clone(), issuer.clone()))
+        .has(&VcVaultDataKey::VaultDeniedIssuerPosition(owner.clone(), issuer.clone()))
 }
 
 /// Append an issuer to the denied index. O(1). No-op if already present.

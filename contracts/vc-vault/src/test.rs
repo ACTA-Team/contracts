@@ -2421,7 +2421,7 @@ fn test_vault_full_at_u32_max() {
 
     // Seed VaultVCCount = u32::MAX directly to simulate overflow boundary.
     env.as_contract(&contract_id, || {
-        let key = crate::storage::DataKey::VaultVCCount(owner.clone());
+        let key = crate::storage::VcVaultDataKey::VaultVCCount(owner.clone());
         env.storage().persistent().set(&key, &u32::MAX);
     });
 
