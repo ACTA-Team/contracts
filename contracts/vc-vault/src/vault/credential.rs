@@ -1,8 +1,9 @@
-//! Store VC payload in vault and update index.
+//! Credential lifecycle: store, issue with fee, revoke.
 
-use crate::model::VerifiableCredential;
+use crate::error::ContractError;
+use crate::model::{VCStatus, VerifiableCredential};
 use crate::storage;
-use soroban_sdk::{Address, Env, String};
+use soroban_sdk::{panic_with_error, symbol_short, Address, Env, IntoVal, String};
 
 /// Write VC to vault and append ID to the O(1) index.
 ///
@@ -26,4 +27,38 @@ pub fn store_vc(
     };
     storage::write_vault_vc(e, owner, &id, &new_vc);
     storage::append_vc_to_index(e, owner, &id);
+}
+
+/// Store VC in vault and charge fee if enabled.
+pub fn store_vc_with_fee(
+    e: &Env,
+    owner: &Address,
+    vc_id: String,
+    vc_data: String,
+    issuer_addr: &Address,
+    issuer_did: String,
+    issuance_contract: Address,
+    fee_override: i128,
+) {
+    if storage::read_fee_enabled(e) {
+        let fee_token = storage::read_fee_token_contract(e);
+        let fee_dest = storage::read_fee_dest(e);
+        if fee_override > 0 {
+            e.invoke_contract::<()>(
+                &fee_token,
+                &symbol_short!("transfer"),
+                (issuer_addr.clone(), fee_dest, fee_override).into_val(e),
+            );
+        }
+    }
+    store_vc(e, owner, vc_id, vc_data, issuance_contract, issuer_did);
+}
+
+/// Set VC status to Revoked. Panics if not Valid.
+pub fn revoke_vc(e: &Env, owner: &Address, vc_id: String, date: String) {
+    let vc_status = storage::read_vc_status(e, owner, &vc_id);
+    if vc_status != VCStatus::Valid {
+        panic_with_error!(e, ContractError::VCAlreadyRevoked)
+    }
+    storage::write_vc_status(e, owner, &vc_id, &VCStatus::Revoked(date))
 }
