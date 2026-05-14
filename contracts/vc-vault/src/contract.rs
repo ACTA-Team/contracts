@@ -3,7 +3,7 @@
 use crate::interface::VcVaultTrait;
 use crate::error::ContractError;
 use crate::events;
-use crate::model::VCStatus;
+use crate::types::VCStatus;
 use crate::storage;
 use crate::validator::*;
 use crate::vault;
@@ -265,7 +265,7 @@ impl VcVaultTrait for VcVaultContract {
         e: Env,
         owner: Address,
         vc_id: String,
-    ) -> Option<crate::model::VerifiableCredential> {
+    ) -> Option<crate::types::VerifiableCredential> {
         require_vc_id_len(&e, &vc_id);
         storage::extend_vault_ttl(&e, &owner);
         let vc = storage::read_vault_vc(&e, &owner, &vc_id);
