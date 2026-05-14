@@ -43,7 +43,7 @@ See [`contracts/vc-vault/README.md`](contracts/vc-vault/README.md) for the full 
 | Contract | Contract ID |
 |---|---|
 | `did-stellar-registry` | `CB7ATU7SF5QUKJMSULJDJVWJZVDXC23HTZX6NFUDTSFPVT6MA575NNZJ` |
-| `vc-vault` | `CC3SQ7UTAQQDQF6PUQMQIGK3BMPB22OKMHE5Y5XELEX3JFAKC72SQOAM` |
+| `vc-vault` | `CATL4IDH7XXPDC2UHSEX2GP45PPBVDFSKUDTKCSQICDOJVDLYNKISXFH` |
 
 Network: Stellar Testnet (`Test SDF Network ; September 2015`)  
 Full deployment record: [`docs/deployments/testnet.md`](docs/deployments/testnet.md)

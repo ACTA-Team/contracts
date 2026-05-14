@@ -39,7 +39,8 @@ fi
 case "$PACKAGE" in
     vc-vault)
         WASM="target/wasm32v1-none/release/vc_vault_contract.optimized.wasm"
-        CONSTRUCTOR_ARGS=""
+        ADMIN=${VC_ADMIN:-$(stellar keys address "$SOURCE")}
+        CONSTRUCTOR_ARGS="-- --contract_admin $ADMIN"
         ;;
     did-stellar-registry)
         WASM="target/wasm32v1-none/release/did_stellar_registry.optimized.wasm"

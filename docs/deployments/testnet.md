@@ -17,3 +17,4 @@ RPC: `https://soroban-testnet.stellar.org:443`
 |---|---|---|---|
 | 0.1.0 | `CC3SQ7UTAQQDQF6PUQMQIGK3BMPB22OKMHE5Y5XELEX3JFAKC72SQOAM` | 2026-05-06 | Tranche 1 initial deploy |
 | 0.2.0 | `CBXC6LXBY5FGEG46VZ4AJ2AH2EJBINBA7BMILIEO4EJYI6ZTY7K7J5D5` | 2026-05-07 | SOW D2: O(1) index + pagination + migrate + batch_issue. WASM hash `c8da61dd3dd46b2810a743d50a388c09a00f0b7e8e2df7ceb5a71c8ce5dc4dd8`. |
+| 0.3.0 | `CATL4IDH7XXPDC2UHSEX2GP45PPBVDFSKUDTKCSQICDOJVDLYNKISXFH` | 2026-05-14 | Refactoring: constructor, types rename, push_vc extraction, input caps, event emissions, O(1) issuer storage, tombstone TTL fix. WASM hash `775a141520de56fb4b1ebeb55d63e49fadf03f467ea8444cddb2caed2756ca8c`. |
