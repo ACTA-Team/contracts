@@ -2,7 +2,7 @@
 
 Soroban smart contracts for the ACTA identity and Verifiable Credential infrastructure on Stellar.
 
-**Release:** [v0.1.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/v0.1.0) — Tranche 1
+**Latest release:** [vc-vault v0.3.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/vc-vault-v0.3.0)
 
 ---
 
@@ -26,13 +26,13 @@ See [`contracts/did-stellar-registry/README.md`](contracts/did-stellar-registry/
 
 ### `vc-vault`
 
-Per-holder vault for Verifiable Credentials on Stellar. Manages VC storage, issuance status, revocation, issuer authorization, and fee collection in USDC.
+Per-holder vault for Verifiable Credentials on Stellar. Manages VC storage, issuance status, revocation, issuer authorization, and fee collection in USDC. Contract admin is set at deploy time via `__constructor`.
 
 | Category | Functions |
 |---|---|
-| Admin | `initialize`, `nominate_admin`, `accept_contract_admin`, `upgrade`, `version`, `fee_*` |
-| Vault | `create_vault`, `create_sponsored_vault`, `set_vault_admin`, `authorize_issuer`, `revoke_issuer`, `revoke_vault` |
-| Credentials | `issue`, `issue_linked`, `revoke`, `verify_vc`, `get_vc`, `list_vc_ids`, `push` |
+| Admin | `nominate_admin`, `accept_contract_admin`, `upgrade`, `version`, `fee_*` |
+| Vault | `create_vault`, `create_sponsored_vault`, `set_vault_admin`, `authorize_issuer`, `authorize_issuers`, `revoke_issuer`, `revoke_vault`, `list_authorized_issuers`, `list_denied_issuers`, `authorized_issuer_count`, `denied_issuer_count` |
+| Credentials | `issue`, `batch_issue`, `issue_linked`, `revoke`, `verify_vc`, `get_vc`, `list_vc_ids`, `vc_count`, `push` |
 
 See [`contracts/vc-vault/README.md`](contracts/vc-vault/README.md) for the full ABI, authorization model, and error codes.
 
@@ -43,7 +43,7 @@ See [`contracts/vc-vault/README.md`](contracts/vc-vault/README.md) for the full 
 | Contract | Contract ID |
 |---|---|
 | `did-stellar-registry` | `CB7ATU7SF5QUKJMSULJDJVWJZVDXC23HTZX6NFUDTSFPVT6MA575NNZJ` |
-| `vc-vault` | `CC3SQ7UTAQQDQF6PUQMQIGK3BMPB22OKMHE5Y5XELEX3JFAKC72SQOAM` |
+| `vc-vault` | `CATL4IDH7XXPDC2UHSEX2GP45PPBVDFSKUDTKCSQICDOJVDLYNKISXFH` |
 
 Network: Stellar Testnet (`Test SDF Network ; September 2015`)  
 Full deployment record: [`docs/deployments/testnet.md`](docs/deployments/testnet.md)
@@ -95,7 +95,7 @@ The `did:stellar` v0.1 method specification lives at [`docs/did-spec/did-stellar
 ## Tests
 
 ```bash
-cargo test -p vc-vault-contract          # 63 tests
+cargo test -p vc-vault-contract          # 127 tests
 cargo test -p did-stellar-registry       # 56 tests
 ```
 

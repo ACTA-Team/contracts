@@ -6,16 +6,14 @@ use soroban_sdk::contracterror;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum ContractError {
-    /// Resource already initialized (contract or vault).
-    AlreadyInitialized = 1,
+    /// Vault already exists for this owner.
+    VaultAlreadyExists = 1,
     /// Issuer not in vault's authorized list.
     IssuerNotAuthorized = 2,
     /// Issuer already authorized.
     IssuerAlreadyAuthorized = 3,
     /// Vault is revoked; writes blocked.
     VaultRevoked = 4,
-    /// Migration already done; nothing to migrate.
-    VCSAlreadyMigrated = 5,
     /// VC not found in vault or status registry.
     VCNotFound = 6,
     /// VC already revoked.
@@ -36,4 +34,19 @@ pub enum ContractError {
     ParentVCInvalid = 14,
     /// Vault has reached the maximum number of active VCs.
     VaultFull = 15,
+    /// Pagination `limit` exceeds `MAX_LIST_LIMIT`.
+    LimitTooLarge = 16,
+    /// Batch issuance request exceeds `MAX_BATCH_SIZE`.
+    BatchTooLarge = 17,
+    /// Batch issuance called with an empty `vcs` list.
+    BatchEmpty = 18,
+    /// String input exceeds its per-field maximum length (vc_id, vc_data,
+    /// did_uri, issuer_did, or date).
+    InputTooLong = 19,
+    /// `authorize_issuers` called with a list larger than `MAX_ISSUERS_LIST`.
+    IssuerListTooLong = 20,
+    /// Fee amount is negative.
+    InvalidFeeAmount = 22,
+    /// Fee amount exceeds `MAX_FEE_AMOUNT`.
+    FeeOutOfBounds = 23,
 }

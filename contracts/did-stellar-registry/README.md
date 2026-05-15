@@ -75,12 +75,15 @@ Codes are part of the ABI. Numeric values MUST NOT be renumbered.
 | 9 | `DuplicateKey` | Same `public_key_multibase` repeated within one relationship. |
 | 10 | `KeyTooLong` | `public_key_multibase.len()` > 128 chars. |
 | 11 | `KeyEmpty` | `public_key_multibase` is empty. |
-| 12 | `ServiceTypeTooLong` | `service_type` empty or > 64 chars. |
+| 12 | `ServiceTypeTooLong` | `service_type.len()` > 64 chars. |
 | 13 | `ServiceIdTooLong` | `id_suffix.len()` > 32 chars. |
 | 14 | `ServiceIdInvalidFormat` | `id_suffix` does not match `^[a-z0-9-]+$`. |
 | 15 | `ServiceEndpointInvalid` | `service_endpoint` is not `https://...` or > 255 chars. |
 | 16 | `MetadataUriInvalid` | `metadata_uri` is not `https://...` or > 255 chars. |
 | 17 | `NoProposedAdmin` | `accept_admin` called when no proposal exists or proposal expired. |
+| 18 | `ServiceTypeEmpty` | `service_type` is empty. |
+| 19 | `VersionOverflow` | DID `version` has reached `u32::MAX`; further mutations are rejected. |
+| 20 | `MetadataInconsistent` | `metadata_hash` is set but `metadata_uri` is absent. |
 
 ---
 
@@ -140,6 +143,7 @@ Defined in `src/model.rs`:
 | `service.service_endpoint` | `https://`, ≤ 255 chars |
 | `metadata_uri` | `https://`, ≤ 255 chars |
 | `metadata_hash` | 32 bytes (SHA-256) |
+| `metadata_hash` + `metadata_uri` | If `metadata_hash` is set, `metadata_uri` must also be set. |
 
 `http://` is rejected for both `service_endpoint` and `metadata_uri`.
 
