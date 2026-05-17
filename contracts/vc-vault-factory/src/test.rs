@@ -195,3 +195,78 @@ fn test_deploy_sponsored_emits_event() {
 
     assert_eq!(e.events().all().len(), 3);
 }
+
+#[test]
+fn test_push_transfers_vc_between_vaults() {
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+
+    let owner_a = Address::generate(&e);
+    let owner_b = Address::generate(&e);
+    let did_uri = String::from_str(&e, "did:test");
+
+    let vault_a = client.deploy(&owner_a, &did_uri, &BytesN::random(&e));
+    let vault_b = client.deploy(&owner_b, &did_uri, &BytesN::random(&e));
+
+    let vault_a_client = vc_vault::Client::new(&e, &vault_a);
+    let vault_b_client = vc_vault::Client::new(&e, &vault_b);
+
+    let issuer = Address::generate(&e);
+    let vc_id = String::from_str(&e, "vc-1");
+    let vc_data = String::from_str(&e, "<data>");
+    let issuer_did = String::from_str(&e, "did:issuer");
+
+    vault_a_client.issue(&vc_id, &vc_data, &vault_a, &issuer, &issuer_did, &0_i128);
+    assert_eq!(vault_a_client.vc_count(), 1);
+    assert_eq!(vault_b_client.vc_count(), 0);
+
+    vault_a_client.push(&vc_id, &vault_b);
+
+    assert_eq!(vault_a_client.vc_count(), 0);
+    assert_eq!(vault_b_client.vc_count(), 1);
+    assert_eq!(vault_b_client.verify_vc(&vc_id), vc_vault::VCStatus::Valid);
+}
+
+#[test]
+fn test_push_removes_vc_from_source() {
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+
+    let owner_a = Address::generate(&e);
+    let owner_b = Address::generate(&e);
+    let did_uri = String::from_str(&e, "did:test");
+
+    let vault_a = client.deploy(&owner_a, &did_uri, &BytesN::random(&e));
+    let vault_b = client.deploy(&owner_b, &did_uri, &BytesN::random(&e));
+
+    let vault_a_client = vc_vault::Client::new(&e, &vault_a);
+
+    let issuer = Address::generate(&e);
+    let vc_id = String::from_str(&e, "vc-1");
+    vault_a_client.issue(&vc_id, &String::from_str(&e, "<data>"), &vault_a, &issuer, &String::from_str(&e, "did:issuer"), &0_i128);
+
+    vault_a_client.push(&vc_id, &vault_b);
+
+    assert!(vault_a_client.get_vc(&vc_id).is_none());
+    assert_eq!(vault_a_client.verify_vc(&vc_id), vc_vault::VCStatus::Invalid);
+}
+
+#[test]
+#[should_panic]
+fn test_receive_push_from_non_vault_panics() {
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+
+    let owner = Address::generate(&e);
+    let did_uri = String::from_str(&e, "did:test");
+    let vault_addr = client.deploy(&owner, &did_uri, &BytesN::random(&e));
+    let vault_client = vc_vault::Client::new(&e, &vault_addr);
+
+    let fake_vault = Address::generate(&e);
+    vault_client.receive_push(
+        &fake_vault,
+        &String::from_str(&e, "vc-1"),
+        &String::from_str(&e, "<data>"),
+        &String::from_str(&e, "did:issuer"),
+    );
+}
