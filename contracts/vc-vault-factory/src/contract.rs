@@ -43,10 +43,11 @@ fn derive_salt(e: &Env, user_salt: BytesN<32>, owner: &Address) -> BytesN<32> {
 fn deploy_vault(e: &Env, owner: &Address, did_uri: String, user_salt: BytesN<32>) -> Address {
     let meta = storage::get_vault_init_meta(e);
     let new_salt = derive_salt(e, user_salt, owner);
+    let factory_address = e.current_contract_address();
     let vault_address = e
         .deployer()
         .with_current_contract(new_salt)
-        .deploy_v2(meta.vault_hash, (owner.clone(), meta.contract_admin, did_uri));
+        .deploy_v2(meta.vault_hash, (owner.clone(), meta.contract_admin, did_uri, factory_address));
     storage::set_deployed(e, &vault_address);
     vault_address
 }

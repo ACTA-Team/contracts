@@ -45,6 +45,12 @@ pub struct VCRevoked {
     pub date: String,
 }
 
+#[contractevent]
+pub struct VCPushed {
+    pub vc_id: String,
+    pub dest_vault: Address,
+}
+
 // --- Admin / governance ---
 
 #[contractevent]
@@ -152,6 +158,14 @@ pub fn vc_revoked(e: &Env, vc_id: &String, date: &String) {
     VCRevoked {
         vc_id: vc_id.clone(),
         date: date.clone(),
+    }
+    .publish(e);
+}
+
+pub fn vc_pushed(e: &Env, vc_id: &String, dest_vault: &Address) {
+    VCPushed {
+        vc_id: vc_id.clone(),
+        dest_vault: dest_vault.clone(),
     }
     .publish(e);
 }

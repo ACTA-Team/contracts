@@ -13,8 +13,9 @@ fn setup() -> (Env, Address, Address, Address, Address, VcVaultContractClient<'s
     let owner = Address::generate(&env);
     let admin = Address::generate(&env);
     let issuer = Address::generate(&env);
+    let factory = Address::generate(&env);
     let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
-    let contract_id = env.register(VcVaultContract, (owner.clone(), admin.clone(), did_uri));
+    let contract_id = env.register(VcVaultContract, (owner.clone(), admin.clone(), did_uri, factory));
     let client = VcVaultContractClient::new(&env, &contract_id);
     (env, owner, admin, issuer, contract_id, client)
 }
@@ -302,8 +303,9 @@ fn setup_no_mock() -> (Env, Address, Address, Address, Address, VcVaultContractC
     let owner = Address::generate(&env);
     let admin = Address::generate(&env);
     let issuer = Address::generate(&env);
+    let factory = Address::generate(&env);
     let did_uri = String::from_str(&env, "did:test");
-    let contract_id = env.register(VcVaultContract, (owner.clone(), admin.clone(), did_uri));
+    let contract_id = env.register(VcVaultContract, (owner.clone(), admin.clone(), did_uri, factory));
     let client = VcVaultContractClient::new(&env, &contract_id);
     (env, owner, admin, issuer, contract_id, client)
 }
@@ -760,7 +762,7 @@ fn test_constructor_accepts_did_uri_at_max_len() {
     let owner = Address::generate(&env);
     let admin = Address::generate(&env);
     let did_uri = long_string(&env, b'd', 256); // MAX_DID_URI_LEN
-    env.register(VcVaultContract, (owner, admin, did_uri));
+    env.register(VcVaultContract, (owner, admin, did_uri, Address::generate(&env)));
     // No panic means success.
 }
 
@@ -771,7 +773,7 @@ fn test_constructor_rejects_did_uri_over_max_len() {
     let owner = Address::generate(&env);
     let admin = Address::generate(&env);
     let did_uri = long_string(&env, b'd', 257);
-    env.register(VcVaultContract, (owner, admin, did_uri));
+    env.register(VcVaultContract, (owner, admin, did_uri, Address::generate(&env)));
 }
 
 #[test]
@@ -966,7 +968,7 @@ fn test_constructor_emits_contract_initialized_and_vault_created() {
     let owner = Address::generate(&env);
     let admin = Address::generate(&env);
     let did_uri = String::from_str(&env, "did:test");
-    env.register(VcVaultContract, (owner.clone(), admin.clone(), did_uri.clone()));
+    env.register(VcVaultContract, (owner.clone(), admin.clone(), did_uri.clone(), Address::generate(&env)));
     let events = env.events().all();
     assert_eq!(events.len(), 2);
     let (_, topics0, data0) = events.get(0).unwrap();

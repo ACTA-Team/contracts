@@ -25,9 +25,10 @@ pub struct VcVaultContract;
 
 #[contractimpl]
 impl VcVaultContract {
-    pub fn __constructor(e: Env, vault_owner: Address, contract_admin: Address, did_uri: String) {
+    pub fn __constructor(e: Env, vault_owner: Address, contract_admin: Address, did_uri: String, factory_address: Address) {
         require_did_uri_len(&e, &did_uri);
         storage::write_vault_owner(&e, &vault_owner);
+        storage::write_factory_address(&e, &factory_address);
         storage::write_contract_admin(&e, &contract_admin);
         storage::write_vault_did(&e, &did_uri);
         storage::write_vault_admin(&e, &vault_owner);
@@ -380,6 +381,60 @@ impl VcVaultTrait for VcVaultContract {
         storage::extend_vault_ttl(&e);
         storage::extend_vc_status_ttl(&e, &vc_id);
         events::vc_revoked(&e, &vc_id, &date);
+    }
+
+    fn push(e: Env, vc_id: String, dest_vault: Address) {
+        require_vc_id_len(&e, &vc_id);
+        require_vault_admin(&e);
+        require_vault_active(&e);
+        let vc = match storage::read_vault_vc(&e, &vc_id) {
+            Some(v) => v,
+            None => panic_with_error!(e, ContractError::VCNotFound),
+        };
+        if storage::read_vc_status(&e, &vc_id) != VCStatus::Valid {
+            panic_with_error!(e, ContractError::VCNotFound);
+        }
+        e.invoke_contract::<()>(
+            &dest_vault,
+            &soroban_sdk::Symbol::new(&e, "receive_push"),
+            (
+                e.current_contract_address(),
+                vc_id.clone(),
+                vc.data,
+                vc.issuer_did,
+            ).into_val(&e),
+        );
+        storage::remove_vc_from_index(&e, &vc_id);
+        storage::remove_vault_vc(&e, &vc_id);
+        storage::remove_vc_status(&e, &vc_id);
+        storage::extend_vault_ttl(&e);
+        events::vc_pushed(&e, &vc_id, &dest_vault);
+    }
+
+    fn receive_push(e: Env, source_vault: Address, vc_id: String, vc_data: String, issuer_did: String) {
+        require_vc_id_len(&e, &vc_id);
+        require_vc_data_len(&e, &vc_data);
+        require_vault_active(&e);
+        source_vault.require_auth();
+        // Verify source_vault was deployed by the same factory.
+        let factory = storage::read_factory_address(&e);
+        let is_legit: bool = e.invoke_contract(
+            &factory,
+            &soroban_sdk::Symbol::new(&e, "is_vault"),
+            (source_vault.clone(),).into_val(&e),
+        );
+        if !is_legit {
+            panic_with_error!(e, ContractError::SourceNotAVault);
+        }
+        if storage::vc_index_contains(&e, &vc_id) {
+            panic_with_error!(e, ContractError::VCAlreadyExists);
+        }
+        let dest = e.current_contract_address();
+        vault::store_vc(&e, vc_id.clone(), vc_data, dest.clone(), issuer_did);
+        storage::write_vc_status(&e, &vc_id, &VCStatus::Valid);
+        storage::extend_vault_ttl(&e);
+        storage::extend_vc_ttl(&e, &vc_id);
+        events::vc_issued(&e, &vc_id, &dest);
     }
 
     // --- Issuer queries ---
