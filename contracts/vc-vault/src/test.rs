@@ -35,7 +35,7 @@ fn test_create_vault_after_deploy() {
 
 #[test]
 fn test_nominate_and_accept_admin() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let new_admin = Address::generate(&env);
     client.nominate_admin(&new_admin);
     client.accept_contract_admin();
@@ -47,7 +47,7 @@ fn test_nominate_and_accept_admin() {
 
 #[test]
 fn test_fee_config_default() {
-    let (_env, admin, _issuer, _contract_id, client) = setup();
+    let (_env, _admin, _issuer, _contract_id, client) = setup();
     let config = client.fee_config();
     assert!(!config.enabled);
     assert!(!config.configured);
@@ -58,7 +58,7 @@ fn test_fee_config_default() {
 
 #[test]
 fn test_set_fee_config() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let token = Address::generate(&env);
     let fee_dest = Address::generate(&env);
     client.set_fee_config(&token, &fee_dest, &1_000_000_i128);
@@ -71,7 +71,7 @@ fn test_set_fee_config() {
 
 #[test]
 fn test_set_fee_enabled() {
-    let (_env, admin, _issuer, _contract_id, client) = setup();
+    let (_env, _admin, _issuer, _contract_id, client) = setup();
     client.set_fee_enabled(&true);
     assert!(client.fee_config().enabled);
     client.set_fee_enabled(&false);
@@ -80,7 +80,7 @@ fn test_set_fee_enabled() {
 
 #[test]
 fn test_set_and_get_fee_admin() {
-    let (_env, admin, _issuer, _contract_id, client) = setup();
+    let (_env, _admin, _issuer, _contract_id, client) = setup();
     assert_eq!(client.get_fee_admin(), 0);
     client.set_fee_admin(&100_i128);
     assert_eq!(client.get_fee_admin(), 100);
@@ -88,7 +88,7 @@ fn test_set_and_get_fee_admin() {
 
 #[test]
 fn test_set_and_get_fee_standard() {
-    let (_env, admin, _issuer, _contract_id, client) = setup();
+    let (_env, _admin, _issuer, _contract_id, client) = setup();
     assert_eq!(client.get_fee_standard(), 1_000_000);
     client.set_fee_standard(&2_000_000_i128);
     assert_eq!(client.get_fee_standard(), 2_000_000);
@@ -96,7 +96,7 @@ fn test_set_and_get_fee_standard() {
 
 #[test]
 fn test_set_and_get_fee_early() {
-    let (_env, admin, _issuer, _contract_id, client) = setup();
+    let (_env, _admin, _issuer, _contract_id, client) = setup();
     assert_eq!(client.get_fee_early(), 400_000);
     client.set_fee_early(&500_000_i128);
     assert_eq!(client.get_fee_early(), 500_000);
@@ -104,7 +104,7 @@ fn test_set_and_get_fee_early() {
 
 #[test]
 fn test_set_and_get_fee_custom() {
-    let (_env, admin, issuer, _contract_id, client) = setup();
+    let (_env, _admin, issuer, _contract_id, client) = setup();
     client.set_fee_custom(&issuer, &300_000_i128);
     assert_eq!(client.get_fee_custom(&issuer), 300_000);
 }
@@ -112,7 +112,7 @@ fn test_set_and_get_fee_custom() {
 #[test]
 #[should_panic]
 fn test_create_vault_twice_panics() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
     client.create_vault(&owner, &did_uri);
@@ -121,7 +121,7 @@ fn test_create_vault_twice_panics() {
 
 #[test]
 fn test_set_vault_admin() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     let new_admin = Address::generate(&env);
@@ -132,7 +132,7 @@ fn test_set_vault_admin() {
 
 #[test]
 fn test_authorize_issuer() {
-    let (env, admin, issuer, _contract_id, client) = setup();
+    let (env, _admin, issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     client.authorize_issuer(&owner, &issuer);
@@ -140,7 +140,7 @@ fn test_authorize_issuer() {
 
 #[test]
 fn test_authorize_issuers_bulk() {
-    let (env, admin, issuer, _contract_id, client) = setup();
+    let (env, _admin, issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     let issuer2 = Address::generate(&env);
@@ -150,7 +150,7 @@ fn test_authorize_issuers_bulk() {
 
 #[test]
 fn test_revoke_issuer() {
-    let (env, admin, issuer, _contract_id, client) = setup();
+    let (env, _admin, issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     client.authorize_issuer(&owner, &issuer);
@@ -160,7 +160,7 @@ fn test_revoke_issuer() {
 #[test]
 #[should_panic]
 fn test_issue_after_revoke_issuer_panics() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     client.authorize_issuer(&owner, &issuer);
@@ -173,7 +173,7 @@ fn test_issue_after_revoke_issuer_panics() {
 
 #[test]
 fn test_revoke_vault() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     client.revoke_vault(&owner);
@@ -182,7 +182,7 @@ fn test_revoke_vault() {
 #[test]
 #[should_panic]
 fn test_issue_after_revoke_vault_panics() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     client.authorize_issuer(&owner, &issuer);
@@ -195,7 +195,7 @@ fn test_issue_after_revoke_vault_panics() {
 
 #[test]
 fn test_list_vc_ids_empty() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     assert_eq!(client.list_vc_ids(&owner, &0_u32, &200_u32).len(), 0);
@@ -203,7 +203,7 @@ fn test_list_vc_ids_empty() {
 
 #[test]
 fn test_get_vc_none_for_missing() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     let vc_id = String::from_str(&env, "nonexistent");
@@ -212,7 +212,7 @@ fn test_get_vc_none_for_missing() {
 
 #[test]
 fn test_verify_vc_invalid_when_not_in_vault() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     let vc_id = String::from_str(&env, "nonexistent");
@@ -221,7 +221,7 @@ fn test_verify_vc_invalid_when_not_in_vault() {
 
 #[test]
 fn test_vault_authorize_and_store_and_list_and_get() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     client.authorize_issuer(&owner, &issuer);
@@ -235,7 +235,7 @@ fn test_vault_authorize_and_store_and_list_and_get() {
 
 #[test]
 fn test_issue_verify_revoke_flow_local_vault() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     client.authorize_issuer(&owner, &issuer);
@@ -251,7 +251,7 @@ fn test_issue_verify_revoke_flow_local_vault() {
 
 #[test]
 fn test_push_moves_between_vaults() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let from_owner = Address::generate(&env);
     let to_owner = Address::generate(&env);
     client.create_vault(&from_owner, &String::from_str(&env, "did:pkh:stellar:testnet:FROM"));
@@ -269,7 +269,7 @@ fn test_push_moves_between_vaults() {
 #[test]
 #[should_panic]
 fn test_issue_after_push_same_vc_id_panics() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let from_owner = Address::generate(&env);
     let to_owner = Address::generate(&env);
     client.create_vault(&from_owner, &String::from_str(&env, "did:pkh:stellar:testnet:FROM"));
@@ -288,7 +288,7 @@ fn test_issue_after_push_same_vc_id_panics() {
 #[test]
 #[should_panic]
 fn test_revoke_after_push_panics() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let from_owner = Address::generate(&env);
     let to_owner = Address::generate(&env);
     client.create_vault(&from_owner, &String::from_str(&env, "did:pkh:stellar:testnet:FROM"));
@@ -307,7 +307,7 @@ fn test_revoke_after_push_panics() {
 
 #[test]
 fn test_verify_vc_valid_after_push_on_destination() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let from_owner = Address::generate(&env);
     let to_owner = Address::generate(&env);
     client.create_vault(&from_owner, &String::from_str(&env, "did:pkh:stellar:testnet:FROM"));
@@ -323,7 +323,7 @@ fn test_verify_vc_valid_after_push_on_destination() {
 
 #[test]
 fn test_revoke_after_push_on_destination_succeeds() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let from_owner = Address::generate(&env);
     let to_owner = Address::generate(&env);
     client.create_vault(&from_owner, &String::from_str(&env, "did:pkh:stellar:testnet:FROM"));
@@ -342,7 +342,7 @@ fn test_revoke_after_push_on_destination_succeeds() {
 #[test]
 #[should_panic]
 fn test_push_to_destination_with_existing_vc_id_panics() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let attacker = Address::generate(&env);
     let to_owner = Address::generate(&env);
     client.create_vault(&attacker, &String::from_str(&env, "did:pkh:stellar:testnet:ATTACKER"));
@@ -364,7 +364,7 @@ fn test_push_to_destination_with_existing_vc_id_panics() {
 #[test]
 #[should_panic]
 fn test_push_revoked_vc_panics() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let from_owner = Address::generate(&env);
     let to_owner = Address::generate(&env);
     client.create_vault(&from_owner, &String::from_str(&env, "did:pkh:stellar:testnet:FROM"));
@@ -382,7 +382,7 @@ fn test_push_revoked_vc_panics() {
 
 #[test]
 fn test_issue_returns_vc_id() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     client.authorize_issuer(&owner, &issuer);
@@ -395,7 +395,7 @@ fn test_issue_returns_vc_id() {
 
 #[test]
 fn test_issue_with_fee_override() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     client.authorize_issuer(&owner, &issuer);
@@ -409,7 +409,7 @@ fn test_issue_with_fee_override() {
 #[test]
 #[should_panic]
 fn test_issue_invalid_vault_contract_panics() {
-    let (env, admin, issuer, _contract_id, client) = setup();
+    let (env, _admin, issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     client.authorize_issuer(&owner, &issuer);
@@ -423,7 +423,7 @@ fn test_issue_invalid_vault_contract_panics() {
 #[test]
 #[should_panic]
 fn test_revoke_nonexistent_vc_panics() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     let vc_id = String::from_str(&env, "nonexistent");
     let date = String::from_str(&env, "2025-12-18T00:00:00Z");
@@ -433,7 +433,7 @@ fn test_revoke_nonexistent_vc_panics() {
 #[test]
 #[should_panic]
 fn test_push_nonexistent_vc_panics() {
-    let (env, admin, issuer, _contract_id, client) = setup();
+    let (env, _admin, issuer, _contract_id, client) = setup();
     let from_owner = Address::generate(&env);
     let to_owner = Address::generate(&env);
     client.create_vault(&from_owner, &String::from_str(&env, "did:pkh:stellar:testnet:FROM"));
@@ -447,7 +447,7 @@ fn test_push_nonexistent_vc_panics() {
 
 #[test]
 fn test_issue_auto_authorizes_issuer() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     let vc_id = String::from_str(&env, "vc-auto");
@@ -460,7 +460,7 @@ fn test_issue_auto_authorizes_issuer() {
 
 #[test]
 fn test_issue_auto_authorizes_multiple_issuers() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     let issuer2 = Address::generate(&env);
@@ -472,7 +472,7 @@ fn test_issue_auto_authorizes_multiple_issuers() {
 
 #[test]
 fn test_holder_revokes_auto_authorized_issuer() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
@@ -484,7 +484,7 @@ fn test_holder_revokes_auto_authorized_issuer() {
 #[test]
 #[should_panic]
 fn test_issue_after_holder_revokes_auto_authorized_issuer_panics() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
@@ -497,7 +497,7 @@ fn test_issue_after_holder_revokes_auto_authorized_issuer_panics() {
 
 #[test]
 fn test_sponsored_vault_open_to_all_defaults_false() {
-    let (_env, admin, _issuer, _contract_id, client) = setup();
+    let (_env, _admin, _issuer, _contract_id, client) = setup();
     assert!(!client.get_sponsored_vault_open_to_all());
 }
 
@@ -513,7 +513,7 @@ fn test_admin_creates_sponsored_vault() {
 
 #[test]
 fn test_authorized_sponsor_creates_sponsored_vault() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let sponsor = Address::generate(&env);
     client.add_sponsored_vault_sponsor(&sponsor);
     let owner = Address::generate(&env);
@@ -525,7 +525,7 @@ fn test_authorized_sponsor_creates_sponsored_vault() {
 #[test]
 #[should_panic]
 fn test_unauthorized_address_cannot_create_sponsored_vault_in_restricted_mode() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     // Confirm restricted mode (default).
     assert!(!client.get_sponsored_vault_open_to_all());
     let random = Address::generate(&env);
@@ -536,7 +536,7 @@ fn test_unauthorized_address_cannot_create_sponsored_vault_in_restricted_mode() 
 
 #[test]
 fn test_open_mode_allows_anyone_to_create_sponsored_vault() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     client.set_sponsored_vault_open_to_all(&true);
     assert!(client.get_sponsored_vault_open_to_all());
     let random = Address::generate(&env);
@@ -549,7 +549,7 @@ fn test_open_mode_allows_anyone_to_create_sponsored_vault() {
 #[test]
 #[should_panic]
 fn test_back_to_restricted_mode_blocks_unauthorized() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     client.set_sponsored_vault_open_to_all(&true);
     client.set_sponsored_vault_open_to_all(&false);
     let random = Address::generate(&env);
@@ -561,7 +561,7 @@ fn test_back_to_restricted_mode_blocks_unauthorized() {
 #[test]
 #[should_panic]
 fn test_removed_sponsor_cannot_create_sponsored_vault() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let sponsor = Address::generate(&env);
     client.add_sponsored_vault_sponsor(&sponsor);
     client.remove_sponsored_vault_sponsor(&sponsor);
@@ -638,7 +638,7 @@ fn test_auth_authorize_issuer_requires_vault_admin_signature() {
 
 #[test]
 fn test_issue_linked_requires_valid_parent_vc() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
 
     // Foundation vault with a primary VC.
     let foundation = Address::generate(&env);
@@ -669,7 +669,7 @@ fn test_issue_linked_requires_valid_parent_vc() {
 #[test]
 #[should_panic]
 fn test_issue_linked_fails_if_parent_not_found() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
 
     let foundation = Address::generate(&env);
     client.create_vault(&foundation, &String::from_str(&env, "did:pkh:stellar:testnet:FOUNDATION"));
@@ -694,7 +694,7 @@ fn test_issue_linked_fails_if_parent_not_found() {
 #[test]
 #[should_panic]
 fn test_issue_linked_fails_if_parent_revoked() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
 
     let foundation = Address::generate(&env);
     client.create_vault(&foundation, &String::from_str(&env, "did:pkh:stellar:testnet:FOUNDATION"));
@@ -721,7 +721,7 @@ fn test_issue_linked_fails_if_parent_revoked() {
 
 #[test]
 fn test_get_vc_parent_returns_none_for_regular_vc() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:pkh:stellar:testnet:OWNER"));
     let vc_id = String::from_str(&env, "vc-plain");
@@ -732,7 +732,7 @@ fn test_get_vc_parent_returns_none_for_regular_vc() {
 
 #[test]
 fn test_get_vc_parent_returns_link_for_linked_vc() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
 
     let foundation = Address::generate(&env);
     client.create_vault(&foundation, &String::from_str(&env, "did:pkh:stellar:testnet:FOUNDATION"));
@@ -846,7 +846,7 @@ fn test_auth_issue_requires_issuer_signature() {
 fn test_push_emits_event_and_moves_vc() {
     use soroban_sdk::testutils::Events;
 
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let from_owner = Address::generate(&env);
     let to_owner = Address::generate(&env);
     client.create_vault(&from_owner, &String::from_str(&env, "did:from"));
@@ -877,7 +877,7 @@ fn test_push_emits_event_and_moves_vc() {
 fn test_set_vault_admin_emits_event() {
     use soroban_sdk::testutils::Events;
 
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     let new_admin = Address::generate(&env);
@@ -890,7 +890,7 @@ fn test_set_vault_admin_emits_event() {
 #[test]
 #[should_panic(expected = "Error(Contract, #7)")] // VCAlreadyRevoked
 fn test_push_revoked_vc_returns_already_revoked_error() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let from_owner = Address::generate(&env);
     let to_owner = Address::generate(&env);
     client.create_vault(&from_owner, &String::from_str(&env, "did:from"));
@@ -919,7 +919,7 @@ fn test_index_remove_middle_uses_swap_and_pop() {
     // one (position 1) must move the last one (position 2) into position 1
     // via swap-and-pop, leaving an active count of 2 with the surviving IDs
     // queryable via list_vc_ids.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -955,7 +955,7 @@ fn test_revoke_frees_index_slot_for_reissuance_under_new_id() {
     // After revoke, the active count must drop so a new vc_id can take an
     // index slot. (Re-using the same vc_id is forbidden by VCAlreadyExists,
     // which is why we issue under a different id.)
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -975,7 +975,7 @@ fn test_revoke_frees_index_slot_for_reissuance_under_new_id() {
 fn test_push_reindexes_source_and_destination() {
     // After push, the source vault's index must shrink and the destination's
     // must grow — both via the O(1) helpers.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let from_owner = Address::generate(&env);
     let to_owner = Address::generate(&env);
     client.create_vault(&from_owner, &String::from_str(&env, "did:from"));
@@ -1005,7 +1005,7 @@ fn test_push_moves_parent_link_to_destination() {
     // Regression: VCParent must follow the VC into the destination so
     // get_vc_parent(to_owner, vc_id) returns the link, and the source no
     // longer reports a parent for a payload it does not hold.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let parent_owner = Address::generate(&env);
     let from_owner = Address::generate(&env);
     let to_owner = Address::generate(&env);
@@ -1065,7 +1065,7 @@ fn test_issue_linked_rejects_pushed_away_parent() {
     // Previously only status was checked; after push the source vault keeps a
     // stale Valid status as a vc_id-uniqueness tombstone, which would let an
     // attacker pass the source as parent for a payload that has moved away.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let parent_holder = Address::generate(&env);
     let new_holder = Address::generate(&env);
     let child_owner = Address::generate(&env);
@@ -1109,7 +1109,7 @@ fn test_issue_linked_rejects_pushed_away_parent() {
 fn test_index_remains_consistent_after_many_issues_and_revokes() {
     // Stress the swap-and-pop logic: issue 10 VCs, revoke half, ensure the
     // index reflects exactly the surviving IDs.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1144,7 +1144,7 @@ fn test_index_remains_consistent_after_many_issues_and_revokes() {
 
 #[test]
 fn test_vc_count_is_zero_for_empty_vault() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     assert_eq!(client.vc_count(&owner), 0);
@@ -1154,7 +1154,7 @@ fn test_vc_count_is_zero_for_empty_vault() {
 fn test_vc_count_tracks_issue_revoke_push() {
     // vc_count must reflect the active set: increment on issue, decrement on
     // revoke and on the source side of push, increment on the destination.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let from_owner = Address::generate(&env);
     let to_owner = Address::generate(&env);
     client.create_vault(&from_owner, &String::from_str(&env, "did:from"));
@@ -1183,7 +1183,7 @@ fn test_vc_count_tracks_issue_revoke_push() {
 fn test_list_vc_ids_paginates_consistently() {
     // Issue 5 VCs. Querying with various (offset, limit) combinations must
     // partition the set without duplicates or gaps.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1219,7 +1219,7 @@ fn test_list_vc_ids_paginates_consistently() {
 
 #[test]
 fn test_list_vc_ids_zero_limit_returns_empty() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1238,7 +1238,7 @@ fn test_list_vc_ids_zero_limit_returns_empty() {
 
 #[test]
 fn test_list_vc_ids_offset_beyond_count_returns_empty() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1260,7 +1260,7 @@ fn test_list_vc_ids_offset_beyond_count_returns_empty() {
 fn test_list_vc_ids_limit_clamped_to_count() {
     // Asking for more than count returns exactly count entries — no padding,
     // no panic.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1277,7 +1277,7 @@ fn test_list_vc_ids_limit_clamped_to_count() {
 #[test]
 #[should_panic(expected = "Error(Contract, #16)")] // LimitTooLarge
 fn test_list_vc_ids_limit_above_max_panics() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     // MAX_LIST_LIMIT = 200; 201 must panic.
@@ -1287,7 +1287,7 @@ fn test_list_vc_ids_limit_above_max_panics() {
 #[test]
 fn test_vc_count_zero_for_unknown_vault() {
     // No panic, no read failure — unknown vaults report 0 active VCs.
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let stranger = Address::generate(&env);
     assert_eq!(client.vc_count(&stranger), 0);
 }
@@ -1296,7 +1296,7 @@ fn test_vc_count_zero_for_unknown_vault() {
 
 #[test]
 fn test_batch_issue_writes_all_vcs_in_order() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1327,7 +1327,7 @@ fn test_batch_issue_writes_all_vcs_in_order() {
 
 #[test]
 fn test_batch_issue_at_max_size_succeeds() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1350,7 +1350,7 @@ fn test_batch_issue_at_max_size_succeeds() {
 #[test]
 #[should_panic(expected = "Error(Contract, #17)")] // BatchTooLarge
 fn test_batch_issue_above_max_size_panics() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1378,7 +1378,7 @@ fn test_batch_issue_above_max_size_panics() {
 #[test]
 #[should_panic(expected = "Error(Contract, #18)")] // BatchEmpty
 fn test_batch_issue_empty_panics() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1398,7 +1398,7 @@ fn test_batch_issue_empty_panics() {
 fn test_batch_issue_with_duplicate_within_batch_panics() {
     // First entry writes vc-x; second entry's existence check finds it and
     // panics with VCAlreadyExists.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1420,7 +1420,7 @@ fn test_batch_issue_with_duplicate_within_batch_panics() {
 fn test_batch_issue_with_existing_vc_panics() {
     // A VC with this id was previously issued; batch's existence check
     // catches it on the first iteration.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1448,7 +1448,7 @@ fn test_batch_issue_with_existing_vc_panics() {
 #[test]
 #[should_panic(expected = "Error(Contract, #4)")] // VaultRevoked
 fn test_batch_issue_on_revoked_vault_panics() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1468,7 +1468,7 @@ fn test_batch_issue_on_revoked_vault_panics() {
 #[test]
 #[should_panic(expected = "Error(Contract, #10)")] // InvalidVaultContract
 fn test_batch_issue_with_wrong_vault_contract_panics() {
-    let (env, admin, issuer, _contract_id, client) = setup();
+    let (env, _admin, issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1490,7 +1490,7 @@ fn test_batch_issue_emits_one_event_per_vc() {
     // Off-chain indexers expect one VCIssued per credential, even when the
     // credentials are written together. Capture events before any read so
     // env.events().all() still holds them.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1518,7 +1518,7 @@ fn test_batch_issue_auto_authorizes_unknown_issuer() {
     // Mirrors single issue() semantics: if the issuer is not yet on the
     // vault's authorized list and not in the denied list, batch_issue
     // auto-authorizes them.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     // No explicit authorize_issuer call.
@@ -1555,7 +1555,7 @@ fn long_string(env: &Env, byte: u8, n: usize) -> String {
 
 #[test]
 fn test_create_vault_accepts_did_uri_at_max_len() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     let did_uri = long_string(&env, b'd', 256); // MAX_DID_URI_LEN
     client.create_vault(&owner, &did_uri);
@@ -1564,7 +1564,7 @@ fn test_create_vault_accepts_did_uri_at_max_len() {
 #[test]
 #[should_panic(expected = "Error(Contract, #19)")] // InputTooLong
 fn test_create_vault_rejects_did_uri_over_max_len() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     let did_uri = long_string(&env, b'd', 257);
     client.create_vault(&owner, &did_uri);
@@ -1572,7 +1572,7 @@ fn test_create_vault_rejects_did_uri_over_max_len() {
 
 #[test]
 fn test_issue_accepts_vc_id_at_max_len() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1592,7 +1592,7 @@ fn test_issue_accepts_vc_id_at_max_len() {
 #[test]
 #[should_panic(expected = "Error(Contract, #19)")] // InputTooLong
 fn test_issue_rejects_vc_id_over_max_len() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1611,7 +1611,7 @@ fn test_issue_rejects_vc_id_over_max_len() {
 #[test]
 #[should_panic(expected = "Error(Contract, #19)")] // InputTooLong
 fn test_issue_rejects_vc_data_over_max_len() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1631,7 +1631,7 @@ fn test_issue_rejects_vc_data_over_max_len() {
 #[test]
 #[should_panic(expected = "Error(Contract, #19)")] // InputTooLong
 fn test_issue_rejects_issuer_did_over_max_len() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1650,7 +1650,7 @@ fn test_issue_rejects_issuer_did_over_max_len() {
 #[test]
 #[should_panic(expected = "Error(Contract, #19)")] // InputTooLong
 fn test_revoke_rejects_date_over_max_len() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1670,7 +1670,7 @@ fn test_revoke_rejects_date_over_max_len() {
 
 #[test]
 fn test_authorize_issuers_accepts_max_list_size() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     let mut issuers = soroban_sdk::Vec::<Address>::new(&env);
@@ -1684,7 +1684,7 @@ fn test_authorize_issuers_accepts_max_list_size() {
 #[test]
 #[should_panic(expected = "Error(Contract, #20)")] // IssuerListTooLong
 fn test_authorize_issuers_rejects_oversized_list() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     let mut issuers = soroban_sdk::Vec::<Address>::new(&env);
@@ -1699,7 +1699,7 @@ fn test_authorize_issuers_rejects_oversized_list() {
 fn test_batch_issue_rejects_oversized_vc_id_within_batch() {
     // The cap applies inside batch_issue too: even if 4 entries are valid, a
     // 5th oversize id rejects the whole batch.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -1725,7 +1725,7 @@ fn test_batch_issue_rejects_oversized_vc_id_within_batch() {
 fn test_get_vc_rejects_oversized_vc_id() {
     // Read paths cap the input too so an attacker can't force the contract
     // to spend instructions hashing a 1MB key before the lookup misses.
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     let vc_id = long_string(&env, b'q', 65);
@@ -1739,7 +1739,7 @@ fn test_authorize_issuer_rejects_when_list_at_cap() {
     // Fill the list to MAX_ISSUERS_LIST=100 via authorize_issuers (which is
     // capped at exactly that count), then authorize_issuer one more — must
     // panic with IssuerListTooLong instead of silently growing past the cap.
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     let mut issuers = soroban_sdk::Vec::<Address>::new(&env);
@@ -1758,7 +1758,7 @@ fn test_issue_rejects_auto_authorization_when_list_at_cap() {
     // path: an attacker could spam issue() from many fresh addresses to grow
     // the issuer index past MAX_ISSUERS_LIST. The cap check in
     // append_issuer_to_index fires on this path.
-    let (env, admin, _issuer, contract_id, client) = setup();
+    let (env, _admin, _issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     let mut issuers = soroban_sdk::Vec::<Address>::new(&env);
@@ -1845,7 +1845,7 @@ fn test_accept_contract_admin_emits_admin_transferred() {
 fn test_set_fee_enabled_emits_fee_enabled_changed() {
     use soroban_sdk::{Event as SorobanEvent, Map, Symbol, TryFromVal, Val};
     use crate::events::FeeEnabledChanged;
-    let (_env, admin, _issuer, _contract_id, client) = setup();
+    let (_env, _admin, _issuer, _contract_id, client) = setup();
     // setup's env mocks auths; reuse without renaming.
     let env_ref = client.env.clone();
     client.set_fee_enabled(&true);
@@ -1864,7 +1864,7 @@ fn test_set_fee_enabled_emits_fee_enabled_changed() {
 fn test_set_fee_config_emits_fee_config_set() {
     use soroban_sdk::{Event as SorobanEvent, Map, Symbol, TryFromVal, Val};
     use crate::events::FeeConfigSet;
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let token = Address::generate(&env);
     let dest = Address::generate(&env);
     client.set_fee_config(&token, &dest, &1_500_000_i128);
@@ -1883,7 +1883,7 @@ fn test_set_fee_config_emits_fee_config_set() {
 fn test_set_fee_admin_emits_fee_admin_set() {
     use soroban_sdk::{Event as SorobanEvent, Map, Symbol, TryFromVal, Val};
     use crate::events::FeeAdminSet;
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     client.set_fee_admin(&500_i128);
     let events = env.events().all();
     assert_eq!(events.len(), 1);
@@ -1900,7 +1900,7 @@ fn test_set_fee_admin_emits_fee_admin_set() {
 fn test_set_fee_standard_emits_fee_standard_set() {
     use soroban_sdk::{Event as SorobanEvent, Map, Symbol, TryFromVal, Val};
     use crate::events::FeeStandardSet;
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     client.set_fee_standard(&2_000_000_i128);
     let events = env.events().all();
     assert_eq!(events.len(), 1);
@@ -1917,7 +1917,7 @@ fn test_set_fee_standard_emits_fee_standard_set() {
 fn test_set_fee_early_emits_fee_early_set() {
     use soroban_sdk::{Event as SorobanEvent, Map, Symbol, TryFromVal, Val};
     use crate::events::FeeEarlySet;
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     client.set_fee_early(&350_000_i128);
     let events = env.events().all();
     assert_eq!(events.len(), 1);
@@ -1934,7 +1934,7 @@ fn test_set_fee_early_emits_fee_early_set() {
 fn test_set_fee_custom_emits_fee_custom_set() {
     use soroban_sdk::{Event as SorobanEvent, Map, Symbol, TryFromVal, Val};
     use crate::events::FeeCustomSet;
-    let (env, admin, issuer, _contract_id, client) = setup();
+    let (env, _admin, issuer, _contract_id, client) = setup();
     client.set_fee_custom(&issuer, &100_000_i128);
     let events = env.events().all();
     assert_eq!(events.len(), 1);
@@ -1951,7 +1951,7 @@ fn test_set_fee_custom_emits_fee_custom_set() {
 fn test_set_sponsored_vault_open_to_all_emits_event() {
     use soroban_sdk::{Event as SorobanEvent, Map, Symbol, TryFromVal, Val};
     use crate::events::SponsorOpenToAllChanged;
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     client.set_sponsored_vault_open_to_all(&true);
     let events = env.events().all();
     assert_eq!(events.len(), 1);
@@ -1968,7 +1968,7 @@ fn test_set_sponsored_vault_open_to_all_emits_event() {
 fn test_add_sponsored_vault_sponsor_emits_sponsor_added() {
     use soroban_sdk::{Event as SorobanEvent, Map, Symbol, TryFromVal, Val};
     use crate::events::SponsorAdded;
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let sponsor = Address::generate(&env);
     client.add_sponsored_vault_sponsor(&sponsor);
     let events = env.events().all();
@@ -1986,7 +1986,7 @@ fn test_add_sponsored_vault_sponsor_emits_sponsor_added() {
 fn test_remove_sponsored_vault_sponsor_emits_sponsor_removed() {
     use soroban_sdk::{Event as SorobanEvent, Map, Symbol, TryFromVal, Val};
     use crate::events::SponsorRemoved;
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let sponsor = Address::generate(&env);
     client.add_sponsored_vault_sponsor(&sponsor);
     // The remove call is the last invocation; the add was a separate one.
@@ -2006,7 +2006,7 @@ fn test_remove_sponsored_vault_sponsor_emits_sponsor_removed() {
 
 #[test]
 fn test_list_authorized_issuers_pagination() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     let i1 = Address::generate(&env);
@@ -2028,7 +2028,7 @@ fn test_list_authorized_issuers_pagination() {
 
 #[test]
 fn test_list_denied_issuers_pagination() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     let i1 = Address::generate(&env);
@@ -2047,7 +2047,7 @@ fn test_list_denied_issuers_pagination() {
 
 #[test]
 fn test_authorized_issuer_count() {
-    let (env, admin, issuer, _contract_id, client) = setup();
+    let (env, _admin, issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     assert_eq!(client.authorized_issuer_count(&owner), 0);
@@ -2057,7 +2057,7 @@ fn test_authorized_issuer_count() {
 
 #[test]
 fn test_is_authorized_o1() {
-    let (env, admin, issuer, _contract_id, client) = setup();
+    let (env, _admin, issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -2067,7 +2067,7 @@ fn test_is_authorized_o1() {
 
 #[test]
 fn test_revoke_issuer_updates_index() {
-    let (env, admin, issuer, _contract_id, client) = setup();
+    let (env, _admin, issuer, _contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -2084,7 +2084,7 @@ fn test_revoke_issuer_updates_index() {
 fn test_auto_authorize_on_repeated_issue() {
     // Exercises the auto-authorize path in ensure_issuer_authorized across
     // multiple issuances: issuer must end up in the index exactly once.
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     let issuer_did = String::from_str(&env, "did:issuer");
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
@@ -2104,7 +2104,7 @@ fn test_auto_authorize_on_repeated_issue() {
 #[test]
 #[should_panic(expected = "Error(Contract, #22)")]
 fn test_set_fee_config_rejects_negative_amount() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let token = Address::generate(&env);
     let dest = Address::generate(&env);
     client.set_fee_config(&token, &dest, &-1_i128);
@@ -2113,7 +2113,7 @@ fn test_set_fee_config_rejects_negative_amount() {
 #[test]
 #[should_panic(expected = "Error(Contract, #23)")]
 fn test_set_fee_config_rejects_amount_over_max() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let token = Address::generate(&env);
     let dest = Address::generate(&env);
     client.set_fee_config(&token, &dest, &1_000_000_000_000_000_001_i128);
@@ -2121,7 +2121,7 @@ fn test_set_fee_config_rejects_amount_over_max() {
 
 #[test]
 fn test_set_fee_config_accepts_zero() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let token = Address::generate(&env);
     let dest = Address::generate(&env);
     client.set_fee_config(&token, &dest, &0_i128);
@@ -2130,7 +2130,7 @@ fn test_set_fee_config_accepts_zero() {
 
 #[test]
 fn test_set_fee_config_accepts_max() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let token = Address::generate(&env);
     let dest = Address::generate(&env);
     client.set_fee_config(&token, &dest, &1_000_000_000_000_000_000_i128);
@@ -2140,28 +2140,28 @@ fn test_set_fee_config_accepts_max() {
 #[test]
 #[should_panic(expected = "Error(Contract, #22)")]
 fn test_set_fee_admin_rejects_negative() {
-    let (_env, admin, _issuer, _contract_id, client) = setup();
+    let (_env, _admin, _issuer, _contract_id, client) = setup();
     client.set_fee_admin(&-1_i128);
 }
 
 #[test]
 #[should_panic(expected = "Error(Contract, #22)")]
 fn test_set_fee_standard_rejects_negative() {
-    let (_env, admin, _issuer, _contract_id, client) = setup();
+    let (_env, _admin, _issuer, _contract_id, client) = setup();
     client.set_fee_standard(&-1_i128);
 }
 
 #[test]
 #[should_panic(expected = "Error(Contract, #22)")]
 fn test_set_fee_early_rejects_negative() {
-    let (_env, admin, _issuer, _contract_id, client) = setup();
+    let (_env, _admin, _issuer, _contract_id, client) = setup();
     client.set_fee_early(&-1_i128);
 }
 
 #[test]
 #[should_panic(expected = "Error(Contract, #22)")]
 fn test_set_fee_custom_rejects_negative() {
-    let (env, admin, _issuer, _contract_id, client) = setup();
+    let (env, _admin, _issuer, _contract_id, client) = setup();
     let issuer = Address::generate(&env);
     client.set_fee_custom(&issuer, &-1_i128);
 }
@@ -2169,7 +2169,7 @@ fn test_set_fee_custom_rejects_negative() {
 #[test]
 #[should_panic(expected = "Error(Contract, #22)")]
 fn test_issue_rejects_negative_fee_override() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -2187,7 +2187,7 @@ fn test_issue_rejects_negative_fee_override() {
 #[test]
 #[should_panic(expected = "Error(Contract, #23)")]
 fn test_issue_rejects_fee_override_over_max() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -2205,7 +2205,7 @@ fn test_issue_rejects_fee_override_over_max() {
 #[test]
 #[should_panic(expected = "Error(Contract, #22)")]
 fn test_batch_issue_rejects_negative_fee_override() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
@@ -2229,7 +2229,7 @@ fn test_batch_issue_rejects_negative_fee_override() {
 #[test]
 #[should_panic(expected = "Error(Contract, #15)")] // VaultFull
 fn test_vault_full_at_u32_max() {
-    let (env, admin, issuer, contract_id, client) = setup();
+    let (env, _admin, issuer, contract_id, client) = setup();
     let owner = Address::generate(&env);
     client.create_vault(&owner, &String::from_str(&env, "did:owner"));
     client.authorize_issuer(&owner, &issuer);
