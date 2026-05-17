@@ -21,6 +21,23 @@ pub fn read_vault_owner(e: &Env) -> Address {
         .unwrap()
 }
 
+// --- Factory address ---
+
+pub fn write_factory_address(e: &Env, factory: &Address) {
+    let key = VcVaultDataKey::VaultFactory;
+    e.storage().persistent().set(&key, factory);
+    e.storage()
+        .persistent()
+        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
+}
+
+pub fn read_factory_address(e: &Env) -> Address {
+    e.storage()
+        .persistent()
+        .get(&VcVaultDataKey::VaultFactory)
+        .unwrap()
+}
+
 // --- Vault admin ---
 
 pub fn has_vault_admin(e: &Env) -> bool {

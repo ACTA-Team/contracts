@@ -45,4 +45,6 @@ pub enum ContractError {
     InvalidFeeAmount = 22,
     /// Fee amount exceeds `MAX_FEE_AMOUNT`.
     FeeOutOfBounds = 23,
+    /// Source vault is not registered in the factory.
+    SourceNotAVault = 24,
 }

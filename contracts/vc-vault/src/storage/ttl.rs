@@ -20,6 +20,7 @@ pub fn extend_instance_ttl(e: &Env) {
 pub fn extend_vault_ttl(e: &Env) {
     let keys = [
         VcVaultDataKey::VaultOwner,
+        VcVaultDataKey::VaultFactory,
         VcVaultDataKey::VaultAdmin,
         VcVaultDataKey::VaultDid,
         VcVaultDataKey::VaultRevoked,

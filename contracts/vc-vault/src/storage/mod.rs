@@ -19,7 +19,7 @@ use soroban_sdk::{contracttype, Address, String};
 #[derive(Clone)]
 #[contracttype]
 pub enum VcVaultDataKey {
-    // --- Contract-level (unchanged) ---
+    // --- Contract-level ---
     ContractAdmin,
     PendingAdmin,
     FeeEnabled,
@@ -33,6 +33,9 @@ pub enum VcVaultDataKey {
 
     // --- Vault owner ---
     VaultOwner,
+
+    // --- Factory that deployed this vault ---
+    VaultFactory,
 
     // --- Vault metadata ---
     VaultAdmin,
