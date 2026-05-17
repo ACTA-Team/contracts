@@ -1,12 +1,8 @@
-//! Storage layout. Instance = global config; persistent = per-owner and per-VC.
-//!
-//! The VcVaultDataKey enum and FeeConfig struct live here. All domain helpers are in
-//! sub-modules, re-exported flat so callers use `storage::read_vault_vc(...)`.
+//! Storage layout. Instance = global config; persistent = per-vault and per-VC.
 
 mod config;
 mod credential;
 mod issuer;
-mod sponsor;
 mod ttl;
 mod vault;
 
@@ -14,7 +10,6 @@ pub use crate::constants::*;
 pub use config::*;
 pub use credential::*;
 pub use issuer::*;
-pub use sponsor::*;
 pub use ttl::*;
 pub use vault::*;
 
@@ -24,6 +19,7 @@ use soroban_sdk::{contracttype, Address, String};
 #[derive(Clone)]
 #[contracttype]
 pub enum VcVaultDataKey {
+    // --- Contract-level (unchanged) ---
     ContractAdmin,
     PendingAdmin,
     FeeEnabled,
@@ -34,30 +30,40 @@ pub enum VcVaultDataKey {
     FeeStandard,
     FeeEarly,
     FeeCustom(Address),
-    VaultAdmin(Address),
-    VaultDid(Address),
-    VaultRevoked(Address),
-    /// Number of authorized issuers. O(1) read.
-    VaultIssuerCount(Address),
+
+    // --- Vault owner ---
+    VaultOwner,
+
+    // --- Vault metadata ---
+    VaultAdmin,
+    VaultDid,
+    VaultRevoked,
+
+    // --- Authorized issuer O(1) index ---
+    /// Number of authorized issuers.
+    VaultIssuerCount,
     /// Authorized issuer at a given position (0-indexed).
-    VaultIssuerIndex(Address, u32),
-    /// Position of a given authorized issuer. Used for O(1) existence and removal.
-    VaultIssuerPosition(Address, Address),
-    /// Number of denied issuers. O(1) read.
-    VaultDeniedIssuerCount(Address),
+    VaultIssuerIndex(u32),
+    /// Position of a given authorized issuer.
+    VaultIssuerPosition(Address),
+
+    // --- Denied issuer O(1) index ---
+    /// Number of denied issuers.
+    VaultDeniedIssuerCount,
     /// Denied issuer at a given position (0-indexed).
-    VaultDeniedIssuerIndex(Address, u32),
-    /// Position of a given denied issuer. Used for O(1) existence and removal.
-    VaultDeniedIssuerPosition(Address, Address),
-    VaultVC(Address, String),
-    /// Number of active VCs in this vault. O(1) read.
-    VaultVCCount(Address),
-    /// vc_id at a given position (0-indexed). Used to enumerate the index.
-    VaultVCIndex(Address, u32),
-    /// Position of a given vc_id in the index. Used for O(1) existence and removal.
-    VaultVCPosition(Address, String),
-    VCStatus(Address, String),
-    VCParent(Address, String),
-    SponsoredVaultOpenToAll,
-    SponsoredVaultSponsor(Address),
+    VaultDeniedIssuerIndex(u32),
+    /// Position of a given denied issuer.
+    VaultDeniedIssuerPosition(Address),
+
+    // --- VC storage ---
+    VaultVC(String),
+    /// Number of active VCs in this vault.
+    VaultVCCount,
+    /// vc_id at a given position (0-indexed).
+    VaultVCIndex(u32),
+    /// Position of a given vc_id in the index.
+    VaultVCPosition(String),
+    VCStatus(String),
+    VCParent(String),
+
 }
