@@ -27,7 +27,7 @@ Soroban smart contract that deploys and tracks **single-tenant `vc-vault` instan
 | `deploy_sponsored(deployer, owner, did_uri, salt)` | `deployer` | Deploy a vault on behalf of `owner`. The deployer signs and pays; the vault belongs to `owner` from creation. Anyone can be a deployer — no whitelist. |
 | `is_vault(vault_address)` | none | Return `true` if `vault_address` was deployed by this factory. Used by `receive_push` inside vaults to validate transfer sources. |
 
-`salt` is a `BytesN<32>` chosen by the caller. Internally the factory derives the actual deploy salt as `keccak256(user_salt ‖ owner_bytes)`, which makes vault addresses deterministic per `(owner, salt)` pair and prevents frontrunning.
+`salt` is a `BytesN<32>` chosen by the caller. Internally the factory derives the actual deploy salt as `keccak256(user_salt ‖ XDR(owner))`, which makes vault addresses deterministic per `(owner, salt)` pair and prevents frontrunning.
 
 The vault constructor called by `deploy_v2` receives `(owner, contract_admin, did_uri, factory_address)`. The factory address is stored inside each vault so it can call `is_vault` during `receive_push`.
 
@@ -59,9 +59,11 @@ Persistent entries for deployed vault addresses are extended on `set_deployed` a
 Vault addresses are deterministic and unique per `(owner, salt)` pair:
 
 ```
-deploy_salt = keccak256(user_salt || owner_address_bytes)
-vault_address = hash(factory_address || deploy_salt)
+deploy_salt   = keccak256( user_salt (32 bytes) || XDR(owner) )
+vault_address = hash( factory_address || deploy_salt )
 ```
+
+`XDR(owner)` is the canonical XDR serialization of the owner `Address` (i.e. `Address.toXDR(env)` on-chain / the equivalent ScAddress XDR encoding off-chain) — **not** its StrKey display string. A client precomputing a vault address must hash the raw XDR bytes of the owner address, not the `"G..."`/`"C..."` text.
 
 Two different owners using the same user salt get different vault addresses. The same owner using different salts also gets different addresses. This means a vault address can be pre-computed client-side before submitting a transaction.
 

@@ -1,5 +1,6 @@
 use soroban_sdk::{
-    contract, contractclient, contractimpl, Address, Bytes, BytesN, Env, IntoVal, String,
+    contract, contractclient, contractimpl, xdr::ToXdr, Address, Bytes, BytesN, Env, IntoVal,
+    String,
 };
 
 use crate::{events, storage};
@@ -32,12 +33,18 @@ impl VaultFactoryContract {
 }
 
 fn derive_salt(e: &Env, user_salt: BytesN<32>, owner: &Address) -> BytesN<32> {
-    // Salt = keccak256(user_salt || owner_bytes) — prevents frontrunning.
-    let mut owner_bytes: [u8; 56] = [0; 56];
-    owner.to_string().copy_into_slice(&mut owner_bytes);
-    let mut salt_bytes: Bytes = user_salt.into_val(e);
-    salt_bytes.extend_from_array(&owner_bytes);
-    e.crypto().keccak256(&salt_bytes).into()
+    // deploy_salt = keccak256( user_salt(32 bytes) || XDR(owner) )
+    //
+    // Mixing the owner into the salt binds the deterministic vault address to a
+    // specific owner (so a sponsored deploy lands on the same address the owner
+    // would compute, and two owners can't collide on one address). The owner is
+    // serialized via its canonical XDR form rather than to_string(): XDR is the
+    // stable wire encoding an off-chain client reproduces directly, and it
+    // matches the preimage documented in the README. to_string() is a display
+    // (StrKey) encoding and ties determinism to a fixed 56-byte assumption.
+    let mut preimage: Bytes = user_salt.into_val(e);
+    preimage.append(&owner.clone().to_xdr(e));
+    e.crypto().keccak256(&preimage).into()
 }
 
 fn deploy_vault(e: &Env, owner: &Address, did_uri: String, user_salt: BytesN<32>) -> Address {
