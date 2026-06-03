@@ -162,8 +162,13 @@ fn test_deploy_sponsored_vault_belongs_to_owner_not_deployer() {
     assert_eq!(vault.verify_vc(&vc_id), vc_vault::VCStatus::Valid);
 }
 
+/// Both entrypoints derive the vault address from (owner, salt), so two
+/// different owners reusing the same user salt land on different addresses —
+/// whether deployed via `deploy` or `deploy_sponsored`. (The same-owner +
+/// same-salt collapse to one address can't be asserted here because a second
+/// deploy of the same pair panics with "already exists".)
 #[test]
-fn test_deploy_and_deploy_sponsored_same_owner_same_salt_same_address() {
+fn test_deploy_and_deploy_sponsored_different_owners_get_different_addresses() {
     let e = Env::default();
     let (_admin, _factory_id, client) = setup(&e);
 
@@ -171,9 +176,7 @@ fn test_deploy_and_deploy_sponsored_same_owner_same_salt_same_address() {
     let did_uri = String::from_str(&e, "did:test");
     let salt = BytesN::random(&e);
 
-    // Both functions derive the vault address from (owner, salt) — deployer is irrelevant.
     let addr_normal = client.deploy(&owner, &did_uri, &salt);
-    // deploy again would panic (already exists), so we just verify is_vault.
     assert!(client.is_vault(&addr_normal));
 
     let deployer = Address::generate(&e);
