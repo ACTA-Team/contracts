@@ -8,8 +8,11 @@ use soroban_sdk::{
 use crate::{storage::VaultInitMeta, VaultFactoryContract, VaultFactoryContractClient};
 
 mod vc_vault {
+    // Use the unoptimized WASM in tests — the optimized variant requires the
+    // `stellar` CLI (wasm-opt) which adds heavy CI dependencies. Soroban's
+    // sandbox executes either binary identically.
     soroban_sdk::contractimport!(
-        file = "../../target/wasm32v1-none/release/vc_vault_contract.optimized.wasm"
+        file = "../../target/wasm32v1-none/release/vc_vault_contract.wasm"
     );
 }
 
