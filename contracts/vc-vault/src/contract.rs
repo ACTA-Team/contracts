@@ -414,6 +414,7 @@ impl VcVaultTrait for VcVaultContract {
     fn receive_push(e: Env, source_vault: Address, vc_id: String, vc_data: String, issuer_did: String) {
         require_vc_id_len(&e, &vc_id);
         require_vc_data_len(&e, &vc_data);
+        require_issuer_did_len(&e, &issuer_did);
         require_vault_active(&e);
         source_vault.require_auth();
         // Verify source_vault was deployed by the same factory.
@@ -426,7 +427,13 @@ impl VcVaultTrait for VcVaultContract {
         if !is_legit {
             panic_with_error!(e, ContractError::SourceNotAVault);
         }
-        if storage::vc_index_contains(&e, &vc_id) {
+        // Mirror the duplicate guard used by issue()/batch_issue(): the index
+        // entry is removed on revoke() but the Revoked status persists, so an
+        // index-only check would let a pushed VC silently overwrite a revoked
+        // credential back to Valid. Checking the status closes that bypass.
+        if storage::read_vault_vc(&e, &vc_id).is_some()
+            || storage::read_vc_status(&e, &vc_id) != VCStatus::Invalid
+        {
             panic_with_error!(e, ContractError::VCAlreadyExists);
         }
         let dest = e.current_contract_address();

@@ -273,3 +273,44 @@ fn test_receive_push_from_non_vault_panics() {
         &String::from_str(&e, "did:issuer"),
     );
 }
+
+/// Regression for the revocation-bypass via push: a VC revoked in the
+/// destination vault must not be silently restored to Valid by a later
+/// `push` reusing the same vc_id. The duplicate guard in `receive_push`
+/// checks the persisted Revoked status, not just the (removed) index.
+#[test]
+#[should_panic]
+fn test_push_cannot_revive_revoked_vc_in_destination() {
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+
+    let owner_a = Address::generate(&e);
+    let owner_b = Address::generate(&e);
+    let did_uri = String::from_str(&e, "did:test");
+
+    let vault_a = client.deploy(&owner_a, &did_uri, &BytesN::random(&e));
+    let vault_b = client.deploy(&owner_b, &did_uri, &BytesN::random(&e));
+
+    let vault_a_client = vc_vault::Client::new(&e, &vault_a);
+    let vault_b_client = vc_vault::Client::new(&e, &vault_b);
+
+    let issuer = Address::generate(&e);
+    let vc_id = String::from_str(&e, "vc-1");
+    let vc_data = String::from_str(&e, "<data>");
+    let issuer_did = String::from_str(&e, "did:issuer");
+
+    // Destination vault B issues then revokes the credential — index entry is
+    // dropped but the Revoked status persists.
+    vault_b_client.issue(&vc_id, &vc_data, &vault_b, &issuer, &issuer_did, &0_i128);
+    vault_b_client.revoke(&vc_id, &String::from_str(&e, "2026-06-03"));
+    assert!(matches!(
+        vault_b_client.verify_vc(&vc_id),
+        vc_vault::VCStatus::Revoked(_)
+    ));
+
+    // Source vault A issues the same vc_id (allowed — independent vault) and
+    // pushes to B. This must panic with VCAlreadyExists, not overwrite the
+    // revoked status.
+    vault_a_client.issue(&vc_id, &vc_data, &vault_a, &issuer, &issuer_did, &0_i128);
+    vault_a_client.push(&vc_id, &vault_b);
+}
