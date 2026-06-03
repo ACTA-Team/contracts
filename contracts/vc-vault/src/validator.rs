@@ -8,7 +8,6 @@ use soroban_sdk::{panic_with_error, Address, Env, Vec};
 
 // --- Auth guards ---
 
-/// Ensure contract admin exists and has signed. Returns admin address.
 pub fn require_contract_admin(e: &Env) -> Address {
     if !storage::has_contract_admin(e) {
         panic_with_error!(e, ContractError::NotInitialized)
@@ -18,44 +17,39 @@ pub fn require_contract_admin(e: &Env) -> Address {
     admin
 }
 
-/// Ensure vault exists for owner.
-pub fn require_vault_initialized(e: &Env, owner: &Address) {
-    if !storage::has_vault_admin(e, owner) {
+pub fn require_vault_initialized(e: &Env) {
+    if !storage::has_vault_admin(e) {
         panic_with_error!(e, ContractError::VaultNotInitialized)
     }
 }
 
-/// Ensure vault exists and caller is vault admin (has signed).
-pub fn require_vault_admin(e: &Env, owner: &Address) {
-    require_vault_initialized(e, owner);
-    let admin = storage::read_vault_admin(e, owner);
+pub fn require_vault_admin(e: &Env) {
+    require_vault_initialized(e);
+    let admin = storage::read_vault_admin(e);
     admin.require_auth();
 }
 
-/// Ensure vault exists and is not revoked.
-pub fn require_vault_active(e: &Env, owner: &Address) {
-    require_vault_initialized(e, owner);
-    if storage::read_vault_revoked(e, owner) {
+pub fn require_vault_active(e: &Env) {
+    require_vault_initialized(e);
+    if storage::read_vault_revoked(e) {
         panic_with_error!(e, ContractError::VaultRevoked)
     }
 }
 
-/// Ensure issuer is in vault's authorized index. No signature check.
-pub fn require_issuer_authorized(e: &Env, owner: &Address, issuer_addr: &Address) {
-    require_vault_initialized(e, owner);
-    if !vault::is_authorized(e, owner, issuer_addr) {
+pub fn require_issuer_authorized(e: &Env, issuer_addr: &Address) {
+    require_vault_initialized(e);
+    if !vault::is_authorized(e, issuer_addr) {
         panic_with_error!(e, ContractError::IssuerNotAuthorized)
     }
 }
 
-/// Auto-authorizes issuer if not in the authorized index; panics if in the denied index.
-pub fn ensure_issuer_authorized(e: &Env, owner: &Address, issuer_addr: &Address) {
-    require_vault_initialized(e, owner);
-    if !vault::is_authorized(e, owner, issuer_addr) {
-        if storage::denied_issuer_index_contains(e, owner, issuer_addr) {
+pub fn ensure_issuer_authorized(e: &Env, issuer_addr: &Address) {
+    require_vault_initialized(e);
+    if !vault::is_authorized(e, issuer_addr) {
+        if storage::denied_issuer_index_contains(e, issuer_addr) {
             panic_with_error!(e, ContractError::IssuerNotAuthorized)
         }
-        storage::append_issuer_to_index(e, owner, issuer_addr);
+        storage::append_issuer_to_index(e, issuer_addr);
     }
 }
 

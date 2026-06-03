@@ -6,8 +6,6 @@ use soroban_sdk::contracterror;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum ContractError {
-    /// Vault already exists for this owner.
-    VaultAlreadyExists = 1,
     /// Issuer not in vault's authorized list.
     IssuerNotAuthorized = 2,
     /// Issuer already authorized.
@@ -24,8 +22,6 @@ pub enum ContractError {
     NotInitialized = 9,
     /// vault_contract param is not this contract.
     InvalidVaultContract = 10,
-    /// Signer is not the contract admin nor an authorized sponsor.
-    NotAuthorizedSponsor = 11,
     /// vc_id already exists in this vault; re-issuance is not allowed.
     VCAlreadyExists = 12,
     /// accept_contract_admin called but no admin nomination is pending.
@@ -49,4 +45,6 @@ pub enum ContractError {
     InvalidFeeAmount = 22,
     /// Fee amount exceeds `MAX_FEE_AMOUNT`.
     FeeOutOfBounds = 23,
+    /// Source vault is not registered in the factory.
+    SourceNotAVault = 24,
 }
