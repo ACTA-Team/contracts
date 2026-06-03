@@ -4,7 +4,6 @@ resolver = "2"
 members = [
     "contracts/vc-vault",
     "contracts/vc-vault-factory",
-    "contracts/vc-issuer-registry",
     "contracts/did-stellar-registry",
 ]
 
