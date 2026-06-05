@@ -735,6 +735,73 @@ A typical issuer setup for Verifiable Credential issuance:
 
 The controller account keypair and the assertion keypair SHOULD be stored separately; the controller key authorizes on-chain mutations while the assertion key signs Verifiable Credentials.
 
+### B.4 Credential Status (Revocation)
+
+The `vc-vault` contract maintains an authoritative, real-time status for every
+stored credential via `verify_vc(vc_id) -> Valid | Revoked | Invalid`. To make
+this status **discoverable** by third-party verifiers — as required by
+[W3C VC Data Model 2.0 §4.10 (Status)](https://www.w3.org/TR/vc-data-model-2.0/#status) —
+an issuer SHOULD include a `credentialStatus` property in each issued VC using
+the status type defined here. Without it, the on-chain status registry is not
+discoverable: a verifier has no standard way to know which contract to query.
+
+W3C §4.10 leaves the status scheme out of scope and explicitly permits
+implementer-defined status methods. `StellarStatusRegistryEntry` is such a method.
+
+#### B.4.1 Status entry
+
+```json
+"credentialStatus": {
+  "type": "StellarStatusRegistryEntry",
+  "statusPurpose": "revocation",
+  "network": "testnet",
+  "statusContract": "CB...VAULT",
+  "vcId": "vc-123"
+}
+```
+
+| Property | Requirement | Meaning |
+|---|---|---|
+| `type` | MUST | Fixed `"StellarStatusRegistryEntry"`. (Per §4.10, `type` is REQUIRED.) |
+| `id` | MAY | If present, MUST be a single URL (§4.4). Optional human/resolver endpoint. |
+| `statusPurpose` | SHOULD | `"revocation"`. The vault models revocation only (no suspension). |
+| `network` | MUST | Stellar network of the vault: `mainnet` or `testnet`. |
+| `statusContract` | MUST | The `vc-vault` contract address. MUST equal the on-chain `VerifiableCredential.issuance_contract`. |
+| `vcId` | MUST | The `vc_id` to look up. |
+
+#### B.4.2 Verification algorithm
+
+For each `credentialStatus` entry whose `type` is `StellarStatusRegistryEntry`:
+
+1. Read `network`, `statusContract`, `vcId`.
+2. Invoke `verify_vc(vcId)` on `statusContract` via Stellar RPC (`simulateTransaction`,
+   read-only) on `network`.
+3. Map the returned `VCStatus`:
+   - `Valid` → credential is **active** (not revoked).
+   - `Revoked(date)` → credential was **revoked** as of `date`. The verifier MUST reject.
+   - `Invalid` → no such credential in this vault. The verifier MUST reject (unknown/invalid).
+4. The verifier SHOULD also confirm `statusContract` equals the credential's
+   on-chain `issuance_contract` to bind the status pointer to the stored record.
+
+On-chain status is the authoritative source and reflects `revoke()` /
+`push` / `receive_push` effects in real time, with no caching window.
+
+#### B.4.3 Privacy
+
+Reading status is a read-only RPC call against public ledger state; the issuer is
+**NOT** notified when a verifier checks status. This satisfies the normative
+§4.10 privacy requirement that status mechanisms MUST NOT enable tracking of
+holders or subjects ("phoning home") — a structural advantage over hosted
+status-list endpoints.
+
+#### B.4.4 Notes
+
+- On-chain `Valid` reflects **revocation state only**. It does NOT evaluate
+  `validFrom` / `validUntil`; temporal validity remains the verifier's
+  responsibility per the VC Data Model.
+- Verifiers that do not understand `StellarStatusRegistryEntry` fall back to their
+  own status-evaluation logic (status processing is non-normative in §4.10).
+
 ## 11. References
 
 - [W3C Decentralized Identifiers (DIDs) v1.1](https://www.w3.org/TR/did-1.1/)
