@@ -482,7 +482,7 @@ The verifier executes the following steps in order:
 
 ## 7. Security Considerations
 
-This section is REQUIRED by W3C DID Core 1.1 §7.3.
+This section satisfies the requirements of [W3C DID Core 1.1 §7.3 (Security Requirements)](https://www.w3.org/TR/did-1.1/#security-requirements), which mandate documenting the RFC 3552 attack forms (§7.9), operation integrity and authentication, the unique-assignment policy (§7.10), and the verifiable-data-registry trust assumptions (§7.11).
 
 ### 7.1 Residue Attacks
 
@@ -528,11 +528,69 @@ The registry contract is deployed as immutable in v0.1. If a future version requ
 
 `service_endpoint` and `metadata_uri` only accept `https://` URLs. This prevents off-chain metadata from being served over unencrypted connections and reduces the risk of metadata-spoofing attacks.
 
+### 7.9 Attack Surface
+
+Per [W3C DID Core 1.1 §7.3](https://www.w3.org/TR/did-1.1/#security-requirements) and
+[RFC 3552](https://www.rfc-editor.org/rfc/rfc3552), the following attack forms are
+documented for the DID operations of §4 (`register` / `update` / `transfer_controller` /
+`deactivate` / `get`) and the proof of control of §6:
+
+| Attack | Treatment |
+|---|---|
+| **Eavesdropping** | All on-chain data is public by design (§8.2); there is no confidential payload to eavesdrop. The proof-of-control challenge and signature are not secret — reuse is prevented by `nonce` + `timestamp` + `domain` (§7.5), not by confidentiality. |
+| **Replay** | See §7.5. On-chain mutations are protected by optimistic concurrency (`expected_version`, §4.3); proof of control by a single-use `nonce` and a ±5-minute `timestamp` window. |
+| **Message insertion** | Every mutation requires `controller.require_auth()` (§4.2), verified by the Soroban host. An attacker cannot insert a forged operation without the controller signature. |
+| **Message deletion** | Confirmed ledger entries are immutable; a `DidRecord` cannot be deleted from the chain. Suppressing *submission* of a transaction is a network-level censorship concern outside this method. |
+| **Message modification** | Stellar transaction signatures and ledger integrity reject in-flight modification: a modified transaction fails signature verification and is not applied. |
+| **Denial of service** | User-controlled input lengths are capped (§3.3) to bound CPU and storage; storage rent / TTL is managed (§7.6). Operations are O(1) over fixed-size records — there is no unbounded work. Network-level flooding is a Stellar-layer concern; submitters bear the fee burden. |
+| **Amplification** | Operations have bounded, fixed-size effects (no recursion, unbounded loops, or reflection). No input produces a disproportionately large on-chain effect. |
+| **Man-in-the-middle** | On-chain operations are signed, so a MITM cannot forge a controller-authorized mutation. For *resolution*, a MITM on the RPC path could return a stale or forged DID Document — resolvers MUST read from a trusted Stellar RPC endpoint over TLS, or validate ledger entries directly (§7.11). The proof-of-control `domain` binding prevents cross-site relay of a valid proof. |
+
+Other known attack forms (e.g., social engineering of the controller account, supply-chain
+compromise of an off-chain resolver) are residual risks discussed in §7.11.
+
+### 7.10 Operation Integrity, Authentication, and Unique Assignment
+
+**Integrity and update authentication.** Every operation in §4.2 is integrity-protected
+and update-authenticated by the Stellar ledger: the `controller` account authorizes each
+mutation via `require_auth()`, and confirmed entries are immutable. The DID Document is
+**not** independently signed — its integrity derives from the verifiable data registry
+(the ledger), not from a document-level proof. Consumers obtain integrity by reading the
+`DidRecord` from the registry (§5.7), not by checking a signature on the document.
+
+**Cryptographically protected data.** On-chain `DidRecord` fields are
+**integrity-protected** (Stellar consensus + transaction signatures) but **not
+confidential** — all are public. Published verification keys are public by definition.
+Proof-of-control messages are protected by Ed25519 signatures (integrity and origin
+authentication only; no confidentiality). Private keys — the controller account key and
+the `authentication` / `assertion_method` keys — are secret and MUST be held off-chain.
+
+**Unique assignment.** A `did_id` is a 128-bit value; `register` fails with
+`DidAlreadyExists` if the id already exists (§4.4), giving first-writer-wins uniqueness.
+Combined with the 128-bit space, collision or squatting of a specific id is
+cryptographically negligible. Uniqueness is of the *identifier* only; the method binds a
+`did_id` to no external real-world identity.
+
+### 7.11 Verifiable Data Registry Trust
+
+Resolution and verification read on-chain state through Stellar RPC, and inherit the trust
+assumptions of that data source:
+
+- A **full node** validates ledger state independently; a **light/thin client** trusts the
+  RPC provider's view. Implementations SHOULD use endpoints they trust over TLS to prevent
+  tampering of the RPC response (§7.9, MITM).
+- The method's security ultimately rests on the integrity of Stellar consensus. A
+  successful attack on consensus would compromise the registry; this residual risk is
+  inherited from the underlying DLT and is out of scope for mitigation by this method.
+- Off-chain components (resolver, verifier, proof-of-control implementation) are additional
+  residual-risk surfaces: an incorrect canonicalization, signature check, or status lookup
+  in those components can defeat the on-chain guarantees.
+
 ---
 
 ## 8. Privacy Considerations
 
-This section is REQUIRED by W3C DID Core 1.1 §7.4.
+This section satisfies the requirements of [W3C DID Core 1.1 §7.4 (Privacy Requirements)](https://www.w3.org/TR/did-1.1/#privacy-requirements), which mandate discussing each applicable [RFC 6973 §5](https://www.rfc-editor.org/rfc/rfc6973#section-5) privacy category in a method-specific manner (§8.6).
 
 ### 8.1 No PII On-Chain
 
@@ -553,6 +611,24 @@ The `DidRecord.controller` field exposes the controller Stellar account. This da
 ### 8.5 Right to Be Forgotten
 
 Deactivation (`deactivate`) removes all cryptographic material from the on-chain record. However, blockchain history is permanent: previous versions of the `DidRecord` may be visible in historical ledger data or indexers. `did:stellar` does not provide a mechanism for retroactive erasure of on-chain history.
+
+### 8.6 RFC 6973 Threat Coverage
+
+Per [W3C DID Core 1.1 §7.4](https://www.w3.org/TR/did-1.1/#privacy-requirements), each
+applicable [RFC 6973 §5](https://www.rfc-editor.org/rfc/rfc6973#section-5) category is
+addressed for this method:
+
+| Category | Method-specific treatment |
+|---|---|
+| **Surveillance** | All DID operations are public-ledger transactions; an observer can monitor the full mutation history of any DID. Subjects requiring unobservable updates SHOULD NOT use a public-ledger method for those DIDs. |
+| **Stored data compromise** | The registry stores no PII, passwords, or private keys (§8.1), so compromise of stored data exposes nothing not already public. Off-chain metadata referenced via `metadata_uri` is the integrator's responsibility to protect. |
+| **Unsolicited traffic** | A `service_endpoint` in the DID Document is publicly visible and MAY receive unsolicited traffic. Subjects SHOULD publish only endpoints intended to be public. |
+| **Misattribution** | The DID is opaque with no inherent link to a person; control is provable only via the `authentication` keys (§6), preventing false attribution of control. |
+| **Correlation** | See §8.3. Reuse of one DID across contexts enables linkage; subjects MAY use distinct DIDs per context. |
+| **Identification** | The `did_id` carries no PII, but `DidRecord.controller` links the DID to a specific Stellar account (§8.4), enabling identification of the controller. |
+| **Secondary use** | All on-chain data is public and permanent and MAY be reused beyond its original intent. Subjects MUST assume any published data is permanently reusable. |
+| **Disclosure** | All `DidRecord` fields — keys, services, controller — are publicly disclosed on the ledger (§8.2). |
+| **Exclusion** | A public ledger offers no access control: a subject cannot prevent third parties from observing or recording their on-chain data, nor be notified of such access. |
 
 ---
 
