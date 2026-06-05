@@ -368,6 +368,60 @@ In v0.1, all keys are Ed25519 expressed with the Multikey prefix `z6Mk...` (vari
 | `type` | Value from `DidService.service_type` |
 | `serviceEndpoint` | Value from `DidService.service_endpoint` |
 
+### 5.7 DID Resolution
+
+A conformant resolver implements `resolve(did, resolutionOptions)` and returns the
+three-component DID Resolution Result defined by
+[W3C DID Resolution v0.3](https://www.w3.org/TR/did-resolution/):
+`didResolutionMetadata`, `didDocument`, and `didDocumentMetadata`. Resolution is an
+**off-chain** operation that reads on-chain state via Stellar RPC; the registry
+contract itself only exposes `get(did_id) -> Option<DidRecord>` (§4.1).
+
+#### 5.7.1 Resolution Algorithm
+
+1. **Validate syntax.** If `did` does not match the §2.2 regex → fail with
+   `didResolutionMetadata.error = "invalidDid"`.
+2. **Decode** the method-specific id (base32 → 16 bytes, §2.3).
+3. **Read** `get(did_id)` from the registry. If it returns `None` → fail with
+   `didResolutionMetadata.error = "notFound"`.
+4. **Deactivated.** If `DidRecord.deactivated == true`, return the tombstone DID
+   Document (Annex A.3) with `didDocumentMetadata.deactivated = true`. This is a
+   successful resolution (no `error`), but an HTTP binding MUST map it to `410 Gone`.
+5. **Construct** the DID Document per §5.1–§5.6 and populate the metadata below.
+
+#### 5.7.2 `didResolutionMetadata`
+
+| Property | Value |
+|---|---|
+| `contentType` | `application/did+ld+json` for `resolve`; the negotiated representation for `resolveRepresentation`. |
+| `error` | Present only on failure. One of `invalidDid`, `notFound`, `representationNotSupported`, `methodNotSupported`, `internalError`. |
+
+#### 5.7.3 `didDocumentMetadata`
+
+| Property | Source | Notes |
+|---|---|---|
+| `created` | `DidRecord.created_ledger` | The resolver maps the ledger sequence to its close time (ISO 8601 UTC) via Stellar RPC. |
+| `updated` | `DidRecord.updated_ledger` | Same mapping. Equals `created` until the first mutation. |
+| `versionId` | `DidRecord.version` | Expressed as a decimal string. |
+| `deactivated` | `DidRecord.deactivated` | Included only when `true` (MUST be `true` for a tombstone). |
+| `method.stellarAccount` | `DidRecord.controller` | Informational; the controller account is NOT a `controller` field on the document (§5.3). |
+
+#### 5.7.4 Error Model (HTTP binding)
+
+For resolvers exposed over HTTP, conditions map to status codes as follows:
+
+| Condition | `error` | HTTP |
+|---|---|---|
+| DID fails the §2.2 syntax regex | `invalidDid` | `400` |
+| DID is well-formed but was never registered | `notFound` | `404` |
+| DID is deactivated (tombstone) | *(none; `didDocumentMetadata.deactivated = true`)* | `410` |
+| `accept` requests an unsupported representation | `representationNotSupported` | `406` |
+| The DID is not a `did:stellar` DID | `methodNotSupported` | `501` |
+| Registry read / RPC failure | `internalError` | `500` |
+
+A `transfer_controller` (§4.4) does NOT change the resolved DID Document — it only
+updates `didDocumentMetadata.method.stellarAccount` and bumps `versionId`.
+
 ---
 
 ## 6. Proof of Control
@@ -805,6 +859,7 @@ status-list endpoints.
 ## 11. References
 
 - [W3C Decentralized Identifiers (DIDs) v1.1](https://www.w3.org/TR/did-1.1/)
+- [W3C Decentralized Identifier Resolution (DID Resolution) v0.3](https://www.w3.org/TR/did-resolution/)
 - [W3C Verifiable Credentials Data Model 2.0](https://www.w3.org/TR/vc-data-model-2.0/)
 - [W3C DID Specification Registries](https://www.w3.org/TR/did-spec-registries/)
 - [W3C Multikey](https://www.w3.org/TR/cid-1.0/#multikey)
