@@ -1,5 +1,5 @@
 {
-  "_comment": "did:stellar v0.1 normative test vectors. All vectors use network=testnet. Vectors 1-4 exercise on-chain contract behavior. Vectors 5-6 exercise the off-chain proof of control protocol. The controller field uses a representative Stellar StrKey-formatted address; conformance test runs SHOULD substitute a real funded testnet keypair.",
+  "_comment": "did:stellar v0.1 normative test vectors. All vectors use network=testnet. Vectors 1-4 exercise on-chain contract behavior (register / full record / tombstone / version conflict). Vectors 5-6 exercise the off-chain proof of control protocol (challenge_jcs_hex is pinned; signatures await the reference implementation). Vector 7 exercises multi-key index numbering (#auth-2). Vectors 8-9 exercise DID Resolution errors (notFound / invalidDid) per section 5.7. The controller field uses a representative Stellar StrKey-formatted address; conformance test runs SHOULD substitute a real funded testnet keypair.",
   "method": "did:stellar",
   "spec_version": "0.1",
   "vectors": [
@@ -187,7 +187,7 @@
     {
       "id": "vector-5",
       "description": "Valid proof of control: fixed challenge + fixed Ed25519 key → signature verifies.",
-      "_note": "Exact signature computed by the reference implementation. Values below will be populated when the TypeScript reference implementation is complete.",
+      "_note": "challenge_jcs_hex is the canonical RFC 8785 (JCS) byte form, pinned here so every implementation MUST canonicalize to exactly these bytes before signing. auth_key_private_hex and signature_base64url still require the reference implementation: the private key for the published auth key is not disclosed.",
       "input": {
         "did": "did:stellar:testnet:aaaqeayeaudaocajbifqydiob4",
         "auth_key_public_multibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY",
@@ -198,7 +198,7 @@
           "nonce": "5f9b2a1c0d3e4f6789012345abcdef01",
           "timestamp": "2026-04-26T12:34:56Z"
         },
-        "challenge_jcs_hex": "TODO: JCS-canonicalized challenge bytes (reference implementation)",
+        "challenge_jcs_hex": "7b22646964223a226469643a7374656c6c61723a746573746e65743a6161617165617965617564616f63616a626966717964696f6234222c22646f6d61696e223a2276657269666965722e6578616d706c652e636f6d222c226e6f6e6365223a223566396232613163306433653466363738393031323334356162636465663031222c2274696d657374616d70223a22323032362d30342d32365431323a33343a35365a227d",
         "signature_base64url": "TODO: Ed25519 signature base64url (reference implementation)"
       },
       "expected": {
@@ -217,12 +217,98 @@
           "nonce": "5f9b2a1c0d3e4f6789012345abcdef01",
           "timestamp": "2020-01-01T00:00:00Z"
         },
+        "challenge_jcs_hex": "7b22646964223a226469643a7374656c6c61723a746573746e65743a6161617165617965617564616f63616a626966717964696f6234222c22646f6d61696e223a2276657269666965722e6578616d706c652e636f6d222c226e6f6e6365223a223566396232613163306433653466363738393031323334356162636465663031222c2274696d657374616d70223a22323032302d30312d30315430303a30303a30305a227d",
         "signature_base64url": "TODO: any signature (irrelevant; timestamp check fires first)"
       },
       "expected": {
         "result": "invalid",
         "verification_passed": false,
         "failure_reason": "timestamp out of ±5 minute window"
+      }
+    },
+    {
+      "id": "vector-7",
+      "description": "Multiple authentication keys: index numbering produces #auth-1 and #auth-2, both referenced from authentication.",
+      "input": {
+        "did_id_bytes_hex": "101112131415161718191a1b1c1d1e1f",
+        "did_id_base32": "caireeyuculbogazdinryhi6d4",
+        "did": "did:stellar:testnet:caireeyuculbogazdinryhi6d4",
+        "network": "testnet",
+        "controller": "GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGZMJV4P6W2WL6WXHNTQZM2",
+        "record": {
+          "authentication": [
+            { "public_key_multibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY" },
+            { "public_key_multibase": "z6Mkff3F4VMDGbMbMtgRyXMrgr7qyxaKsPo7QEPQ2AkNrx2X" }
+          ],
+          "assertion_method": [],
+          "key_agreement": [],
+          "services": [],
+          "metadata_uri": null,
+          "metadata_hash": null,
+          "version": 1,
+          "created_ledger": 2000,
+          "updated_ledger": 2000,
+          "deactivated": false
+        }
+      },
+      "expected": {
+        "did_document": {
+          "@context": [
+            "https://www.w3.org/ns/did/v1",
+            "https://w3id.org/security/multikey/v1"
+          ],
+          "id": "did:stellar:testnet:caireeyuculbogazdinryhi6d4",
+          "verificationMethod": [
+            {
+              "id": "did:stellar:testnet:caireeyuculbogazdinryhi6d4#auth-1",
+              "type": "Multikey",
+              "controller": "did:stellar:testnet:caireeyuculbogazdinryhi6d4",
+              "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY"
+            },
+            {
+              "id": "did:stellar:testnet:caireeyuculbogazdinryhi6d4#auth-2",
+              "type": "Multikey",
+              "controller": "did:stellar:testnet:caireeyuculbogazdinryhi6d4",
+              "publicKeyMultibase": "z6Mkff3F4VMDGbMbMtgRyXMrgr7qyxaKsPo7QEPQ2AkNrx2X"
+            }
+          ],
+          "authentication": [
+            "did:stellar:testnet:caireeyuculbogazdinryhi6d4#auth-1",
+            "did:stellar:testnet:caireeyuculbogazdinryhi6d4#auth-2"
+          ],
+          "assertionMethod": [],
+          "keyAgreement": [],
+          "service": []
+        },
+        "did_document_metadata": {
+          "versionId": "1",
+          "deactivated": false
+        }
+      }
+    },
+    {
+      "id": "vector-8",
+      "description": "Resolution of a well-formed but unregistered DID: get(did_id) returns None.",
+      "input": {
+        "did": "did:stellar:testnet:ucq2fi5euwtkpkfjvkv2zlnov4",
+        "registry_get": null
+      },
+      "expected": {
+        "http_status": 404,
+        "did_resolution_metadata": { "error": "notFound" },
+        "did_document": null
+      }
+    },
+    {
+      "id": "vector-9",
+      "description": "Resolution of a syntactically invalid DID: fails the section 2.2 regex (id too short and uppercase).",
+      "input": {
+        "did": "did:stellar:testnet:TOOSHORT"
+      },
+      "expected": {
+        "http_status": 400,
+        "did_resolution_metadata": { "error": "invalidDid" },
+        "did_document": null
       }
     }
   ]
