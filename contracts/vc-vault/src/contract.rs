@@ -296,11 +296,9 @@ impl VcVaultTrait for VcVaultContract {
         issuer_addr: Address,
         vault_contract: Address,
         issuer_did: String,
-        fee_override: i128,
         vcs: Vec<(String, String)>,
     ) -> Vec<String> {
         require_issuer_did_len(&e, &issuer_did);
-        require_fee_amount(&e, fee_override);
         for entry in vcs.iter() {
             let (vc_id, vc_data) = entry;
             require_vc_id_len(&e, &vc_id);
@@ -319,17 +317,14 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::InvalidVaultContract);
         }
         require_vault_active(&e);
-        ensure_issuer_authorized(&e, &issuer_addr);
+        require_issuer_authorized(&e, &issuer_addr);
 
-        if storage::read_fee_enabled(&e) && fee_override > 0 {
-            let fee_token = storage::read_fee_token_contract(&e);
-            let fee_dest = storage::read_fee_dest(&e);
-            let total = fee_override.saturating_mul(n as i128);
-            e.invoke_contract::<()>(
-                &fee_token,
-                &symbol_short!("transfer"),
-                (issuer_addr.clone(), fee_dest, total).into_val(&e),
-            );
+        let factory = storage::read_factory_address(&e);
+        let unit = vault::charge_fee_quote_only(&e, &factory, &issuer_addr);
+        if unit.0 && unit.1 > 0 {
+            let total = unit.1.checked_mul(n as i128)
+                .unwrap_or_else(|| panic_with_error!(e, ContractError::FeeOutOfBounds));
+            vault::transfer_fee(&e, &unit.2, &unit.3, &issuer_addr, total);
         }
 
         let mut result = Vec::new(&e);
@@ -340,19 +335,12 @@ impl VcVaultTrait for VcVaultContract {
             {
                 panic_with_error!(e, ContractError::VCAlreadyExists);
             }
-            vault::store_vc(
-                &e,
-                vc_id.clone(),
-                vc_data,
-                this.clone(),
-                issuer_did.clone(),
-            );
+            vault::store_vc(&e, vc_id.clone(), vc_data, this.clone(), issuer_did.clone());
             storage::write_vc_status(&e, &vc_id, &VCStatus::Valid);
             storage::extend_vc_ttl(&e, &vc_id);
             events::vc_issued(&e, &vc_id, &issuer_addr);
             result.push_back(vc_id);
         }
-
         storage::extend_vault_ttl(&e);
         result
     }

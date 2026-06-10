@@ -42,6 +42,32 @@ pub fn charge_fee(e: &Env, factory: &Address, issuer: &Address) -> i128 {
     q.amount
 }
 
+/// Returns (enabled, amount, token, dest) without transferring. token/dest are
+/// only meaningful when enabled. Used by batch_issue to charge a single total.
+pub fn charge_fee_quote_only(e: &Env, factory: &Address, issuer: &Address)
+    -> (bool, i128, Address, Address)
+{
+    let q: FeeQuote = e.invoke_contract(
+        factory,
+        &symbol_short!("quote_fee"),
+        (issuer.clone(),).into_val(e),
+    );
+    if q.enabled {
+        (true, q.amount, q.token.unwrap(), q.dest.unwrap())
+    } else {
+        // dummy addresses are never read because enabled is false
+        (false, 0, issuer.clone(), issuer.clone())
+    }
+}
+
+pub fn transfer_fee(e: &Env, token: &Address, dest: &Address, from: &Address, amount: i128) {
+    e.invoke_contract::<()>(
+        token,
+        &symbol_short!("transfer"),
+        (from.clone(), dest.clone(), amount).into_val(e),
+    );
+}
+
 pub fn revoke_vc(e: &Env, vc_id: String, date: String) {
     let vc_status = storage::read_vc_status(e, &vc_id);
     if vc_status != VCStatus::Valid {

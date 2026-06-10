@@ -51,7 +51,6 @@ pub trait VcVaultTrait {
         issuer_addr: Address,
         vault_contract: Address,
         issuer_did: String,
-        fee_override: i128,
         vcs: Vec<(String, String)>,
     ) -> Vec<String>;
     fn revoke(e: Env, vc_id: String, date: String);
