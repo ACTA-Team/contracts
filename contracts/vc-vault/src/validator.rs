@@ -43,16 +43,6 @@ pub fn require_issuer_authorized(e: &Env, issuer_addr: &Address) {
     }
 }
 
-pub fn ensure_issuer_authorized(e: &Env, issuer_addr: &Address) {
-    require_vault_initialized(e);
-    if !vault::is_authorized(e, issuer_addr) {
-        if storage::denied_issuer_index_contains(e, issuer_addr) {
-            panic_with_error!(e, ContractError::IssuerNotAuthorized)
-        }
-        storage::append_issuer_to_index(e, issuer_addr);
-    }
-}
-
 // --- Input length guards ---
 
 pub fn require_vc_id_len(e: &Env, vc_id: &soroban_sdk::String) {
