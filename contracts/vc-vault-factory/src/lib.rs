@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 mod contract;
+mod errors;
 mod events;
 mod storage;
 
