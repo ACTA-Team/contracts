@@ -32,7 +32,6 @@ impl VcVaultContract {
         storage::write_contract_admin(&e, &contract_admin);
         storage::write_vault_did(&e, &did_uri);
         storage::write_vault_admin(&e, &vault_owner);
-        storage::write_fee_enabled(&e, &false);
         storage::extend_instance_ttl(&e);
         events::contract_initialized(&e, &contract_admin);
         events::vault_created(&e, &vault_owner, &did_uri);
@@ -63,75 +62,6 @@ impl VcVaultTrait for VcVaultContract {
         events::admin_transferred(&e, &old_admin, &pending);
     }
 
-    fn set_fee_config(e: Env, token_contract: Address, fee_dest: Address, fee_amount: i128) {
-        require_fee_amount(&e, fee_amount);
-        require_contract_admin(&e);
-        storage::write_fee_token_contract(&e, &token_contract);
-        storage::write_fee_dest(&e, &fee_dest);
-        storage::write_fee_amount(&e, &fee_amount);
-        storage::extend_instance_ttl(&e);
-        events::fee_config_set(&e, &token_contract, &fee_dest, fee_amount);
-    }
-
-    fn set_fee_enabled(e: Env, enabled: bool) {
-        require_contract_admin(&e);
-        storage::write_fee_enabled(&e, &enabled);
-        storage::extend_instance_ttl(&e);
-        events::fee_enabled_changed(&e, enabled);
-    }
-
-    fn set_fee_admin(e: Env, fee_amount: i128) {
-        require_fee_amount(&e, fee_amount);
-        require_contract_admin(&e);
-        storage::write_fee_admin(&e, &fee_amount);
-        storage::extend_instance_ttl(&e);
-        events::fee_admin_set(&e, fee_amount);
-    }
-
-    fn set_fee_standard(e: Env, fee_amount: i128) {
-        require_fee_amount(&e, fee_amount);
-        require_contract_admin(&e);
-        storage::write_fee_standard(&e, &fee_amount);
-        storage::extend_instance_ttl(&e);
-        events::fee_standard_set(&e, fee_amount);
-    }
-
-    fn set_fee_early(e: Env, fee_amount: i128) {
-        require_fee_amount(&e, fee_amount);
-        require_contract_admin(&e);
-        storage::write_fee_early(&e, &fee_amount);
-        storage::extend_instance_ttl(&e);
-        events::fee_early_set(&e, fee_amount);
-    }
-
-    fn set_fee_custom(e: Env, issuer: Address, fee_amount: i128) {
-        require_fee_amount(&e, fee_amount);
-        require_contract_admin(&e);
-        storage::write_fee_custom(&e, &issuer, &fee_amount);
-        storage::extend_instance_ttl(&e);
-        events::fee_custom_set(&e, &issuer, fee_amount);
-    }
-
-    fn get_fee_admin(e: Env) -> i128 {
-        storage::extend_instance_ttl(&e);
-        storage::read_fee_admin(&e)
-    }
-
-    fn get_fee_standard(e: Env) -> i128 {
-        storage::extend_instance_ttl(&e);
-        storage::read_fee_standard(&e)
-    }
-
-    fn get_fee_early(e: Env) -> i128 {
-        storage::extend_instance_ttl(&e);
-        storage::read_fee_early(&e)
-    }
-
-    fn get_fee_custom(e: Env, issuer: Address) -> i128 {
-        storage::extend_instance_ttl(&e);
-        storage::read_fee_custom(&e, &issuer)
-    }
-
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
         require_contract_admin(&e);
         storage::extend_instance_ttl(&e);
@@ -141,11 +71,6 @@ impl VcVaultTrait for VcVaultContract {
 
     fn version(e: Env) -> String {
         String::from_str(&e, VERSION)
-    }
-
-    fn fee_config(e: Env) -> storage::FeeConfig {
-        storage::extend_instance_ttl(&e);
-        storage::read_fee_config(&e)
     }
 
     // --- Vault management ---
@@ -262,19 +187,17 @@ impl VcVaultTrait for VcVaultContract {
         vault_contract: Address,
         issuer_addr: Address,
         issuer_did: String,
-        fee_override: i128,
     ) -> String {
         require_vc_id_len(&e, &vc_id);
         require_vc_data_len(&e, &vc_data);
         require_issuer_did_len(&e, &issuer_did);
-        require_fee_amount(&e, fee_override);
         issuer_addr.require_auth();
         let this = e.current_contract_address();
         if vault_contract != this {
             panic_with_error!(e, ContractError::InvalidVaultContract);
         }
         require_vault_active(&e);
-        ensure_issuer_authorized(&e, &issuer_addr);
+        require_issuer_authorized(&e, &issuer_addr);
 
         if storage::read_vault_vc(&e, &vc_id).is_some()
             || storage::read_vc_status(&e, &vc_id) != VCStatus::Invalid
@@ -282,21 +205,14 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::VCAlreadyExists);
         }
 
-        vault::store_vc_with_fee(
-            &e,
-            vc_id.clone(),
-            vc_data,
-            &issuer_addr,
-            issuer_did,
-            this.clone(),
-            fee_override,
-        );
+        let factory = storage::read_factory_address(&e);
+        vault::charge_fee(&e, &factory, &issuer_addr);
 
+        vault::store_vc(&e, vc_id.clone(), vc_data, this.clone(), issuer_did);
         storage::write_vc_status(&e, &vc_id, &VCStatus::Valid);
         storage::extend_vault_ttl(&e);
         storage::extend_vc_ttl(&e, &vc_id);
         events::vc_issued(&e, &vc_id, &issuer_addr);
-
         vc_id
     }
 
@@ -305,11 +221,9 @@ impl VcVaultTrait for VcVaultContract {
         issuer_addr: Address,
         vault_contract: Address,
         issuer_did: String,
-        fee_override: i128,
         vcs: Vec<(String, String)>,
     ) -> Vec<String> {
         require_issuer_did_len(&e, &issuer_did);
-        require_fee_amount(&e, fee_override);
         for entry in vcs.iter() {
             let (vc_id, vc_data) = entry;
             require_vc_id_len(&e, &vc_id);
@@ -328,17 +242,14 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::InvalidVaultContract);
         }
         require_vault_active(&e);
-        ensure_issuer_authorized(&e, &issuer_addr);
+        require_issuer_authorized(&e, &issuer_addr);
 
-        if storage::read_fee_enabled(&e) && fee_override > 0 {
-            let fee_token = storage::read_fee_token_contract(&e);
-            let fee_dest = storage::read_fee_dest(&e);
-            let total = fee_override.saturating_mul(n as i128);
-            e.invoke_contract::<()>(
-                &fee_token,
-                &symbol_short!("transfer"),
-                (issuer_addr.clone(), fee_dest, total).into_val(&e),
-            );
+        let factory = storage::read_factory_address(&e);
+        let unit = vault::charge_fee_quote_only(&e, &factory, &issuer_addr);
+        if unit.0 && unit.1 > 0 {
+            let total = unit.1.checked_mul(n as i128)
+                .unwrap_or_else(|| panic_with_error!(e, ContractError::FeeOutOfBounds));
+            vault::transfer_fee(&e, &unit.2, &unit.3, &issuer_addr, total);
         }
 
         let mut result = Vec::new(&e);
@@ -349,19 +260,12 @@ impl VcVaultTrait for VcVaultContract {
             {
                 panic_with_error!(e, ContractError::VCAlreadyExists);
             }
-            vault::store_vc(
-                &e,
-                vc_id.clone(),
-                vc_data,
-                this.clone(),
-                issuer_did.clone(),
-            );
+            vault::store_vc(&e, vc_id.clone(), vc_data, this.clone(), issuer_did.clone());
             storage::write_vc_status(&e, &vc_id, &VCStatus::Valid);
             storage::extend_vc_ttl(&e, &vc_id);
             events::vc_issued(&e, &vc_id, &issuer_addr);
             result.push_back(vc_id);
         }
-
         storage::extend_vault_ttl(&e);
         result
     }

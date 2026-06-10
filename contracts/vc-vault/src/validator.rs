@@ -43,16 +43,6 @@ pub fn require_issuer_authorized(e: &Env, issuer_addr: &Address) {
     }
 }
 
-pub fn ensure_issuer_authorized(e: &Env, issuer_addr: &Address) {
-    require_vault_initialized(e);
-    if !vault::is_authorized(e, issuer_addr) {
-        if storage::denied_issuer_index_contains(e, issuer_addr) {
-            panic_with_error!(e, ContractError::IssuerNotAuthorized)
-        }
-        storage::append_issuer_to_index(e, issuer_addr);
-    }
-}
-
 // --- Input length guards ---
 
 pub fn require_vc_id_len(e: &Env, vc_id: &soroban_sdk::String) {
@@ -88,14 +78,5 @@ pub fn require_date_len(e: &Env, date: &soroban_sdk::String) {
 pub fn require_issuers_list_len(e: &Env, issuers: &Vec<Address>) {
     if issuers.len() > storage::MAX_ISSUERS_LIST {
         panic_with_error!(e, ContractError::IssuerListTooLong);
-    }
-}
-
-pub fn require_fee_amount(e: &Env, amount: i128) {
-    if amount < 0 {
-        panic_with_error!(e, ContractError::InvalidFeeAmount);
-    }
-    if amount > storage::MAX_FEE_AMOUNT {
-        panic_with_error!(e, ContractError::FeeOutOfBounds);
     }
 }

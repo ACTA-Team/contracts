@@ -75,41 +75,6 @@ pub struct ContractUpgraded {
     pub new_wasm_hash: BytesN<32>,
 }
 
-// --- Fee config ---
-
-#[contractevent]
-pub struct FeeEnabledChanged {
-    pub enabled: bool,
-}
-
-#[contractevent]
-pub struct FeeConfigSet {
-    pub token_contract: Address,
-    pub fee_dest: Address,
-    pub fee_amount: i128,
-}
-
-#[contractevent]
-pub struct FeeAdminSet {
-    pub amount: i128,
-}
-
-#[contractevent]
-pub struct FeeStandardSet {
-    pub amount: i128,
-}
-
-#[contractevent]
-pub struct FeeEarlySet {
-    pub amount: i128,
-}
-
-#[contractevent]
-pub struct FeeCustomSet {
-    pub issuer: Address,
-    pub amount: i128,
-}
-
 // --- Publishers ---
 
 pub fn vault_created(e: &Env, owner: &Address, did_uri: &String) {
@@ -196,39 +161,6 @@ pub fn admin_transferred(e: &Env, old_admin: &Address, new_admin: &Address) {
 pub fn contract_upgraded(e: &Env, new_wasm_hash: &BytesN<32>) {
     ContractUpgraded {
         new_wasm_hash: new_wasm_hash.clone(),
-    }
-    .publish(e);
-}
-
-pub fn fee_enabled_changed(e: &Env, enabled: bool) {
-    FeeEnabledChanged { enabled }.publish(e);
-}
-
-pub fn fee_config_set(e: &Env, token_contract: &Address, fee_dest: &Address, fee_amount: i128) {
-    FeeConfigSet {
-        token_contract: token_contract.clone(),
-        fee_dest: fee_dest.clone(),
-        fee_amount,
-    }
-    .publish(e);
-}
-
-pub fn fee_admin_set(e: &Env, amount: i128) {
-    FeeAdminSet { amount }.publish(e);
-}
-
-pub fn fee_standard_set(e: &Env, amount: i128) {
-    FeeStandardSet { amount }.publish(e);
-}
-
-pub fn fee_early_set(e: &Env, amount: i128) {
-    FeeEarlySet { amount }.publish(e);
-}
-
-pub fn fee_custom_set(e: &Env, issuer: &Address, amount: i128) {
-    FeeCustomSet {
-        issuer: issuer.clone(),
-        amount,
     }
     .publish(e);
 }

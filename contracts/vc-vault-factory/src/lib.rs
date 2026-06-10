@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 mod contract;
+mod errors;
 mod events;
 mod storage;
 
@@ -10,3 +11,4 @@ mod storage;
 mod test;
 
 pub use contract::{VaultFactoryContract, VaultFactoryContractClient, VaultFactoryClient, VaultInitMeta};
+pub use storage::{CustomFee, FeeQuote};

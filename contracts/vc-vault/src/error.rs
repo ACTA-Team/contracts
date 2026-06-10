@@ -41,9 +41,7 @@ pub enum ContractError {
     InputTooLong = 19,
     /// `authorize_issuers` called with a list larger than `MAX_ISSUERS_LIST`.
     IssuerListTooLong = 20,
-    /// Fee amount is negative.
-    InvalidFeeAmount = 22,
-    /// Fee amount exceeds `MAX_FEE_AMOUNT`.
+    /// Batch fee total (per-credential fee × batch size) overflowed `i128`.
     FeeOutOfBounds = 23,
     /// Source vault is not registered in the factory.
     SourceNotAVault = 24,

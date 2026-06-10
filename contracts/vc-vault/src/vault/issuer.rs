@@ -24,6 +24,7 @@ pub fn authorize_issuers(e: &Env, issuers: &Vec<Address>) {
         if !seen.contains(issuer.clone()) {
             seen.push_back(issuer.clone());
             storage::append_issuer_to_index(e, &issuer);
+            storage::remove_denied_issuer_from_index(e, &issuer);
         }
     }
 }

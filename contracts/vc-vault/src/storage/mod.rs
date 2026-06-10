@@ -15,21 +15,13 @@ pub use vault::*;
 
 use soroban_sdk::{contracttype, Address, String};
 
-/// Storage keys. Instance = admin, fees, flags. Persistent = vault metadata, VCs, status.
+/// Storage keys. Instance = admin, flags. Persistent = vault metadata, VCs, status.
 #[derive(Clone)]
 #[contracttype]
 pub enum VcVaultDataKey {
     // --- Contract-level ---
     ContractAdmin,
     PendingAdmin,
-    FeeEnabled,
-    FeeTokenContract,
-    FeeDest,
-    FeeAmount,
-    FeeAdmin,
-    FeeStandard,
-    FeeEarly,
-    FeeCustom(Address),
 
     // --- Vault owner ---
     VaultOwner,

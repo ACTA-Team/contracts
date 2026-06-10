@@ -1,7 +1,7 @@
 //! Credential lifecycle: store, issue with fee, revoke.
 
 use crate::error::ContractError;
-use crate::types::{VCStatus, VerifiableCredential};
+use crate::types::{FeeQuote, VCStatus, VerifiableCredential};
 use crate::storage;
 use soroban_sdk::{panic_with_error, symbol_short, Address, Env, IntoVal, String};
 
@@ -22,27 +22,50 @@ pub fn store_vc(
     storage::append_vc_to_index(e, &id);
 }
 
-pub fn store_vc_with_fee(
-    e: &Env,
-    vc_id: String,
-    vc_data: String,
-    issuer_addr: &Address,
-    issuer_did: String,
-    issuance_contract: Address,
-    fee_override: i128,
-) {
-    if storage::read_fee_enabled(e) {
-        let fee_token = storage::read_fee_token_contract(e);
-        let fee_dest = storage::read_fee_dest(e);
-        if fee_override > 0 {
-            e.invoke_contract::<()>(
-                &fee_token,
-                &symbol_short!("transfer"),
-                (issuer_addr.clone(), fee_dest, fee_override).into_val(e),
-            );
-        }
+/// Reads the central fee from the factory and, if enabled and > 0, transfers
+/// `amount` from `issuer` to the configured destination. Returns the amount charged.
+pub fn charge_fee(e: &Env, factory: &Address, issuer: &Address) -> i128 {
+    let q: FeeQuote = e.invoke_contract(
+        factory,
+        &symbol_short!("quote_fee"),
+        (issuer.clone(),).into_val(e),
+    );
+    if q.enabled && q.amount > 0 {
+        let token = q.token.unwrap();
+        let dest = q.dest.unwrap();
+        e.invoke_contract::<()>(
+            &token,
+            &symbol_short!("transfer"),
+            (issuer.clone(), dest, q.amount).into_val(e),
+        );
     }
-    store_vc(e, vc_id, vc_data, issuance_contract, issuer_did);
+    q.amount
+}
+
+/// Returns (enabled, amount, token, dest) without transferring. token/dest are
+/// only meaningful when enabled. Used by batch_issue to charge a single total.
+pub fn charge_fee_quote_only(e: &Env, factory: &Address, issuer: &Address)
+    -> (bool, i128, Address, Address)
+{
+    let q: FeeQuote = e.invoke_contract(
+        factory,
+        &symbol_short!("quote_fee"),
+        (issuer.clone(),).into_val(e),
+    );
+    if q.enabled {
+        (true, q.amount, q.token.unwrap(), q.dest.unwrap())
+    } else {
+        // dummy addresses are never read because enabled is false
+        (false, 0, issuer.clone(), issuer.clone())
+    }
+}
+
+pub fn transfer_fee(e: &Env, token: &Address, dest: &Address, from: &Address, amount: i128) {
+    e.invoke_contract::<()>(
+        token,
+        &symbol_short!("transfer"),
+        (from.clone(), dest.clone(), amount).into_val(e),
+    );
 }
 
 pub fn revoke_vc(e: &Env, vc_id: String, date: String) {
