@@ -262,19 +262,17 @@ impl VcVaultTrait for VcVaultContract {
         vault_contract: Address,
         issuer_addr: Address,
         issuer_did: String,
-        fee_override: i128,
     ) -> String {
         require_vc_id_len(&e, &vc_id);
         require_vc_data_len(&e, &vc_data);
         require_issuer_did_len(&e, &issuer_did);
-        require_fee_amount(&e, fee_override);
         issuer_addr.require_auth();
         let this = e.current_contract_address();
         if vault_contract != this {
             panic_with_error!(e, ContractError::InvalidVaultContract);
         }
         require_vault_active(&e);
-        ensure_issuer_authorized(&e, &issuer_addr);
+        require_issuer_authorized(&e, &issuer_addr);
 
         if storage::read_vault_vc(&e, &vc_id).is_some()
             || storage::read_vc_status(&e, &vc_id) != VCStatus::Invalid
@@ -282,21 +280,14 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::VCAlreadyExists);
         }
 
-        vault::store_vc_with_fee(
-            &e,
-            vc_id.clone(),
-            vc_data,
-            &issuer_addr,
-            issuer_did,
-            this.clone(),
-            fee_override,
-        );
+        let factory = storage::read_factory_address(&e);
+        vault::charge_fee(&e, &factory, &issuer_addr);
 
+        vault::store_vc(&e, vc_id.clone(), vc_data, this.clone(), issuer_did);
         storage::write_vc_status(&e, &vc_id, &VCStatus::Valid);
         storage::extend_vault_ttl(&e);
         storage::extend_vc_ttl(&e, &vc_id);
         events::vc_issued(&e, &vc_id, &issuer_addr);
-
         vc_id
     }
 

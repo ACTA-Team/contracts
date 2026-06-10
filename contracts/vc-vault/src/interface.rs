@@ -45,7 +45,6 @@ pub trait VcVaultTrait {
         vault_contract: Address,
         issuer_addr: Address,
         issuer_did: String,
-        fee_override: i128,
     ) -> String;
     fn batch_issue(
         e: Env,
