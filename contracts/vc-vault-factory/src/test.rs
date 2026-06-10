@@ -225,7 +225,7 @@ fn test_deploy_integration_issue_and_verify() {
     let vc_id = String::from_str(&e, "vc-1");
     let vc_data = String::from_str(&e, "<data>");
     let issuer_did = String::from_str(&e, "did:issuer");
-    let returned = vault.issue(&vc_id, &vc_data, &vault_addr, &issuer, &issuer_did, &0_i128);
+    let returned = vault.issue(&vc_id, &vc_data, &vault_addr, &issuer, &issuer_did);
     assert_eq!(returned, vc_id);
 
     assert_eq!(vault.verify_vc(&vc_id), vc_vault::VCStatus::Valid);
@@ -281,7 +281,7 @@ fn test_deploy_sponsored_vault_belongs_to_owner_not_deployer() {
     let vc_id = String::from_str(&e, "vc-1");
     let vc_data = String::from_str(&e, "<data>");
     let issuer_did = String::from_str(&e, "did:issuer");
-    vault.issue(&vc_id, &vc_data, &vault_addr, &issuer, &issuer_did, &0_i128);
+    vault.issue(&vc_id, &vc_data, &vault_addr, &issuer, &issuer_did);
 
     assert_eq!(vault.verify_vc(&vc_id), vc_vault::VCStatus::Valid);
 }
@@ -346,7 +346,8 @@ fn test_push_transfers_vc_between_vaults() {
     let vc_data = String::from_str(&e, "<data>");
     let issuer_did = String::from_str(&e, "did:issuer");
 
-    vault_a_client.issue(&vc_id, &vc_data, &vault_a, &issuer, &issuer_did, &0_i128);
+    vault_a_client.authorize_issuer(&issuer);
+    vault_a_client.issue(&vc_id, &vc_data, &vault_a, &issuer, &issuer_did);
     assert_eq!(vault_a_client.vc_count(), 1);
     assert_eq!(vault_b_client.vc_count(), 0);
 
@@ -373,7 +374,8 @@ fn test_push_removes_vc_from_source() {
 
     let issuer = Address::generate(&e);
     let vc_id = String::from_str(&e, "vc-1");
-    vault_a_client.issue(&vc_id, &String::from_str(&e, "<data>"), &vault_a, &issuer, &String::from_str(&e, "did:issuer"), &0_i128);
+    vault_a_client.authorize_issuer(&issuer);
+    vault_a_client.issue(&vc_id, &String::from_str(&e, "<data>"), &vault_a, &issuer, &String::from_str(&e, "did:issuer"));
 
     vault_a_client.push(&vc_id, &vault_b);
 
@@ -426,9 +428,12 @@ fn test_push_cannot_revive_revoked_vc_in_destination() {
     let vc_data = String::from_str(&e, "<data>");
     let issuer_did = String::from_str(&e, "did:issuer");
 
+    vault_a_client.authorize_issuer(&issuer);
+    vault_b_client.authorize_issuer(&issuer);
+
     // Destination vault B issues then revokes the credential — index entry is
     // dropped but the Revoked status persists.
-    vault_b_client.issue(&vc_id, &vc_data, &vault_b, &issuer, &issuer_did, &0_i128);
+    vault_b_client.issue(&vc_id, &vc_data, &vault_b, &issuer, &issuer_did);
     vault_b_client.revoke(&vc_id, &String::from_str(&e, "2026-06-03"));
     assert!(matches!(
         vault_b_client.verify_vc(&vc_id),
@@ -438,6 +443,69 @@ fn test_push_cannot_revive_revoked_vc_in_destination() {
     // Source vault A issues the same vc_id (allowed — independent vault) and
     // pushes to B. This must panic with VCAlreadyExists, not overwrite the
     // revoked status.
-    vault_a_client.issue(&vc_id, &vc_data, &vault_a, &issuer, &issuer_did, &0_i128);
+    vault_a_client.issue(&vc_id, &vc_data, &vault_a, &issuer, &issuer_did);
     vault_a_client.push(&vc_id, &vault_b);
+}
+
+#[test]
+fn test_issue_through_real_factory_charges_fee() {
+    use soroban_sdk::token::{StellarAssetClient, TokenClient};
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+
+    let token_admin = Address::generate(&e);
+    let sac = e.register_stellar_asset_contract_v2(token_admin);
+    let token_addr = sac.address();
+    let dest = Address::generate(&e);
+    client.set_fee_config(&token_addr, &dest, &10_000_000_i128);
+    client.set_fee_enabled(&true);
+
+    let owner = Address::generate(&e);
+    let vault_addr = client.deploy(&owner, &String::from_str(&e, "did:test"), &BytesN::random(&e));
+    let vault = vc_vault::Client::new(&e, &vault_addr);
+    let issuer = Address::generate(&e);
+    vault.authorize_issuer(&issuer);
+    StellarAssetClient::new(&e, &token_addr).mint(&issuer, &100_000_000);
+
+    vault.issue(
+        &String::from_str(&e, "vc-1"),
+        &String::from_str(&e, "<data>"),
+        &vault_addr,
+        &issuer,
+        &String::from_str(&e, "did:issuer"),
+    );
+    assert_eq!(TokenClient::new(&e, &token_addr).balance(&dest), 10_000_000);
+}
+
+#[test]
+fn test_same_issuer_custom_applies_across_vaults() {
+    use soroban_sdk::token::{StellarAssetClient, TokenClient};
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+
+    let token_admin = Address::generate(&e);
+    let sac = e.register_stellar_asset_contract_v2(token_admin);
+    let token_addr = sac.address();
+    let dest = Address::generate(&e);
+    client.set_fee_config(&token_addr, &dest, &10_000_000_i128);
+    client.set_fee_enabled(&true);
+
+    let issuer = Address::generate(&e);
+    client.set_fee_custom(&issuer, &5_000_000_i128, &None);
+    StellarAssetClient::new(&e, &token_addr).mint(&issuer, &1_000_000_000);
+
+    let owner1 = Address::generate(&e);
+    let owner2 = Address::generate(&e);
+    let v1 = client.deploy(&owner1, &String::from_str(&e, "did:1"), &BytesN::random(&e));
+    let v2 = client.deploy(&owner2, &String::from_str(&e, "did:2"), &BytesN::random(&e));
+    let v1c = vc_vault::Client::new(&e, &v1);
+    let v2c = vc_vault::Client::new(&e, &v2);
+    v1c.authorize_issuer(&issuer);
+    v2c.authorize_issuer(&issuer);
+
+    v1c.issue(&String::from_str(&e, "a"), &String::from_str(&e, "<d>"), &v1, &issuer, &String::from_str(&e, "did:i"));
+    v2c.issue(&String::from_str(&e, "b"), &String::from_str(&e, "<d>"), &v2, &issuer, &String::from_str(&e, "did:i"));
+
+    // 5.0 charged in each vault = 10.0 total to dest
+    assert_eq!(TokenClient::new(&e, &token_addr).balance(&dest), 10_000_000);
 }
