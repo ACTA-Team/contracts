@@ -58,7 +58,7 @@ fn setup() -> (Env, Address, Address, Address, Address, Address, VcVaultContract
 fn test_version() {
     let (_env, _owner, _admin, _issuer, _factory, _contract_id, client) = setup();
     let v = client.version();
-    assert!(v.len() > 0);
+    assert!(!v.is_empty());
 }
 
 #[test]
