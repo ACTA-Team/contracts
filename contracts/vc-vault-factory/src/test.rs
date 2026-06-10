@@ -1,5 +1,3 @@
-#![cfg(test)]
-
 use soroban_sdk::{
     testutils::{Address as _, BytesN as _, Ledger as _},
     Address, BytesN, Env, String,
@@ -59,6 +57,30 @@ fn test_set_fee_config_and_standard() {
     client.set_fee_config(&token, &dest, &10_000_000_i128);
     client.set_fee_enabled(&true);
     client.set_fee_standard(&20_000_000_i128);
+
+    let issuer = Address::generate(&e);
+    let q = client.quote_fee(&issuer);
+    assert!(q.enabled);
+    assert_eq!(q.amount, 20_000_000);
+}
+
+#[test]
+#[should_panic]
+fn test_set_fee_config_requires_admin_auth() {
+    let e = Env::default();
+    // NOTE: intentionally NOT mocking auths.
+    let vault_wasm_hash = e.deployer().upload_contract_wasm(vc_vault::WASM);
+    let admin = Address::generate(&e);
+    let meta = VaultInitMeta {
+        vault_hash: vault_wasm_hash,
+        contract_admin: admin,
+    };
+    let factory_id = e.register(VaultFactoryContract, (meta,));
+    let client = VaultFactoryContractClient::new(&e, &factory_id);
+    let token = Address::generate(&e);
+    let dest = Address::generate(&e);
+    // require_auth on admin has no mocked approval -> must panic.
+    client.set_fee_config(&token, &dest, &10_000_000_i128);
 }
 
 #[test]

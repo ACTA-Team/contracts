@@ -145,7 +145,14 @@ pub fn write_min_fee(e: &Env, v: i128) {
 }
 
 pub fn read_fee_custom(e: &Env, issuer: &Address) -> Option<CustomFee> {
-    e.storage().persistent().get(&VaultFactoryDataKey::FeeCustom(issuer.clone()))
+    let key = VaultFactoryDataKey::FeeCustom(issuer.clone());
+    let v = e.storage().persistent().get::<_, CustomFee>(&key);
+    if v.is_some() {
+        e.storage()
+            .persistent()
+            .extend_ttl(&key, LEDGER_THRESHOLD_CONTRACTS, LEDGER_BUMP_CONTRACTS);
+    }
+    v
 }
 pub fn write_fee_custom(e: &Env, issuer: &Address, fee: &CustomFee) {
     let key = VaultFactoryDataKey::FeeCustom(issuer.clone());
