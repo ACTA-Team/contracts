@@ -123,6 +123,30 @@ impl VaultFactoryContract {
         events::fee_custom_removed(&e, &issuer);
     }
 
+    pub fn quote_fee(e: Env, issuer: Address) -> storage::FeeQuote {
+        storage::extend_instance(&e);
+        if !storage::read_fee_enabled(&e) {
+            return storage::FeeQuote { enabled: false, amount: 0, token: None, dest: None };
+        }
+        let standard = storage::try_read_fee_standard(&e).unwrap_or(0);
+        let amount = match storage::read_fee_custom(&e, &issuer) {
+            Some(c) => {
+                let valid = match c.expires_at {
+                    Some(exp) => e.ledger().timestamp() <= exp,
+                    None => true,
+                };
+                if valid { c.amount } else { standard }
+            }
+            None => standard,
+        };
+        storage::FeeQuote {
+            enabled: true,
+            amount,
+            token: storage::try_read_fee_token(&e),
+            dest: storage::try_read_fee_dest(&e),
+        }
+    }
+
     pub fn set_min_fee(e: Env, amount: i128) {
         Self::require_admin(&e);
         use crate::errors::FactoryError;

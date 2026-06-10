@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use soroban_sdk::{
-    testutils::{Address as _, BytesN as _},
+    testutils::{Address as _, BytesN as _, Ledger as _},
     Address, BytesN, Env, String,
 };
 
@@ -88,6 +88,47 @@ fn test_set_fee_custom_expiry_in_past_panics() {
     let (_admin, _factory_id, client) = setup(&e);
     let issuer = Address::generate(&e);
     client.set_fee_custom(&issuer, &10_000_000_i128, &Some(0_u64));
+}
+
+#[test]
+fn test_quote_fee_disabled_returns_zero() {
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+    let issuer = Address::generate(&e);
+    let q = client.quote_fee(&issuer);
+    assert!(!q.enabled);
+    assert_eq!(q.amount, 0);
+}
+
+#[test]
+fn test_quote_fee_standard_when_no_custom() {
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+    let token = Address::generate(&e);
+    let dest = Address::generate(&e);
+    client.set_fee_config(&token, &dest, &10_000_000_i128);
+    client.set_fee_enabled(&true);
+    let issuer = Address::generate(&e);
+    let q = client.quote_fee(&issuer);
+    assert!(q.enabled);
+    assert_eq!(q.amount, 10_000_000);
+    assert_eq!(q.token, Some(token));
+    assert_eq!(q.dest, Some(dest));
+}
+
+#[test]
+fn test_quote_fee_custom_then_expires() {
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+    let token = Address::generate(&e);
+    let dest = Address::generate(&e);
+    client.set_fee_config(&token, &dest, &10_000_000_i128);
+    client.set_fee_enabled(&true);
+    let issuer = Address::generate(&e);
+    client.set_fee_custom(&issuer, &5_000_000_i128, &Some(1000_u64));
+    assert_eq!(client.quote_fee(&issuer).amount, 5_000_000);
+    e.ledger().set_timestamp(2000);
+    assert_eq!(client.quote_fee(&issuer).amount, 10_000_000);
 }
 
 #[test]

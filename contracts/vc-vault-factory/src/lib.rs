@@ -11,3 +11,4 @@ mod storage;
 mod test;
 
 pub use contract::{VaultFactoryContract, VaultFactoryContractClient, VaultFactoryClient, VaultInitMeta};
+pub use storage::{CustomFee, FeeQuote};
