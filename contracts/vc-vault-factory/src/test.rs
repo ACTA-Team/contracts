@@ -30,6 +30,27 @@ fn setup(e: &Env) -> (Address, Address, VaultFactoryContractClient<'_>) {
 }
 
 #[test]
+fn test_factory_admin_two_step_transfer() {
+    let e = Env::default();
+    let (admin, factory_id, client) = setup(&e);
+    let new_admin = Address::generate(&e);
+
+    client.nominate_admin(&new_admin);
+    client.accept_admin();
+
+    assert_eq!(client.get_admin(), new_admin);
+    let _ = (admin, factory_id);
+}
+
+#[test]
+#[should_panic]
+fn test_factory_accept_admin_without_nomination_panics() {
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+    client.accept_admin();
+}
+
+#[test]
 fn test_is_vault_returns_false_for_unknown() {
     let e = Env::default();
     let (_admin, _factory_id, client) = setup(&e);

@@ -29,6 +29,32 @@ pub trait VaultFactory {
 impl VaultFactoryContract {
     pub fn __constructor(e: Env, vault_init_meta: VaultInitMeta) {
         storage::set_vault_init_meta(&e, &vault_init_meta);
+        storage::set_admin(&e, &vault_init_meta.contract_admin);
+    }
+
+    pub fn nominate_admin(e: Env, new_admin: Address) {
+        let admin = storage::get_admin(&e);
+        admin.require_auth();
+        storage::set_pending_admin(&e, &new_admin);
+        storage::extend_instance(&e);
+        events::admin_nominated(&e, &admin, &new_admin);
+    }
+
+    pub fn accept_admin(e: Env) {
+        let pending = match storage::get_pending_admin(&e) {
+            Some(a) => a,
+            None => soroban_sdk::panic_with_error!(e, crate::errors::FactoryError::NoPendingAdmin),
+        };
+        pending.require_auth();
+        let old = storage::get_admin(&e);
+        storage::set_admin(&e, &pending);
+        storage::remove_pending_admin(&e);
+        storage::extend_instance(&e);
+        events::admin_transferred(&e, &old, &pending);
+    }
+
+    pub fn get_admin(e: Env) -> Address {
+        storage::get_admin(&e)
     }
 }
 
