@@ -32,7 +32,6 @@ impl VcVaultContract {
         storage::write_contract_admin(&e, &contract_admin);
         storage::write_vault_did(&e, &did_uri);
         storage::write_vault_admin(&e, &vault_owner);
-        storage::write_fee_enabled(&e, &false);
         storage::extend_instance_ttl(&e);
         events::contract_initialized(&e, &contract_admin);
         events::vault_created(&e, &vault_owner, &did_uri);
@@ -63,75 +62,6 @@ impl VcVaultTrait for VcVaultContract {
         events::admin_transferred(&e, &old_admin, &pending);
     }
 
-    fn set_fee_config(e: Env, token_contract: Address, fee_dest: Address, fee_amount: i128) {
-        require_fee_amount(&e, fee_amount);
-        require_contract_admin(&e);
-        storage::write_fee_token_contract(&e, &token_contract);
-        storage::write_fee_dest(&e, &fee_dest);
-        storage::write_fee_amount(&e, &fee_amount);
-        storage::extend_instance_ttl(&e);
-        events::fee_config_set(&e, &token_contract, &fee_dest, fee_amount);
-    }
-
-    fn set_fee_enabled(e: Env, enabled: bool) {
-        require_contract_admin(&e);
-        storage::write_fee_enabled(&e, &enabled);
-        storage::extend_instance_ttl(&e);
-        events::fee_enabled_changed(&e, enabled);
-    }
-
-    fn set_fee_admin(e: Env, fee_amount: i128) {
-        require_fee_amount(&e, fee_amount);
-        require_contract_admin(&e);
-        storage::write_fee_admin(&e, &fee_amount);
-        storage::extend_instance_ttl(&e);
-        events::fee_admin_set(&e, fee_amount);
-    }
-
-    fn set_fee_standard(e: Env, fee_amount: i128) {
-        require_fee_amount(&e, fee_amount);
-        require_contract_admin(&e);
-        storage::write_fee_standard(&e, &fee_amount);
-        storage::extend_instance_ttl(&e);
-        events::fee_standard_set(&e, fee_amount);
-    }
-
-    fn set_fee_early(e: Env, fee_amount: i128) {
-        require_fee_amount(&e, fee_amount);
-        require_contract_admin(&e);
-        storage::write_fee_early(&e, &fee_amount);
-        storage::extend_instance_ttl(&e);
-        events::fee_early_set(&e, fee_amount);
-    }
-
-    fn set_fee_custom(e: Env, issuer: Address, fee_amount: i128) {
-        require_fee_amount(&e, fee_amount);
-        require_contract_admin(&e);
-        storage::write_fee_custom(&e, &issuer, &fee_amount);
-        storage::extend_instance_ttl(&e);
-        events::fee_custom_set(&e, &issuer, fee_amount);
-    }
-
-    fn get_fee_admin(e: Env) -> i128 {
-        storage::extend_instance_ttl(&e);
-        storage::read_fee_admin(&e)
-    }
-
-    fn get_fee_standard(e: Env) -> i128 {
-        storage::extend_instance_ttl(&e);
-        storage::read_fee_standard(&e)
-    }
-
-    fn get_fee_early(e: Env) -> i128 {
-        storage::extend_instance_ttl(&e);
-        storage::read_fee_early(&e)
-    }
-
-    fn get_fee_custom(e: Env, issuer: Address) -> i128 {
-        storage::extend_instance_ttl(&e);
-        storage::read_fee_custom(&e, &issuer)
-    }
-
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
         require_contract_admin(&e);
         storage::extend_instance_ttl(&e);
@@ -141,11 +71,6 @@ impl VcVaultTrait for VcVaultContract {
 
     fn version(e: Env) -> String {
         String::from_str(&e, VERSION)
-    }
-
-    fn fee_config(e: Env) -> storage::FeeConfig {
-        storage::extend_instance_ttl(&e);
-        storage::read_fee_config(&e)
     }
 
     // --- Vault management ---

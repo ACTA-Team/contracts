@@ -3,26 +3,14 @@
 use soroban_sdk::{Address, BytesN, Env, String, Vec};
 
 use crate::types::{VCStatus, VerifiableCredential};
-use crate::storage::FeeConfig;
 
 #[allow(dead_code)]
 pub trait VcVaultTrait {
     // --- Admin ---
     fn nominate_admin(e: Env, new_admin: Address);
     fn accept_contract_admin(e: Env);
-    fn set_fee_enabled(e: Env, enabled: bool);
-    fn set_fee_config(e: Env, token_contract: Address, fee_dest: Address, fee_amount: i128);
-    fn set_fee_admin(e: Env, fee_amount: i128);
-    fn set_fee_standard(e: Env, fee_amount: i128);
-    fn set_fee_early(e: Env, fee_amount: i128);
-    fn set_fee_custom(e: Env, issuer: Address, fee_amount: i128);
-    fn get_fee_admin(e: Env) -> i128;
-    fn get_fee_standard(e: Env) -> i128;
-    fn get_fee_early(e: Env) -> i128;
-    fn get_fee_custom(e: Env, issuer: Address) -> i128;
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>);
     fn version(e: Env) -> String;
-    fn fee_config(e: Env) -> FeeConfig;
 
     // --- Vault management ---
     fn set_vault_admin(e: Env, new_admin: Address);

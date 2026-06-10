@@ -90,12 +90,3 @@ pub fn require_issuers_list_len(e: &Env, issuers: &Vec<Address>) {
         panic_with_error!(e, ContractError::IssuerListTooLong);
     }
 }
-
-pub fn require_fee_amount(e: &Env, amount: i128) {
-    if amount < 0 {
-        panic_with_error!(e, ContractError::InvalidFeeAmount);
-    }
-    if amount > storage::MAX_FEE_AMOUNT {
-        panic_with_error!(e, ContractError::FeeOutOfBounds);
-    }
-}
