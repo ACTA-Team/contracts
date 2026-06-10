@@ -51,6 +51,46 @@ fn test_factory_accept_admin_without_nomination_panics() {
 }
 
 #[test]
+fn test_set_fee_config_and_standard() {
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+    let token = Address::generate(&e);
+    let dest = Address::generate(&e);
+    client.set_fee_config(&token, &dest, &10_000_000_i128);
+    client.set_fee_enabled(&true);
+    client.set_fee_standard(&20_000_000_i128);
+}
+
+#[test]
+#[should_panic]
+fn test_enable_without_config_panics() {
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+    client.set_fee_enabled(&true);
+}
+
+#[test]
+#[should_panic]
+fn test_set_fee_standard_below_min_panics() {
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+    client.set_min_fee(&5_000_000_i128);
+    let token = Address::generate(&e);
+    let dest = Address::generate(&e);
+    client.set_fee_config(&token, &dest, &10_000_000_i128);
+    client.set_fee_standard(&1_000_000_i128);
+}
+
+#[test]
+#[should_panic]
+fn test_set_fee_custom_expiry_in_past_panics() {
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+    let issuer = Address::generate(&e);
+    client.set_fee_custom(&issuer, &10_000_000_i128, &Some(0_u64));
+}
+
+#[test]
 fn test_is_vault_returns_false_for_unknown() {
     let e = Env::default();
     let (_admin, _factory_id, client) = setup(&e);

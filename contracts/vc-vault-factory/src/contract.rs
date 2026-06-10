@@ -56,6 +56,85 @@ impl VaultFactoryContract {
     pub fn get_admin(e: Env) -> Address {
         storage::get_admin(&e)
     }
+
+    fn require_admin(e: &Env) {
+        storage::get_admin(e).require_auth();
+        storage::extend_instance(e);
+    }
+
+    fn validate_amount(e: &Env, amount: i128) {
+        use crate::errors::FactoryError;
+        if amount < 0 {
+            soroban_sdk::panic_with_error!(e, FactoryError::InvalidFeeAmount);
+        }
+        if amount > storage::MAX_FEE_AMOUNT {
+            soroban_sdk::panic_with_error!(e, FactoryError::FeeOutOfBounds);
+        }
+        if amount < storage::read_min_fee(e) {
+            soroban_sdk::panic_with_error!(e, FactoryError::FeeBelowMin);
+        }
+    }
+
+    pub fn set_fee_config(e: Env, token: Address, dest: Address, standard: i128) {
+        Self::require_admin(&e);
+        Self::validate_amount(&e, standard);
+        storage::write_fee_token(&e, &token);
+        storage::write_fee_dest(&e, &dest);
+        storage::write_fee_standard(&e, standard);
+        events::fee_config_set(&e, &token, &dest, standard);
+    }
+
+    pub fn set_fee_enabled(e: Env, enabled: bool) {
+        Self::require_admin(&e);
+        if enabled {
+            let configured = storage::try_read_fee_token(&e).is_some()
+                && storage::try_read_fee_dest(&e).is_some()
+                && storage::try_read_fee_standard(&e).is_some();
+            if !configured {
+                soroban_sdk::panic_with_error!(e, crate::errors::FactoryError::FeeNotConfigured);
+            }
+        }
+        storage::write_fee_enabled(&e, enabled);
+        events::fee_enabled_changed(&e, enabled);
+    }
+
+    pub fn set_fee_standard(e: Env, amount: i128) {
+        Self::require_admin(&e);
+        Self::validate_amount(&e, amount);
+        storage::write_fee_standard(&e, amount);
+        events::fee_standard_set(&e, amount);
+    }
+
+    pub fn set_fee_custom(e: Env, issuer: Address, amount: i128, expires_at: Option<u64>) {
+        Self::require_admin(&e);
+        Self::validate_amount(&e, amount);
+        if let Some(exp) = expires_at {
+            if exp <= e.ledger().timestamp() {
+                soroban_sdk::panic_with_error!(e, crate::errors::FactoryError::ExpiryInPast);
+            }
+        }
+        storage::write_fee_custom(&e, &issuer, &storage::CustomFee { amount, expires_at });
+        events::fee_custom_set(&e, &issuer, amount, expires_at);
+    }
+
+    pub fn remove_fee_custom(e: Env, issuer: Address) {
+        Self::require_admin(&e);
+        storage::remove_fee_custom(&e, &issuer);
+        events::fee_custom_removed(&e, &issuer);
+    }
+
+    pub fn set_min_fee(e: Env, amount: i128) {
+        Self::require_admin(&e);
+        use crate::errors::FactoryError;
+        if amount < 0 {
+            soroban_sdk::panic_with_error!(e, FactoryError::InvalidFeeAmount);
+        }
+        if amount > storage::MAX_FEE_AMOUNT {
+            soroban_sdk::panic_with_error!(e, FactoryError::FeeOutOfBounds);
+        }
+        storage::write_min_fee(&e, amount);
+        events::min_fee_set(&e, amount);
+    }
 }
 
 fn derive_salt(e: &Env, user_salt: BytesN<32>, owner: &Address) -> BytesN<32> {
