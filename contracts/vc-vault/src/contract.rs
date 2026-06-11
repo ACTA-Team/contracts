@@ -32,6 +32,7 @@ impl VcVaultContract {
         storage::write_contract_admin(&e, &contract_admin);
         storage::write_vault_did(&e, &did_uri);
         storage::write_vault_admin(&e, &vault_owner);
+        storage::extend_vault_ttl(&e);
         storage::extend_instance_ttl(&e);
         events::contract_initialized(&e, &contract_admin);
         events::vault_created(&e, &vault_owner, &did_uri);
@@ -82,6 +83,20 @@ impl VcVaultTrait for VcVaultContract {
         storage::write_vault_admin(&e, &new_admin);
         storage::extend_vault_ttl(&e);
         events::vault_admin_changed(&e, &old_admin, &new_admin);
+    }
+
+    fn set_vault_did(e: Env, did_uri: String) {
+        require_did_uri_len(&e, &did_uri);
+        let owner = storage::read_vault_owner(&e);
+        owner.require_auth();
+        storage::write_vault_did(&e, &did_uri);
+        storage::extend_vault_ttl(&e);
+        events::vault_did_changed(&e, &did_uri);
+    }
+
+    fn vault_did(e: Env) -> Option<String> {
+        storage::extend_vault_ttl(&e);
+        storage::read_vault_did(&e)
     }
 
     fn vault_owner(e: Env) -> Address {
