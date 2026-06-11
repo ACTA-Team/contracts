@@ -91,6 +91,14 @@ fn test_owner_can_correct_did() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #4)")] // VaultRevoked
+fn test_set_vault_did_blocked_on_revoked_vault() {
+    let (env, _owner, _admin, _issuer, _factory, _contract_id, client) = setup();
+    client.revoke_vault();
+    client.set_vault_did(&String::from_str(&env, "did:stellar:testnet:x"));
+}
+
+#[test]
 fn test_vault_owner_getter() {
     let (_env, owner, _admin, _issuer, _factory, _contract_id, client) = setup();
     assert_eq!(client.vault_owner(), owner);
@@ -324,6 +332,13 @@ fn test_auth_nominate_admin_requires_current_admin_signature() {
 fn test_auth_deny_issuer_requires_vault_admin_signature() {
     let (_env, _owner, _admin, issuer, _factory, _contract_id, client) = setup_no_mock();
     client.deny_issuer(&issuer);
+}
+
+#[test]
+#[should_panic]
+fn test_auth_set_vault_did_requires_owner_signature() {
+    let (env, _owner, _admin, _issuer, _factory, _contract_id, client) = setup_no_mock();
+    client.set_vault_did(&String::from_str(&env, "did:stellar:testnet:x"));
 }
 
 #[test]

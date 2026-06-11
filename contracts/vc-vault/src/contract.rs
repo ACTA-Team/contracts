@@ -87,6 +87,7 @@ impl VcVaultTrait for VcVaultContract {
 
     fn set_vault_did(e: Env, did_uri: String) {
         require_did_uri_len(&e, &did_uri);
+        require_vault_active(&e);
         let owner = storage::read_vault_owner(&e);
         owner.require_auth();
         storage::write_vault_did(&e, &did_uri);

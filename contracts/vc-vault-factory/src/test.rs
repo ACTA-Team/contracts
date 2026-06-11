@@ -378,9 +378,9 @@ fn test_push_removes_vc_from_source() {
 }
 
 /// `receive_push` requires the source and destination vaults to share the same
-/// owner. Pushing across owners must panic with PushOwnerMismatch.
+/// owner. Pushing across owners must panic with PushOwnerMismatch (#26).
 #[test]
-#[should_panic]
+#[should_panic(expected = "Error(Contract, #26)")]
 fn test_push_cross_owner_rejected() {
     let e = Env::default();
     let (_admin, _factory_id, client) = setup(&e);
