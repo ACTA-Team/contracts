@@ -84,31 +84,20 @@ impl VcVaultTrait for VcVaultContract {
         events::vault_admin_changed(&e, &old_admin, &new_admin);
     }
 
-    fn authorize_issuers(e: Env, issuers: Vec<Address>) {
-        require_issuers_list_len(&e, &issuers);
+    fn deny_issuer(e: Env, issuer_addr: Address) {
         require_vault_admin(&e);
         require_vault_active(&e);
-        vault::authorize_issuers(&e, &issuers);
+        storage::append_denied_issuer_to_index(&e, &issuer_addr);
         storage::extend_vault_ttl(&e);
-        for issuer in issuers.iter() {
-            events::issuer_authorized(&e, &issuer);
-        }
+        events::issuer_denied(&e, &issuer_addr);
     }
 
-    fn authorize_issuer(e: Env, issuer_addr: Address) {
+    fn allow_issuer(e: Env, issuer_addr: Address) {
         require_vault_admin(&e);
         require_vault_active(&e);
-        vault::authorize_issuer(&e, &issuer_addr);
+        storage::remove_denied_issuer_from_index(&e, &issuer_addr);
         storage::extend_vault_ttl(&e);
-        events::issuer_authorized(&e, &issuer_addr);
-    }
-
-    fn revoke_issuer(e: Env, issuer_addr: Address) {
-        require_vault_admin(&e);
-        require_vault_active(&e);
-        vault::revoke_issuer(&e, &issuer_addr);
-        storage::extend_vault_ttl(&e);
-        events::issuer_revoked(&e, &issuer_addr);
+        events::issuer_allowed(&e, &issuer_addr);
     }
 
     fn revoke_vault(e: Env) {
@@ -197,7 +186,9 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::InvalidVaultContract);
         }
         require_vault_active(&e);
-        require_issuer_authorized(&e, &issuer_addr);
+        if storage::denied_issuer_index_contains(&e, &issuer_addr) {
+            panic_with_error!(e, ContractError::IssuerDenied);
+        }
 
         if storage::read_vault_vc(&e, &vc_id).is_some()
             || storage::read_vc_status(&e, &vc_id) != VCStatus::Invalid
@@ -242,7 +233,9 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::InvalidVaultContract);
         }
         require_vault_active(&e);
-        require_issuer_authorized(&e, &issuer_addr);
+        if storage::denied_issuer_index_contains(&e, &issuer_addr) {
+            panic_with_error!(e, ContractError::IssuerDenied);
+        }
 
         let factory = storage::read_factory_address(&e);
         let unit = vault::charge_fee_quote_only(&e, &factory, &issuer_addr);
@@ -350,28 +343,6 @@ impl VcVaultTrait for VcVaultContract {
 
     // --- Issuer queries ---
 
-    fn list_authorized_issuers(e: Env, offset: u32, limit: u32) -> Vec<Address> {
-        if limit > storage::MAX_LIST_LIMIT {
-            panic_with_error!(e, ContractError::LimitTooLarge);
-        }
-        storage::extend_vault_ttl(&e);
-        let mut result = Vec::new(&e);
-        if limit == 0 {
-            return result;
-        }
-        let count = storage::read_issuer_count(&e);
-        if offset >= count {
-            return result;
-        }
-        let end = offset.saturating_add(limit).min(count);
-        for i in offset..end {
-            if let Some(addr) = storage::read_issuer_at_extend(&e, i) {
-                result.push_back(addr);
-            }
-        }
-        result
-    }
-
     fn list_denied_issuers(e: Env, offset: u32, limit: u32) -> Vec<Address> {
         if limit > storage::MAX_LIST_LIMIT {
             panic_with_error!(e, ContractError::LimitTooLarge);
@@ -392,11 +363,6 @@ impl VcVaultTrait for VcVaultContract {
             }
         }
         result
-    }
-
-    fn authorized_issuer_count(e: Env) -> u32 {
-        storage::extend_vault_ttl(&e);
-        storage::read_issuer_count(&e)
     }
 
     fn denied_issuer_count(e: Env) -> u32 {

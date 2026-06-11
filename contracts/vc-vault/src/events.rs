@@ -22,16 +22,6 @@ pub struct VaultAdminChanged {
 // --- Issuer management ---
 
 #[contractevent]
-pub struct IssuerAuthorized {
-    pub issuer: Address,
-}
-
-#[contractevent]
-pub struct IssuerRevoked {
-    pub issuer: Address,
-}
-
-#[contractevent]
 pub struct IssuerDenied {
     pub issuer: Address,
 }
@@ -108,20 +98,6 @@ pub fn vault_admin_changed(e: &Env, old_admin: &Address, new_admin: &Address) {
     VaultAdminChanged {
         old_admin: old_admin.clone(),
         new_admin: new_admin.clone(),
-    }
-    .publish(e);
-}
-
-pub fn issuer_authorized(e: &Env, issuer: &Address) {
-    IssuerAuthorized {
-        issuer: issuer.clone(),
-    }
-    .publish(e);
-}
-
-pub fn issuer_revoked(e: &Env, issuer: &Address) {
-    IssuerRevoked {
-        issuer: issuer.clone(),
     }
     .publish(e);
 }

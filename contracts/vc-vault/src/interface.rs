@@ -14,9 +14,8 @@ pub trait VcVaultTrait {
 
     // --- Vault management ---
     fn set_vault_admin(e: Env, new_admin: Address);
-    fn authorize_issuers(e: Env, issuers: Vec<Address>);
-    fn authorize_issuer(e: Env, issuer_addr: Address);
-    fn revoke_issuer(e: Env, issuer_addr: Address);
+    fn deny_issuer(e: Env, issuer_addr: Address);
+    fn allow_issuer(e: Env, issuer_addr: Address);
     fn revoke_vault(e: Env);
 
     // --- Credential queries ---
@@ -46,8 +45,6 @@ pub trait VcVaultTrait {
     fn receive_push(e: Env, source_vault: Address, vc_id: String, vc_data: String, issuer_did: String);
 
     // --- Issuer queries ---
-    fn list_authorized_issuers(e: Env, offset: u32, limit: u32) -> Vec<Address>;
     fn list_denied_issuers(e: Env, offset: u32, limit: u32) -> Vec<Address>;
-    fn authorized_issuer_count(e: Env) -> u32;
     fn denied_issuer_count(e: Env) -> u32;
 }

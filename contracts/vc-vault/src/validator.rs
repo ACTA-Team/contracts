@@ -3,8 +3,7 @@
 
 use crate::error::ContractError;
 use crate::storage;
-use crate::vault;
-use soroban_sdk::{panic_with_error, Address, Env, Vec};
+use soroban_sdk::{panic_with_error, Address, Env};
 
 // --- Auth guards ---
 
@@ -33,13 +32,6 @@ pub fn require_vault_active(e: &Env) {
     require_vault_initialized(e);
     if storage::read_vault_revoked(e) {
         panic_with_error!(e, ContractError::VaultRevoked)
-    }
-}
-
-pub fn require_issuer_authorized(e: &Env, issuer_addr: &Address) {
-    require_vault_initialized(e);
-    if !vault::is_authorized(e, issuer_addr) {
-        panic_with_error!(e, ContractError::IssuerNotAuthorized)
     }
 }
 
@@ -72,11 +64,5 @@ pub fn require_issuer_did_len(e: &Env, issuer_did: &soroban_sdk::String) {
 pub fn require_date_len(e: &Env, date: &soroban_sdk::String) {
     if date.len() > storage::MAX_DATE_LEN {
         panic_with_error!(e, ContractError::InputTooLong);
-    }
-}
-
-pub fn require_issuers_list_len(e: &Env, issuers: &Vec<Address>) {
-    if issuers.len() > storage::MAX_ISSUERS_LIST {
-        panic_with_error!(e, ContractError::IssuerListTooLong);
     }
 }
