@@ -50,7 +50,7 @@ fn setup() -> (Env, Address, Address, Address, Address, Address, VcVaultContract
     let did_uri = String::from_str(&env, "did:pkh:stellar:testnet:OWNER");
     let contract_id = env.register(VcVaultContract, (owner.clone(), admin.clone(), did_uri, factory.clone()));
     let client = VcVaultContractClient::new(&env, &contract_id);
-    client.authorize_issuer(&issuer);
+    // Issuance is open: no pre-authorization needed.
     (env, owner, admin, issuer, factory, contract_id, client)
 }
 
@@ -77,42 +77,23 @@ fn test_set_vault_admin() {
     let (env, _owner, _admin, _issuer, _factory, _contract_id, client) = setup();
     let new_admin = Address::generate(&env);
     client.set_vault_admin(&new_admin);
+    // The new admin can exercise an admin-gated entrypoint.
     let issuer = Address::generate(&env);
-    client.authorize_issuer(&issuer);
+    client.deny_issuer(&issuer);
 }
 
 #[test]
-fn test_authorize_issuer() {
+fn test_owner_can_correct_did() {
     let (env, _owner, _admin, _issuer, _factory, _contract_id, client) = setup();
-    // The default issuer is already authorized by setup(); authorize a fresh one.
-    let other = Address::generate(&env);
-    client.authorize_issuer(&other);
+    let new_did = String::from_str(&env, "did:stellar:testnet:corrected");
+    client.set_vault_did(&new_did);
+    assert_eq!(client.vault_did(), Some(new_did));
 }
 
 #[test]
-fn test_authorize_issuers_bulk() {
-    let (env, _owner, _admin, _issuer, _factory, _contract_id, client) = setup();
-    let issuer2 = Address::generate(&env);
-    let issuer3 = Address::generate(&env);
-    let issuers = vec![&env, issuer2.clone(), issuer3.clone()];
-    client.authorize_issuers(&issuers);
-}
-
-#[test]
-fn test_revoke_issuer() {
-    let (_env, _owner, _admin, issuer, _factory, _contract_id, client) = setup();
-    client.revoke_issuer(&issuer);
-}
-
-#[test]
-#[should_panic]
-fn test_issue_after_revoke_issuer_panics() {
-    let (env, _owner, _admin, issuer, _factory, contract_id, client) = setup();
-    client.revoke_issuer(&issuer);
-    let vc_id = String::from_str(&env, "vc-1");
-    let vc_data = String::from_str(&env, "<ciphertext>");
-    let issuer_did = String::from_str(&env, "did:pkh:stellar:testnet:ISSUER");
-    client.issue(&vc_id, &vc_data, &contract_id, &issuer, &issuer_did);
+fn test_vault_owner_getter() {
+    let (_env, owner, _admin, _issuer, _factory, _contract_id, client) = setup();
+    assert_eq!(client.vault_owner(), owner);
 }
 
 #[test]
@@ -245,27 +226,50 @@ fn test_issue_no_fee_when_disabled() {
 }
 
 #[test]
-#[should_panic]
-fn test_unauthorized_issuer_cannot_issue() {
+fn test_any_issuer_can_issue_open() {
     let (env, _owner, _admin, _issuer, _factory, contract_id, client) = setup();
     let stranger = Address::generate(&env);
     client.issue(
-        &String::from_str(&env, "vc-x"),
+        &String::from_str(&env, "vc-open"),
         &String::from_str(&env, "<data>"),
         &contract_id,
         &stranger,
         &String::from_str(&env, "did:issuer"),
     );
+    assert_eq!(client.verify_vc(&String::from_str(&env, "vc-open")), VCStatus::Valid);
 }
 
 #[test]
-fn test_bulk_authorize_clears_denied() {
-    let (env, _owner, _admin, issuer, _factory, _contract_id, client) = setup();
-    // issuer is already authorized by setup; revoke -> denied
-    client.revoke_issuer(&issuer);
+#[should_panic]
+fn test_denied_issuer_cannot_issue() {
+    let (env, _owner, _admin, _issuer, _factory, contract_id, client) = setup();
+    let spammer = Address::generate(&env);
+    client.deny_issuer(&spammer);
+    client.issue(
+        &String::from_str(&env, "vc-x"),
+        &String::from_str(&env, "<data>"),
+        &contract_id,
+        &spammer,
+        &String::from_str(&env, "did:issuer"),
+    );
+}
+
+#[test]
+fn test_allow_issuer_reenables_issue() {
+    let (env, _owner, _admin, _issuer, _factory, contract_id, client) = setup();
+    let iss = Address::generate(&env);
+    client.deny_issuer(&iss);
     assert_eq!(client.denied_issuer_count(), 1);
-    client.authorize_issuers(&vec![&env, issuer.clone()]);
+    client.allow_issuer(&iss);
     assert_eq!(client.denied_issuer_count(), 0);
+    client.issue(
+        &String::from_str(&env, "vc-ok"),
+        &String::from_str(&env, "<data>"),
+        &contract_id,
+        &iss,
+        &String::from_str(&env, "did:issuer"),
+    );
+    assert_eq!(client.verify_vc(&String::from_str(&env, "vc-ok")), VCStatus::Valid);
 }
 
 #[test]
@@ -317,9 +321,9 @@ fn test_auth_nominate_admin_requires_current_admin_signature() {
 
 #[test]
 #[should_panic]
-fn test_auth_authorize_issuer_requires_vault_admin_signature() {
+fn test_auth_deny_issuer_requires_vault_admin_signature() {
     let (_env, _owner, _admin, issuer, _factory, _contract_id, client) = setup_no_mock();
-    client.authorize_issuer(&issuer);
+    client.deny_issuer(&issuer);
 }
 
 #[test]
@@ -801,28 +805,6 @@ fn test_revoke_rejects_date_over_max_len() {
 }
 
 #[test]
-fn test_authorize_issuers_accepts_max_list_size() {
-    let (env, _owner, _admin, _issuer, _factory, _contract_id, client) = setup();
-    let mut issuers = soroban_sdk::Vec::<Address>::new(&env);
-    for _ in 0..100 {
-        // MAX_ISSUERS_LIST
-        issuers.push_back(Address::generate(&env));
-    }
-    client.authorize_issuers(&issuers);
-}
-
-#[test]
-#[should_panic(expected = "Error(Contract, #20)")] // IssuerListTooLong
-fn test_authorize_issuers_rejects_oversized_list() {
-    let (env, _owner, _admin, _issuer, _factory, _contract_id, client) = setup();
-    let mut issuers = soroban_sdk::Vec::<Address>::new(&env);
-    for _ in 0..101 {
-        issuers.push_back(Address::generate(&env));
-    }
-    client.authorize_issuers(&issuers);
-}
-
-#[test]
 #[should_panic(expected = "Error(Contract, #19)")] // InputTooLong
 fn test_batch_issue_rejects_oversized_vc_id_within_batch() {
     // The cap applies inside batch_issue too: even if 4 entries are valid, a
@@ -851,24 +833,6 @@ fn test_get_vc_rejects_oversized_vc_id() {
     let (env, _owner, _admin, _issuer, _factory, _contract_id, client) = setup();
     let vc_id = long_string(&env, b'q', 65);
     client.get_vc(&vc_id);
-}
-
-#[test]
-#[should_panic(expected = "Error(Contract, #20)")] // IssuerListTooLong
-fn test_authorize_issuer_rejects_when_list_at_cap() {
-    // Cap must apply to single-add too, not just the bulk replace path.
-    // Fill the list to MAX_ISSUERS_LIST=100 via authorize_issuers (which
-    // replaces the index and is capped at exactly that count), then
-    // authorize_issuer one more — must panic with IssuerListTooLong instead of
-    // silently growing past the cap.
-    let (env, _owner, _admin, _issuer, _factory, _contract_id, client) = setup();
-    let mut issuers = soroban_sdk::Vec::<Address>::new(&env);
-    for _ in 0..100 {
-        issuers.push_back(Address::generate(&env));
-    }
-    client.authorize_issuers(&issuers);
-    let extra = Address::generate(&env);
-    client.authorize_issuer(&extra);
 }
 
 // --- Event emission tests ---
@@ -943,38 +907,15 @@ fn test_accept_contract_admin_emits_admin_transferred() {
     );
 }
 
-// --- Issuer O(1) index tests ---
-
-#[test]
-fn test_list_authorized_issuers_pagination() {
-    let (env, _owner, _admin, _issuer, _factory, _contract_id, client) = setup();
-    // setup() authorized one issuer already; add three more for four total.
-    let i1 = Address::generate(&env);
-    let i2 = Address::generate(&env);
-    let i3 = Address::generate(&env);
-    client.authorize_issuer(&i1);
-    client.authorize_issuer(&i2);
-    client.authorize_issuer(&i3);
-    // Full page (default issuer + 3).
-    let all = client.list_authorized_issuers(&0_u32, &100_u32);
-    assert_eq!(all.len(), 4);
-    // Paginated first two.
-    let page1 = client.list_authorized_issuers(&0_u32, &2_u32);
-    assert_eq!(page1.len(), 2);
-    // Offset past end.
-    let empty = client.list_authorized_issuers(&10_u32, &100_u32);
-    assert_eq!(empty.len(), 0);
-}
+// --- Denied-issuer O(1) index tests ---
 
 #[test]
 fn test_list_denied_issuers_pagination() {
     let (env, _owner, _admin, _issuer, _factory, _contract_id, client) = setup();
     let i1 = Address::generate(&env);
     let i2 = Address::generate(&env);
-    client.authorize_issuer(&i1);
-    client.authorize_issuer(&i2);
-    client.revoke_issuer(&i1);
-    client.revoke_issuer(&i2);
+    client.deny_issuer(&i1);
+    client.deny_issuer(&i2);
     let all = client.list_denied_issuers(&0_u32, &100_u32);
     assert_eq!(all.len(), 2);
     let page1 = client.list_denied_issuers(&0_u32, &1_u32);
@@ -984,32 +925,18 @@ fn test_list_denied_issuers_pagination() {
 }
 
 #[test]
-fn test_authorized_issuer_count() {
+fn test_deny_issuer_updates_index() {
     let (env, _owner, _admin, _issuer, _factory, _contract_id, client) = setup();
-    // setup() authorized the default issuer.
-    assert_eq!(client.authorized_issuer_count(), 1);
-    let other = Address::generate(&env);
-    client.authorize_issuer(&other);
-    assert_eq!(client.authorized_issuer_count(), 2);
-}
-
-#[test]
-fn test_is_authorized_o1() {
-    let (_env, _owner, _admin, issuer, _factory, _contract_id, client) = setup();
-    let listed = client.list_authorized_issuers(&0_u32, &100_u32);
-    assert!(listed.contains(issuer));
-}
-
-#[test]
-fn test_revoke_issuer_updates_index() {
-    let (_env, _owner, _admin, issuer, _factory, _contract_id, client) = setup();
-    assert_eq!(client.authorized_issuer_count(), 1);
     assert_eq!(client.denied_issuer_count(), 0);
-    client.revoke_issuer(&issuer);
-    assert_eq!(client.authorized_issuer_count(), 0);
+    let iss = Address::generate(&env);
+    client.deny_issuer(&iss);
     assert_eq!(client.denied_issuer_count(), 1);
     let denied = client.list_denied_issuers(&0_u32, &100_u32);
-    assert!(denied.contains(issuer));
+    assert!(denied.contains(iss.clone()));
+    client.allow_issuer(&iss);
+    assert_eq!(client.denied_issuer_count(), 0);
+    let denied = client.list_denied_issuers(&0_u32, &100_u32);
+    assert!(!denied.contains(iss));
 }
 
 #[test]
