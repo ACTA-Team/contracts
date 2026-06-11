@@ -45,7 +45,14 @@ pub trait VcVaultTrait {
     ) -> Vec<String>;
     fn revoke(e: Env, vc_id: String, date: String);
     fn push(e: Env, vc_id: String, dest_vault: Address);
-    fn receive_push(e: Env, source_vault: Address, vc_id: String, vc_data: String, issuer_did: String);
+    fn receive_push(
+        e: Env,
+        source_vault: Address,
+        source_owner: Address,
+        vc_id: String,
+        vc_data: String,
+        issuer_did: String,
+    );
 
     // --- Issuer queries ---
     fn list_denied_issuers(e: Env, offset: u32, limit: u32) -> Vec<Address>;

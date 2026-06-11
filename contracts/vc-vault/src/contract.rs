@@ -311,11 +311,18 @@ impl VcVaultTrait for VcVaultContract {
         if storage::read_vc_status(&e, &vc_id) != VCStatus::Valid {
             panic_with_error!(e, ContractError::VCNotFound);
         }
+        // Pass our own owner to the destination so it can enforce the
+        // same-owner migration rule without re-entering this contract (the
+        // source vault is still on the call stack here, so a callback into
+        // `vault_owner` would trip Soroban's re-entry guard). The value is
+        // trustworthy because `receive_push` requires this vault's auth.
+        let src_owner = storage::read_vault_owner(&e);
         e.invoke_contract::<()>(
             &dest_vault,
             &soroban_sdk::Symbol::new(&e, "receive_push"),
             (
                 e.current_contract_address(),
+                src_owner,
                 vc_id.clone(),
                 vc.data,
                 vc.issuer_did,
@@ -328,7 +335,14 @@ impl VcVaultTrait for VcVaultContract {
         events::vc_pushed(&e, &vc_id, &dest_vault);
     }
 
-    fn receive_push(e: Env, source_vault: Address, vc_id: String, vc_data: String, issuer_did: String) {
+    fn receive_push(
+        e: Env,
+        source_vault: Address,
+        source_owner: Address,
+        vc_id: String,
+        vc_data: String,
+        issuer_did: String,
+    ) {
         require_vc_id_len(&e, &vc_id);
         require_vc_data_len(&e, &vc_data);
         require_issuer_did_len(&e, &issuer_did);
@@ -345,13 +359,11 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::SourceNotAVault);
         }
         // push is owner-scoped migration: the source vault must belong to the
-        // same owner as this destination vault.
-        let src_owner: Address = e.invoke_contract(
-            &source_vault,
-            &soroban_sdk::Symbol::new(&e, "vault_owner"),
-            soroban_sdk::Vec::new(&e),
-        );
-        if src_owner != storage::read_vault_owner(&e) {
+        // same owner as this destination vault. `source_owner` is supplied by
+        // the authenticated source vault (it reads its own stored owner before
+        // invoking us), so we avoid re-entering the source vault — which is
+        // still on the call stack — to query `vault_owner`.
+        if source_owner != storage::read_vault_owner(&e) {
             panic_with_error!(e, ContractError::PushOwnerMismatch);
         }
         // Mirror the duplicate guard used by issue()/batch_issue(): the index
