@@ -49,5 +49,3 @@ pub const MAX_DID_URI_LEN: u32 = 256;
 pub const MAX_ISSUER_DID_LEN: u32 = 256;
 /// Maximum bytes for revocation `date` strings (ISO 8601).
 pub const MAX_DATE_LEN: u32 = 64;
-/// Maximum number of addresses accepted by `authorize_issuers(list)`.
-pub const MAX_ISSUERS_LIST: u32 = 100;

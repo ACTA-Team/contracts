@@ -24,7 +24,6 @@ pub fn extend_vault_ttl(e: &Env) {
         VcVaultDataKey::VaultAdmin,
         VcVaultDataKey::VaultDid,
         VcVaultDataKey::VaultRevoked,
-        VcVaultDataKey::VaultIssuerCount,
         VcVaultDataKey::VaultDeniedIssuerCount,
         VcVaultDataKey::VaultVCCount,
     ];
