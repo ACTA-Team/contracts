@@ -84,6 +84,11 @@ impl VcVaultTrait for VcVaultContract {
         events::vault_admin_changed(&e, &old_admin, &new_admin);
     }
 
+    fn vault_owner(e: Env) -> Address {
+        storage::extend_vault_ttl(&e);
+        storage::read_vault_owner(&e)
+    }
+
     fn deny_issuer(e: Env, issuer_addr: Address) {
         require_vault_admin(&e);
         require_vault_active(&e);
@@ -323,6 +328,16 @@ impl VcVaultTrait for VcVaultContract {
         );
         if !is_legit {
             panic_with_error!(e, ContractError::SourceNotAVault);
+        }
+        // push is owner-scoped migration: the source vault must belong to the
+        // same owner as this destination vault.
+        let src_owner: Address = e.invoke_contract(
+            &source_vault,
+            &soroban_sdk::Symbol::new(&e, "vault_owner"),
+            soroban_sdk::Vec::new(&e),
+        );
+        if src_owner != storage::read_vault_owner(&e) {
+            panic_with_error!(e, ContractError::PushOwnerMismatch);
         }
         // Mirror the duplicate guard used by issue()/batch_issue(): the index
         // entry is removed on revoke() but the Revoked status persists, so an

@@ -14,6 +14,7 @@ pub trait VcVaultTrait {
 
     // --- Vault management ---
     fn set_vault_admin(e: Env, new_admin: Address);
+    fn vault_owner(e: Env) -> Address;
     fn deny_issuer(e: Env, issuer_addr: Address);
     fn allow_issuer(e: Env, issuer_addr: Address);
     fn revoke_vault(e: Env);
