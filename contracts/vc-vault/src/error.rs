@@ -6,9 +6,11 @@ use soroban_sdk::contracterror;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum ContractError {
-    /// Issuer not in vault's authorized list.
+    /// Deprecated: retained for ABI stability (was the issuer-whitelist model,
+    /// replaced by open issuance + denylist). No longer raised.
     IssuerNotAuthorized = 2,
-    /// Issuer already authorized.
+    /// Deprecated: retained for ABI stability (was the issuer-whitelist model).
+    /// No longer raised.
     IssuerAlreadyAuthorized = 3,
     /// Vault is revoked; writes blocked.
     VaultRevoked = 4,
@@ -39,10 +41,15 @@ pub enum ContractError {
     /// String input exceeds its per-field maximum length (vc_id, vc_data,
     /// did_uri, issuer_did, or date).
     InputTooLong = 19,
-    /// `authorize_issuers` called with a list larger than `MAX_ISSUERS_LIST`.
+    /// Deprecated: retained for ABI stability (was the bulk authorize-issuers
+    /// list cap). No longer raised.
     IssuerListTooLong = 20,
     /// Batch fee total (per-credential fee × batch size) overflowed `i128`.
     FeeOutOfBounds = 23,
     /// Source vault is not registered in the factory.
     SourceNotAVault = 24,
+    /// Issuer is in this vault's denied list.
+    IssuerDenied = 25,
+    /// receive_push source vault has a different owner than this vault.
+    PushOwnerMismatch = 26,
 }

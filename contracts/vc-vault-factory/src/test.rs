@@ -220,7 +220,6 @@ fn test_deploy_integration_issue_and_verify() {
     let vault = vc_vault::Client::new(&e, &vault_addr);
 
     let issuer = Address::generate(&e);
-    vault.authorize_issuer(&issuer);
 
     let vc_id = String::from_str(&e, "vc-1");
     let vc_data = String::from_str(&e, "<data>");
@@ -276,7 +275,6 @@ fn test_deploy_sponsored_vault_belongs_to_owner_not_deployer() {
     let vault = vc_vault::Client::new(&e, &vault_addr);
 
     let issuer = Address::generate(&e);
-    vault.authorize_issuer(&issuer);
 
     let vc_id = String::from_str(&e, "vc-1");
     let vc_data = String::from_str(&e, "<data>");
@@ -331,12 +329,11 @@ fn test_push_transfers_vc_between_vaults() {
     let e = Env::default();
     let (_admin, _factory_id, client) = setup(&e);
 
-    let owner_a = Address::generate(&e);
-    let owner_b = Address::generate(&e);
+    let owner = Address::generate(&e);
     let did_uri = String::from_str(&e, "did:test");
 
-    let vault_a = client.deploy(&owner_a, &did_uri, &BytesN::random(&e));
-    let vault_b = client.deploy(&owner_b, &did_uri, &BytesN::random(&e));
+    let vault_a = client.deploy(&owner, &did_uri, &BytesN::random(&e));
+    let vault_b = client.deploy(&owner, &did_uri, &BytesN::random(&e));
 
     let vault_a_client = vc_vault::Client::new(&e, &vault_a);
     let vault_b_client = vc_vault::Client::new(&e, &vault_b);
@@ -346,7 +343,6 @@ fn test_push_transfers_vc_between_vaults() {
     let vc_data = String::from_str(&e, "<data>");
     let issuer_did = String::from_str(&e, "did:issuer");
 
-    vault_a_client.authorize_issuer(&issuer);
     vault_a_client.issue(&vc_id, &vc_data, &vault_a, &issuer, &issuer_did);
     assert_eq!(vault_a_client.vc_count(), 1);
     assert_eq!(vault_b_client.vc_count(), 0);
@@ -363,24 +359,41 @@ fn test_push_removes_vc_from_source() {
     let e = Env::default();
     let (_admin, _factory_id, client) = setup(&e);
 
-    let owner_a = Address::generate(&e);
-    let owner_b = Address::generate(&e);
+    let owner = Address::generate(&e);
     let did_uri = String::from_str(&e, "did:test");
 
-    let vault_a = client.deploy(&owner_a, &did_uri, &BytesN::random(&e));
-    let vault_b = client.deploy(&owner_b, &did_uri, &BytesN::random(&e));
+    let vault_a = client.deploy(&owner, &did_uri, &BytesN::random(&e));
+    let vault_b = client.deploy(&owner, &did_uri, &BytesN::random(&e));
 
     let vault_a_client = vc_vault::Client::new(&e, &vault_a);
 
     let issuer = Address::generate(&e);
     let vc_id = String::from_str(&e, "vc-1");
-    vault_a_client.authorize_issuer(&issuer);
     vault_a_client.issue(&vc_id, &String::from_str(&e, "<data>"), &vault_a, &issuer, &String::from_str(&e, "did:issuer"));
 
     vault_a_client.push(&vc_id, &vault_b);
 
     assert!(vault_a_client.get_vc(&vc_id).is_none());
     assert_eq!(vault_a_client.verify_vc(&vc_id), vc_vault::VCStatus::Invalid);
+}
+
+/// `receive_push` requires the source and destination vaults to share the same
+/// owner. Pushing across owners must panic with PushOwnerMismatch (#26).
+#[test]
+#[should_panic(expected = "Error(Contract, #26)")]
+fn test_push_cross_owner_rejected() {
+    let e = Env::default();
+    let (_admin, _factory_id, client) = setup(&e);
+    let owner_a = Address::generate(&e);
+    let owner_b = Address::generate(&e);
+    let did = String::from_str(&e, "did:test");
+    let vault_a = client.deploy(&owner_a, &did, &BytesN::random(&e));
+    let vault_b = client.deploy(&owner_b, &did, &BytesN::random(&e));
+    let a = vc_vault::Client::new(&e, &vault_a);
+    let issuer = Address::generate(&e);
+    let vc_id = String::from_str(&e, "vc-1");
+    a.issue(&vc_id, &String::from_str(&e, "<d>"), &vault_a, &issuer, &String::from_str(&e, "did:i"));
+    a.push(&vc_id, &vault_b); // owners differ -> PushOwnerMismatch
 }
 
 #[test]
@@ -397,6 +410,7 @@ fn test_receive_push_from_non_vault_panics() {
     let fake_vault = Address::generate(&e);
     vault_client.receive_push(
         &fake_vault,
+        &owner,
         &String::from_str(&e, "vc-1"),
         &String::from_str(&e, "<data>"),
         &String::from_str(&e, "did:issuer"),
@@ -413,12 +427,11 @@ fn test_push_cannot_revive_revoked_vc_in_destination() {
     let e = Env::default();
     let (_admin, _factory_id, client) = setup(&e);
 
-    let owner_a = Address::generate(&e);
-    let owner_b = Address::generate(&e);
+    let owner = Address::generate(&e);
     let did_uri = String::from_str(&e, "did:test");
 
-    let vault_a = client.deploy(&owner_a, &did_uri, &BytesN::random(&e));
-    let vault_b = client.deploy(&owner_b, &did_uri, &BytesN::random(&e));
+    let vault_a = client.deploy(&owner, &did_uri, &BytesN::random(&e));
+    let vault_b = client.deploy(&owner, &did_uri, &BytesN::random(&e));
 
     let vault_a_client = vc_vault::Client::new(&e, &vault_a);
     let vault_b_client = vc_vault::Client::new(&e, &vault_b);
@@ -427,9 +440,6 @@ fn test_push_cannot_revive_revoked_vc_in_destination() {
     let vc_id = String::from_str(&e, "vc-1");
     let vc_data = String::from_str(&e, "<data>");
     let issuer_did = String::from_str(&e, "did:issuer");
-
-    vault_a_client.authorize_issuer(&issuer);
-    vault_b_client.authorize_issuer(&issuer);
 
     // Destination vault B issues then revokes the credential — index entry is
     // dropped but the Revoked status persists.
@@ -464,7 +474,6 @@ fn test_issue_through_real_factory_charges_fee() {
     let vault_addr = client.deploy(&owner, &String::from_str(&e, "did:test"), &BytesN::random(&e));
     let vault = vc_vault::Client::new(&e, &vault_addr);
     let issuer = Address::generate(&e);
-    vault.authorize_issuer(&issuer);
     StellarAssetClient::new(&e, &token_addr).mint(&issuer, &100_000_000);
 
     vault.issue(
@@ -500,8 +509,6 @@ fn test_same_issuer_custom_applies_across_vaults() {
     let v2 = client.deploy(&owner2, &String::from_str(&e, "did:2"), &BytesN::random(&e));
     let v1c = vc_vault::Client::new(&e, &v1);
     let v2c = vc_vault::Client::new(&e, &v2);
-    v1c.authorize_issuer(&issuer);
-    v2c.authorize_issuer(&issuer);
 
     v1c.issue(&String::from_str(&e, "a"), &String::from_str(&e, "<d>"), &v1, &issuer, &String::from_str(&e, "did:i"));
     v2c.issue(&String::from_str(&e, "b"), &String::from_str(&e, "<d>"), &v2, &issuer, &String::from_str(&e, "did:i"));

@@ -32,6 +32,7 @@ impl VcVaultContract {
         storage::write_contract_admin(&e, &contract_admin);
         storage::write_vault_did(&e, &did_uri);
         storage::write_vault_admin(&e, &vault_owner);
+        storage::extend_vault_ttl(&e);
         storage::extend_instance_ttl(&e);
         events::contract_initialized(&e, &contract_admin);
         events::vault_created(&e, &vault_owner, &did_uri);
@@ -84,31 +85,40 @@ impl VcVaultTrait for VcVaultContract {
         events::vault_admin_changed(&e, &old_admin, &new_admin);
     }
 
-    fn authorize_issuers(e: Env, issuers: Vec<Address>) {
-        require_issuers_list_len(&e, &issuers);
-        require_vault_admin(&e);
+    fn set_vault_did(e: Env, did_uri: String) {
+        require_did_uri_len(&e, &did_uri);
         require_vault_active(&e);
-        vault::authorize_issuers(&e, &issuers);
+        let owner = storage::read_vault_owner(&e);
+        owner.require_auth();
+        storage::write_vault_did(&e, &did_uri);
         storage::extend_vault_ttl(&e);
-        for issuer in issuers.iter() {
-            events::issuer_authorized(&e, &issuer);
-        }
+        events::vault_did_changed(&e, &did_uri);
     }
 
-    fn authorize_issuer(e: Env, issuer_addr: Address) {
-        require_vault_admin(&e);
-        require_vault_active(&e);
-        vault::authorize_issuer(&e, &issuer_addr);
+    fn vault_did(e: Env) -> Option<String> {
         storage::extend_vault_ttl(&e);
-        events::issuer_authorized(&e, &issuer_addr);
+        storage::read_vault_did(&e)
     }
 
-    fn revoke_issuer(e: Env, issuer_addr: Address) {
+    fn vault_owner(e: Env) -> Address {
+        storage::extend_vault_ttl(&e);
+        storage::read_vault_owner(&e)
+    }
+
+    fn deny_issuer(e: Env, issuer_addr: Address) {
         require_vault_admin(&e);
         require_vault_active(&e);
-        vault::revoke_issuer(&e, &issuer_addr);
+        storage::append_denied_issuer_to_index(&e, &issuer_addr);
         storage::extend_vault_ttl(&e);
-        events::issuer_revoked(&e, &issuer_addr);
+        events::issuer_denied(&e, &issuer_addr);
+    }
+
+    fn allow_issuer(e: Env, issuer_addr: Address) {
+        require_vault_admin(&e);
+        require_vault_active(&e);
+        storage::remove_denied_issuer_from_index(&e, &issuer_addr);
+        storage::extend_vault_ttl(&e);
+        events::issuer_allowed(&e, &issuer_addr);
     }
 
     fn revoke_vault(e: Env) {
@@ -197,7 +207,9 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::InvalidVaultContract);
         }
         require_vault_active(&e);
-        require_issuer_authorized(&e, &issuer_addr);
+        if storage::denied_issuer_index_contains(&e, &issuer_addr) {
+            panic_with_error!(e, ContractError::IssuerDenied);
+        }
 
         if storage::read_vault_vc(&e, &vc_id).is_some()
             || storage::read_vc_status(&e, &vc_id) != VCStatus::Invalid
@@ -242,7 +254,9 @@ impl VcVaultTrait for VcVaultContract {
             panic_with_error!(e, ContractError::InvalidVaultContract);
         }
         require_vault_active(&e);
-        require_issuer_authorized(&e, &issuer_addr);
+        if storage::denied_issuer_index_contains(&e, &issuer_addr) {
+            panic_with_error!(e, ContractError::IssuerDenied);
+        }
 
         let factory = storage::read_factory_address(&e);
         let unit = vault::charge_fee_quote_only(&e, &factory, &issuer_addr);
@@ -298,11 +312,18 @@ impl VcVaultTrait for VcVaultContract {
         if storage::read_vc_status(&e, &vc_id) != VCStatus::Valid {
             panic_with_error!(e, ContractError::VCNotFound);
         }
+        // Pass our own owner to the destination so it can enforce the
+        // same-owner migration rule without re-entering this contract (the
+        // source vault is still on the call stack here, so a callback into
+        // `vault_owner` would trip Soroban's re-entry guard). The value is
+        // trustworthy because `receive_push` requires this vault's auth.
+        let src_owner = storage::read_vault_owner(&e);
         e.invoke_contract::<()>(
             &dest_vault,
             &soroban_sdk::Symbol::new(&e, "receive_push"),
             (
                 e.current_contract_address(),
+                src_owner,
                 vc_id.clone(),
                 vc.data,
                 vc.issuer_did,
@@ -315,7 +336,14 @@ impl VcVaultTrait for VcVaultContract {
         events::vc_pushed(&e, &vc_id, &dest_vault);
     }
 
-    fn receive_push(e: Env, source_vault: Address, vc_id: String, vc_data: String, issuer_did: String) {
+    fn receive_push(
+        e: Env,
+        source_vault: Address,
+        source_owner: Address,
+        vc_id: String,
+        vc_data: String,
+        issuer_did: String,
+    ) {
         require_vc_id_len(&e, &vc_id);
         require_vc_data_len(&e, &vc_data);
         require_issuer_did_len(&e, &issuer_did);
@@ -330,6 +358,14 @@ impl VcVaultTrait for VcVaultContract {
         );
         if !is_legit {
             panic_with_error!(e, ContractError::SourceNotAVault);
+        }
+        // push is owner-scoped migration: the source vault must belong to the
+        // same owner as this destination vault. `source_owner` is supplied by
+        // the authenticated source vault (it reads its own stored owner before
+        // invoking us), so we avoid re-entering the source vault — which is
+        // still on the call stack — to query `vault_owner`.
+        if source_owner != storage::read_vault_owner(&e) {
+            panic_with_error!(e, ContractError::PushOwnerMismatch);
         }
         // Mirror the duplicate guard used by issue()/batch_issue(): the index
         // entry is removed on revoke() but the Revoked status persists, so an
@@ -349,28 +385,6 @@ impl VcVaultTrait for VcVaultContract {
     }
 
     // --- Issuer queries ---
-
-    fn list_authorized_issuers(e: Env, offset: u32, limit: u32) -> Vec<Address> {
-        if limit > storage::MAX_LIST_LIMIT {
-            panic_with_error!(e, ContractError::LimitTooLarge);
-        }
-        storage::extend_vault_ttl(&e);
-        let mut result = Vec::new(&e);
-        if limit == 0 {
-            return result;
-        }
-        let count = storage::read_issuer_count(&e);
-        if offset >= count {
-            return result;
-        }
-        let end = offset.saturating_add(limit).min(count);
-        for i in offset..end {
-            if let Some(addr) = storage::read_issuer_at_extend(&e, i) {
-                result.push_back(addr);
-            }
-        }
-        result
-    }
 
     fn list_denied_issuers(e: Env, offset: u32, limit: u32) -> Vec<Address> {
         if limit > storage::MAX_LIST_LIMIT {
@@ -392,11 +406,6 @@ impl VcVaultTrait for VcVaultContract {
             }
         }
         result
-    }
-
-    fn authorized_issuer_count(e: Env) -> u32 {
-        storage::extend_vault_ttl(&e);
-        storage::read_issuer_count(&e)
     }
 
     fn denied_issuer_count(e: Env) -> u32 {

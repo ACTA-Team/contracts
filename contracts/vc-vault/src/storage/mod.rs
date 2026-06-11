@@ -34,14 +34,6 @@ pub enum VcVaultDataKey {
     VaultDid,
     VaultRevoked,
 
-    // --- Authorized issuer O(1) index ---
-    /// Number of authorized issuers.
-    VaultIssuerCount,
-    /// Authorized issuer at a given position (0-indexed).
-    VaultIssuerIndex(u32),
-    /// Position of a given authorized issuer.
-    VaultIssuerPosition(Address),
-
     // --- Denied issuer O(1) index ---
     /// Number of denied issuers.
     VaultDeniedIssuerCount,
