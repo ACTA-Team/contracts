@@ -31,6 +31,21 @@ pub struct IssuerRevoked {
     pub issuer: Address,
 }
 
+#[contractevent]
+pub struct IssuerDenied {
+    pub issuer: Address,
+}
+
+#[contractevent]
+pub struct IssuerAllowed {
+    pub issuer: Address,
+}
+
+#[contractevent]
+pub struct VaultDidChanged {
+    pub did_uri: String,
+}
+
 // --- Credential lifecycle ---
 
 #[contractevent]
@@ -107,6 +122,27 @@ pub fn issuer_authorized(e: &Env, issuer: &Address) {
 pub fn issuer_revoked(e: &Env, issuer: &Address) {
     IssuerRevoked {
         issuer: issuer.clone(),
+    }
+    .publish(e);
+}
+
+pub fn issuer_denied(e: &Env, issuer: &Address) {
+    IssuerDenied {
+        issuer: issuer.clone(),
+    }
+    .publish(e);
+}
+
+pub fn issuer_allowed(e: &Env, issuer: &Address) {
+    IssuerAllowed {
+        issuer: issuer.clone(),
+    }
+    .publish(e);
+}
+
+pub fn vault_did_changed(e: &Env, did_uri: &String) {
+    VaultDidChanged {
+        did_uri: did_uri.clone(),
     }
     .publish(e);
 }

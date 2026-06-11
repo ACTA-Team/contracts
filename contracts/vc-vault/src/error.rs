@@ -45,4 +45,8 @@ pub enum ContractError {
     FeeOutOfBounds = 23,
     /// Source vault is not registered in the factory.
     SourceNotAVault = 24,
+    /// Issuer is in this vault's denied list.
+    IssuerDenied = 25,
+    /// receive_push source vault has a different owner than this vault.
+    PushOwnerMismatch = 26,
 }
