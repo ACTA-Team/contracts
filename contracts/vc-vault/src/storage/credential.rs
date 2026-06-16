@@ -1,4 +1,4 @@
-//! VC payload, O(1) index, parent links, and status storage.
+//! VC payload, O(1) index, and status storage.
 
 use crate::constants::{PERSISTENT_TTL_EXTEND_TO, PERSISTENT_TTL_THRESHOLD};
 use crate::error::ContractError;
@@ -132,36 +132,6 @@ pub fn remove_vc_from_index(e: &Env, vc_id: &String) {
     remove_vc_id_at(e, last);
     remove_vc_position(e, vc_id);
     write_vc_count(e, last);
-}
-
-// --- VC parent links ---
-
-pub fn write_vc_parent(e: &Env, vc_id: &String, parent_vc_id: &String) {
-    let key = VcVaultDataKey::VCParent(vc_id.clone());
-    e.storage()
-        .persistent()
-        .set(&key, parent_vc_id);
-    e.storage()
-        .persistent()
-        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_EXTEND_TO);
-}
-
-pub fn read_vc_parent(e: &Env, vc_id: &String) -> Option<String> {
-    e.storage()
-        .persistent()
-        .get(&VcVaultDataKey::VCParent(vc_id.clone()))
-}
-
-pub fn has_vc_parent(e: &Env, vc_id: &String) -> bool {
-    e.storage()
-        .persistent()
-        .has(&VcVaultDataKey::VCParent(vc_id.clone()))
-}
-
-pub fn remove_vc_parent(e: &Env, vc_id: &String) {
-    e.storage()
-        .persistent()
-        .remove(&VcVaultDataKey::VCParent(vc_id.clone()));
 }
 
 // --- VC status ---

@@ -28,8 +28,6 @@ pub enum ContractError {
     VCAlreadyExists = 12,
     /// accept_contract_admin called but no admin nomination is pending.
     NoPendingAdmin = 13,
-    /// The parent VC does not exist or has been revoked.
-    ParentVCInvalid = 14,
     /// Vault has reached the maximum number of active VCs.
     VaultFull = 15,
     /// Pagination `limit` exceeds `MAX_LIST_LIMIT`.
