@@ -105,11 +105,16 @@ pub fn remove_denied_issuer_from_index(e: &Env, issuer: &Address) {
     }
     let last = count - 1;
     if position != last {
-        // Defensive: if the last slot is missing, skip the swap rather than
-        // panicking on unwrap(). The slot is still cleared and count decremented.
-        if let Some(last_addr) = read_denied_issuer_at(e, last) {
-            write_denied_issuer_at(e, position, &last_addr);
-            write_denied_issuer_position(e, &last_addr, position);
+        // Normal swap-and-pop moves the last entry into the freed slot.
+        // Defensive: if the last slot is somehow missing (corrupt state), clear
+        // the freed slot instead of leaving the removed issuer there — otherwise
+        // it becomes a ghost index entry. Never panic on the missing slot.
+        match read_denied_issuer_at(e, last) {
+            Some(last_addr) => {
+                write_denied_issuer_at(e, position, &last_addr);
+                write_denied_issuer_position(e, &last_addr, position);
+            }
+            None => remove_denied_issuer_at(e, position),
         }
     }
     remove_denied_issuer_at(e, last);
