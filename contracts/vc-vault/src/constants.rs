@@ -49,3 +49,6 @@ pub const MAX_DID_URI_LEN: u32 = 256;
 pub const MAX_ISSUER_DID_LEN: u32 = 256;
 /// Maximum bytes for revocation `date` strings (ISO 8601).
 pub const MAX_DATE_LEN: u32 = 64;
+/// Maximum number of issuers a vault may hold in its denied (block) list.
+/// Bounds storage growth; the list only grows via admin `deny_issuer` calls.
+pub const MAX_DENIED_ISSUERS: u32 = 1_000;

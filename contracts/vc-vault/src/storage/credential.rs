@@ -125,9 +125,17 @@ pub fn remove_vc_from_index(e: &Env, vc_id: &String) {
     }
     let last = count - 1;
     if position != last {
-        let last_id = read_vc_id_at(e, last).unwrap();
-        write_vc_id_at(e, position, &last_id);
-        write_vc_position(e, &last_id, position);
+        // Normal swap-and-pop moves the last entry into the freed slot.
+        // Defensive: if the last slot is somehow missing (corrupt state), clear
+        // the freed slot instead of leaving the removed id there — otherwise it
+        // becomes a ghost index entry. Never panic on the missing slot.
+        match read_vc_id_at(e, last) {
+            Some(last_id) => {
+                write_vc_id_at(e, position, &last_id);
+                write_vc_position(e, &last_id, position);
+            }
+            None => remove_vc_id_at(e, position),
+        }
     }
     remove_vc_id_at(e, last);
     remove_vc_position(e, vc_id);
