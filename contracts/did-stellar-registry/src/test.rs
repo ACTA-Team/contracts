@@ -10,8 +10,6 @@
 //!  - events (smoke check that mutations emit something)
 //!  - normative test vectors (matches `docs/did-spec/test-vectors/vectors.json`)
 
-#![cfg(test)]
-
 extern crate std;
 
 use crate::contract::{DidStellarRegistry, DidStellarRegistryClient};
@@ -111,7 +109,7 @@ fn test_register_basic() {
     let r = client.get(&did_id).unwrap();
     assert_eq!(r.controller, controller);
     assert_eq!(r.version, 1);
-    assert_eq!(r.deactivated, false);
+    assert!(!r.deactivated);
     assert_eq!(r.authentication.len(), 1);
     // created_ledger == updated_ledger right after register.
     assert_eq!(r.created_ledger, r.updated_ledger);
@@ -379,7 +377,7 @@ fn test_boundary_key_too_long() {
     let (env, controller, did_id, _id, client) = setup();
     let mut r = minimal_record(&env, &controller);
     // 129 chars > MAX_KEY_MULTIBASE_LEN (128).
-    let long: std::string::String = core::iter::repeat('x').take(129).collect();
+    let long: std::string::String = core::iter::repeat_n('x', 129).collect();
     let mut auth = empty_keys(&env);
     auth.push_back(DidKey {
         public_key_multibase: String::from_str(&env, &long),
@@ -450,7 +448,7 @@ fn test_boundary_service_type_too_long() {
     let (env, controller, did_id, _id, client) = setup();
     let mut r = minimal_record(&env, &controller);
     // 65 chars > MAX_SERVICE_TYPE_LEN (64).
-    let long: std::string::String = core::iter::repeat('x').take(65).collect();
+    let long: std::string::String = core::iter::repeat_n('x', 65).collect();
     let mut svcs = empty_services(&env);
     svcs.push_back(DidService {
         id_suffix: s(&env, "issuer"),
@@ -468,7 +466,7 @@ fn test_boundary_service_id_too_long() {
     let mut r = minimal_record(&env, &controller);
     // 33 chars > MAX_SERVICE_ID_LEN (32). Use only valid `[a-z]` so the
     // length check fires before the format check.
-    let long: std::string::String = core::iter::repeat('a').take(33).collect();
+    let long: std::string::String = core::iter::repeat_n('a', 33).collect();
     let mut svcs = empty_services(&env);
     svcs.push_back(DidService {
         id_suffix: String::from_str(&env, &long),
@@ -649,7 +647,7 @@ fn test_vector_1_minimal_did() {
 
     let stored = client.get(&did_id).unwrap();
     assert_eq!(stored.version, 1);
-    assert_eq!(stored.deactivated, false);
+    assert!(!stored.deactivated);
     assert_eq!(stored.authentication.len(), 1);
     assert_eq!(stored.assertion_method.len(), 0);
     assert_eq!(stored.key_agreement.len(), 0);
@@ -723,7 +721,7 @@ fn test_vector_3_deactivated_tombstone() {
 
     let r = client.get(&did_id).unwrap();
     // Tombstone state per spec §6.6.
-    assert_eq!(r.deactivated, true);
+    assert!(r.deactivated);
     assert_eq!(r.version, 2);
     assert_eq!(r.authentication.len(), 0);
     assert_eq!(r.assertion_method.len(), 0);
@@ -762,7 +760,7 @@ fn test_record_round_trip_via_intoval() {
     let env = Env::default();
     let controller = Address::generate(&env);
     let r = minimal_record(&env, &controller);
-    let _val: soroban_sdk::Val = (&r).into_val(&env);
+    let _val: soroban_sdk::Val = r.into_val(&env);
 }
 
 // --- contract admin (constructor + two-step transfer) ----------------------
