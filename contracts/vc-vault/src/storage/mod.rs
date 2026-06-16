@@ -51,6 +51,4 @@ pub enum VcVaultDataKey {
     /// Position of a given vc_id in the index.
     VaultVCPosition(String),
     VCStatus(String),
-    VCParent(String),
-
 }
