@@ -297,7 +297,7 @@ fn require_version(e: &Env, expected: u32, current: u32) {
 fn validate_record(e: &Env, record: &DidRecord) {
     // --- Key counts ---
     let auth_len = record.authentication.len();
-    if auth_len < MIN_KEY_COUNT_AUTH || auth_len > MAX_KEY_COUNT_AUTH {
+    if !(MIN_KEY_COUNT_AUTH..=MAX_KEY_COUNT_AUTH).contains(&auth_len) {
         panic_with_error!(e, RegistryError::InvalidAuthKeyCount);
     }
     if record.assertion_method.len() > MAX_KEY_COUNT_ASSERT {
@@ -403,13 +403,13 @@ fn validate_service(e: &Env, s: &DidService) {
     if s.id_suffix.len() > MAX_SERVICE_ID_LEN {
         panic_with_error!(e, RegistryError::ServiceIdTooLong);
     }
-    if s.id_suffix.len() == 0 {
+    if s.id_suffix.is_empty() {
         panic_with_error!(e, RegistryError::ServiceIdInvalidFormat);
     }
     if !is_valid_id_suffix(&s.id_suffix) {
         panic_with_error!(e, RegistryError::ServiceIdInvalidFormat);
     }
-    if s.service_type.len() == 0 {
+    if s.service_type.is_empty() {
         panic_with_error!(e, RegistryError::ServiceTypeEmpty);
     }
     if s.service_type.len() > MAX_SERVICE_TYPE_LEN {
