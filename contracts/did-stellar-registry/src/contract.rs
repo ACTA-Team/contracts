@@ -324,9 +324,19 @@ fn validate_record(e: &Env, record: &DidRecord) {
     validate_keys_cross_duplicates(e, &record.assertion_method, &record.key_agreement);
 
     // --- Services ---
+    // Each service is validated individually, and `id_suffix` must be unique
+    // across all services — duplicates would resolve to the same
+    // `{did}#service-{id_suffix}` fragment, making the DID Document ambiguous.
+    // Pairwise comparison is bounded because `services.len() <= MAX_SERVICE_COUNT` (3).
     for i in 0..record.services.len() {
         let s: DidService = record.services.get_unchecked(i);
         validate_service(e, &s);
+        for j in (i + 1)..record.services.len() {
+            let other: DidService = record.services.get_unchecked(j);
+            if s.id_suffix == other.id_suffix {
+                panic_with_error!(e, RegistryError::DuplicateServiceId);
+            }
+        }
     }
 
     // --- Optional metadata URI ---
