@@ -125,9 +125,10 @@ pub fn remove_vc_from_index(e: &Env, vc_id: &String) {
     }
     let last = count - 1;
     if position != last {
-        let last_id = read_vc_id_at(e, last).unwrap();
-        write_vc_id_at(e, position, &last_id);
-        write_vc_position(e, &last_id, position);
+        if let Some(last_id) = read_vc_id_at(e, last) {
+            write_vc_id_at(e, position, &last_id);
+            write_vc_position(e, &last_id, position);
+        }
     }
     remove_vc_id_at(e, last);
     remove_vc_position(e, vc_id);

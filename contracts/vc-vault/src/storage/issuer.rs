@@ -1,8 +1,9 @@
 //! Denied issuer index storage. O(1) operations via swap-and-pop.
 
-use crate::constants::{PERSISTENT_TTL_EXTEND_TO, PERSISTENT_TTL_THRESHOLD};
+use crate::constants::{MAX_DENIED_ISSUERS, PERSISTENT_TTL_EXTEND_TO, PERSISTENT_TTL_THRESHOLD};
+use crate::error::ContractError;
 use super::VcVaultDataKey;
-use soroban_sdk::{Address, Env};
+use soroban_sdk::{panic_with_error, Address, Env};
 
 // --- Denied issuer index ---
 
@@ -84,6 +85,9 @@ pub fn append_denied_issuer_to_index(e: &Env, issuer: &Address) {
         return;
     }
     let count = read_denied_issuer_count(e);
+    if count >= MAX_DENIED_ISSUERS {
+        panic_with_error!(e, ContractError::IssuerListTooLong);
+    }
     write_denied_issuer_at(e, count, issuer);
     write_denied_issuer_position(e, issuer, count);
     write_denied_issuer_count(e, count + 1);
@@ -101,9 +105,12 @@ pub fn remove_denied_issuer_from_index(e: &Env, issuer: &Address) {
     }
     let last = count - 1;
     if position != last {
-        let last_addr = read_denied_issuer_at(e, last).unwrap();
-        write_denied_issuer_at(e, position, &last_addr);
-        write_denied_issuer_position(e, &last_addr, position);
+        // Defensive: if the last slot is missing, skip the swap rather than
+        // panicking on unwrap(). The slot is still cleared and count decremented.
+        if let Some(last_addr) = read_denied_issuer_at(e, last) {
+            write_denied_issuer_at(e, position, &last_addr);
+            write_denied_issuer_position(e, &last_addr, position);
+        }
     }
     remove_denied_issuer_at(e, last);
     remove_denied_issuer_position(e, issuer);
