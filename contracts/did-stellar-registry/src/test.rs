@@ -445,6 +445,46 @@ fn test_boundary_service_id_underscore() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #21)")] // DuplicateServiceId
+fn test_boundary_duplicate_service_id() {
+    let (env, controller, did_id, _id, client) = setup();
+    let mut r = minimal_record(&env, &controller);
+    let mut svcs = empty_services(&env);
+    svcs.push_back(DidService {
+        id_suffix: s(&env, "issuer"),
+        service_type: s(&env, "LinkedDomains"),
+        service_endpoint: s(&env, "https://a.example.com"),
+    });
+    svcs.push_back(DidService {
+        id_suffix: s(&env, "issuer"),
+        service_type: s(&env, "LinkedDomains"),
+        service_endpoint: s(&env, "https://b.example.com"),
+    });
+    r.services = svcs;
+    client.register(&did_id, &r);
+}
+
+#[test]
+fn test_distinct_service_ids_ok() {
+    let (env, controller, did_id, _id, client) = setup();
+    let mut r = minimal_record(&env, &controller);
+    let mut svcs = empty_services(&env);
+    svcs.push_back(DidService {
+        id_suffix: s(&env, "issuer"),
+        service_type: s(&env, "LinkedDomains"),
+        service_endpoint: s(&env, "https://a.example.com"),
+    });
+    svcs.push_back(DidService {
+        id_suffix: s(&env, "status"),
+        service_type: s(&env, "LinkedDomains"),
+        service_endpoint: s(&env, "https://b.example.com"),
+    });
+    r.services = svcs;
+    client.register(&did_id, &r);
+    assert_eq!(client.get(&did_id).unwrap().services.len(), 2);
+}
+
+#[test]
 #[should_panic(expected = "Error(Contract, #12)")] // ServiceTypeTooLong
 fn test_boundary_service_type_too_long() {
     let (env, controller, did_id, _id, client) = setup();
