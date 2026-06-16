@@ -18,4 +18,6 @@ pub enum FactoryError {
     FeeNotConfigured = 5,
     /// Custom fee expiry timestamp is not in the future.
     ExpiryInPast = 6,
+    /// VaultMeta is missing (constructor never ran or state lost).
+    NotInitialized = 7,
 }

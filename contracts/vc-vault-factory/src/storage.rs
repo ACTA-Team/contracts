@@ -1,4 +1,6 @@
-use soroban_sdk::{contracttype, Address, BytesN, Env, Symbol};
+use soroban_sdk::{contracttype, panic_with_error, Address, BytesN, Env, Symbol};
+
+use crate::errors::FactoryError;
 
 const ONE_DAY_LEDGERS: u32 = 17_280; // ~5s per ledger
 
@@ -60,7 +62,7 @@ pub fn get_vault_init_meta(e: &Env) -> VaultInitMeta {
     e.storage()
         .instance()
         .get::<Symbol, VaultInitMeta>(&Symbol::new(e, "VaultMeta"))
-        .unwrap()
+        .unwrap_or_else(|| panic_with_error!(e, FactoryError::NotInitialized))
 }
 
 pub fn set_deployed(e: &Env, vault_address: &Address) {
