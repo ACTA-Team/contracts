@@ -80,8 +80,9 @@ flowchart LR
 | **Client SDK** | Library that prepares Soroban transactions for the four mutation operations and assembles `DidRecord` payloads. |
 | **Registry contract** | Canonical Soroban contract per network. Single source of truth for DID state. |
 | **Verifier / Issuer / Integrator** | Any consumer of the DID. Reads current state directly from Stellar RPC. None has a privileged role within the method. |
+| **Contract admin** | Address set at deployment. Can transfer the contract-level admin role through a two-step process. It does **not** authorize, block, or override per-DID mutations in v0.1. |
 
-No actor in this architecture is privileged beyond what is required to authorize their own mutations. The method is intentionally trust-minimized: the on-chain state is the authoritative source of truth, readable from Stellar RPC, and verification depends only on the DID Document constructed from that state.
+No actor in this architecture is privileged over an individual DID beyond what is required to authorize their own mutations. The contract admin is a contract-level governance role reserved for future contract-wide operations; in v0.1 it cannot create, update, transfer, deactivate, or recover any DID unless it is also that DID's current controller. The method is intentionally trust-minimized for DID resolution: the on-chain state is the authoritative source of truth, readable from Stellar RPC, and verification depends only on the DID Document constructed from that state.
 
 ---
 
@@ -204,6 +205,10 @@ Each DID occupies one persistent storage entry keyed by its 16-byte `didId`.
 
 ### 4.1 Public ABI
 
+The public ABI contains DID method operations and contract-level admin operations.
+
+**DID method operations**
+
 | Function | Signature |
 |---|---|
 | `register` | `register(did_id: BytesN<16>, initial_record: DidRecord)` |
@@ -212,15 +217,32 @@ Each DID occupies one persistent storage entry keyed by its 16-byte `didId`.
 | `deactivate` | `deactivate(did_id: BytesN<16>, expected_version: u32)` |
 | `get` | `get(did_id: BytesN<16>) -> Option<DidRecord>` |
 
+**Contract-level admin operations**
+
+| Function | Signature |
+|---|---|
+| `__constructor` | `__constructor(admin: Address)` |
+| `propose_admin` | `propose_admin(new_admin: Address)` |
+| `accept_admin` | `accept_admin()` |
+| `get_admin` | `get_admin() -> Address` |
+
+The admin operations are not DID method mutations. They manage only the registry contract's admin address. In v0.1, the admin role has no authority over existing or future DID records.
+
 ### 4.2 Authorization Policy
 
 | Operation | Required authorization |
 |---|---|
+| `__constructor` | `admin` must authorize. Runs once at deployment. |
 | `register` | `initial_record.controller` must authorize. |
 | `update` | `current_record.controller` must authorize. |
 | `transfer_controller` | `current_record.controller` must authorize. |
 | `deactivate` | `current_record.controller` must authorize. |
 | `get` | No authorization required (read-only). |
+| `propose_admin` | Current contract admin must authorize. |
+| `accept_admin` | Proposed contract admin must authorize. |
+| `get_admin` | No authorization required (read-only). |
+
+The contract admin is not an override path for DID authorization. Per-DID mutation authorization is exclusively controlled by the current `DidRecord.controller`.
 
 ### 4.3 Optimistic Concurrency
 
@@ -258,14 +280,16 @@ The client MUST:
 
 ### 4.5 Events
 
-Each successful mutation emits a typed Soroban event for external auditability:
+Each successful state-changing operation emits a typed Soroban event for external auditability:
 
 | Event | Payload |
 |---|---|
-| `did_registered` | `did_id`, `controller`, `version` |
-| `did_updated` | `did_id`, `version` |
-| `did_controller_transferred` | `did_id`, `old_controller`, `new_controller`, `version` |
-| `did_deactivated` | `did_id`, `version` |
+| `DidRegistered` | `did_id`, `controller`, `version` |
+| `DidUpdated` | `did_id`, `version` |
+| `DidControllerTransferred` | `did_id`, `old_controller`, `new_controller`, `version` |
+| `DidDeactivated` | `did_id`, `version` |
+| `ContractInitialized` | `admin` |
+| `AdminTransferred` | `old_admin`, `new_admin` |
 
 ### 4.6 Operation Flows
 
@@ -520,9 +544,13 @@ Verifiers MUST validate `timestamp` before verifying the signature to avoid proc
 
 Stellar persistent storage entries can be archived if storage rent is not extended. The registry contract proactively extends the TTL of each `DidRecord` on every read and write to prevent archival. Nevertheless, integrators relying on the registry for production deployments SHOULD monitor the contract health and ensure rent is periodically extended if read activity is low.
 
-### 7.7 Contract Immutability
+### 7.7 Contract Admin and Immutability
 
-The registry contract is deployed as immutable in v0.1. If a future version requires upgrades, a new contract will be deployed and the deployed `contractId` will be updated in the canonical repository with a documented migration process.
+The registry contract stores a contract-level admin address set by `__constructor(admin)` at deployment. The admin role can be transferred through `propose_admin(new_admin)` followed by `accept_admin()`. A pending admin proposal is temporary and expires if not accepted.
+
+In v0.1, the admin role is intentionally limited: it does not gate DID operations, cannot bypass `controller.require_auth()`, and cannot mutate `DidRecord` state. All DID lifecycle operations remain authorized exclusively by the DID's current controller.
+
+The v0.1 registry does not expose a WASM upgrade operation. If a future version requires different contract behavior, a new registry contract will be deployed and the deployed `contractId` will be updated in the canonical repository with a documented migration process. Any future expansion of admin powers MUST be documented in this specification before deployment.
 
 ### 7.8 URL Validation
 
@@ -582,6 +610,9 @@ assumptions of that data source:
 - The method's security ultimately rests on the integrity of Stellar consensus. A
   successful attack on consensus would compromise the registry; this residual risk is
   inherited from the underlying DLT and is out of scope for mitigation by this method.
+- The contract admin is a disclosed contract-level role (§4.1, §7.7). In v0.1 it has no
+  authority over DID records, but implementers and relying parties SHOULD monitor future
+  versions for any documented expansion of admin powers.
 - Off-chain components (resolver, verifier, proof-of-control implementation) are additional
   residual-risk surfaces: an incorrect canonicalization, signature check, or status lookup
   in those components can defeat the on-chain guarantees.
