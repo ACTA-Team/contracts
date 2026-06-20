@@ -1016,9 +1016,7 @@ fn test_version_overflow() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #9)")] // DuplicateKey
-fn test_duplicate_keys_cross_relationship() {
-    // Same multibase key in authentication AND assertion_method must be rejected.
+fn test_same_key_across_relations_allowed() {
     let (env, controller, did_id, _id, client) = setup();
     let mut r = minimal_record(&env, &controller);
     let same = "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY";
@@ -1027,6 +1025,14 @@ fn test_duplicate_keys_cross_relationship() {
     r.assertion_method = assert_keys;
     // r.authentication already contains `same` from minimal_record.
     client.register(&did_id, &r);
+
+    let got = client.get(&did_id).unwrap();
+    assert_eq!(got.authentication.len(), 1);
+    assert_eq!(got.assertion_method.len(), 1);
+    assert_eq!(
+        got.authentication.get_unchecked(0).public_key_multibase,
+        got.assertion_method.get_unchecked(0).public_key_multibase
+    );
 }
 
 #[test]

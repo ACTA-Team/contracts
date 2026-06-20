@@ -315,14 +315,6 @@ fn validate_record(e: &Env, record: &DidRecord) {
     validate_keys_no_duplicates(e, &record.assertion_method);
     validate_keys_no_duplicates(e, &record.key_agreement);
 
-    // --- Cross-relationship duplicate detection ---
-    // The DID Core spec requires key IDs to be unique across the entire
-    // document; the same multibase key must not appear in two different
-    // verification relationships.
-    validate_keys_cross_duplicates(e, &record.authentication, &record.assertion_method);
-    validate_keys_cross_duplicates(e, &record.authentication, &record.key_agreement);
-    validate_keys_cross_duplicates(e, &record.assertion_method, &record.key_agreement);
-
     // --- Services ---
     // Each service is validated individually, and `id_suffix` must be unique
     // across all services — duplicates would resolve to the same
@@ -351,25 +343,6 @@ fn validate_record(e: &Env, record: &DidRecord) {
     // against. Reject this combination to prevent incoherent records.
     if record.metadata_hash.is_some() && record.metadata_uri.is_none() {
         panic_with_error!(e, RegistryError::MetadataInconsistent);
-    }
-}
-
-/// Checks that no key in `a` appears in `b`. Both lists must already have
-/// passed `validate_keys_no_duplicates` individually. Bounded by
-/// `MAX_KEY_COUNT_AUTH × MAX_KEY_COUNT_ASSERT` = 3 × 3 = 9 iterations worst case.
-fn validate_keys_cross_duplicates(
-    e: &Env,
-    a: &soroban_sdk::Vec<DidKey>,
-    b: &soroban_sdk::Vec<DidKey>,
-) {
-    for i in 0..a.len() {
-        let ka: DidKey = a.get_unchecked(i);
-        for j in 0..b.len() {
-            let kb: DidKey = b.get_unchecked(j);
-            if ka.public_key_multibase == kb.public_key_multibase {
-                panic_with_error!(e, RegistryError::DuplicateKey);
-            }
-        }
     }
 }
 
