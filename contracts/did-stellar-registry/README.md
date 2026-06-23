@@ -36,10 +36,6 @@ Two-step admin transfer. Per-DID mutations are NOT admin-gated — the admin rol
 | `accept_admin()` | Proposed admin accepts the role. Both the current admin (already past) and the proposed admin must have signed the two calls. Emits `AdminTransferred`. Fails with `NoProposedAdmin` if no proposal exists. |
 | `get_admin() -> Address` | Read the current admin. No authorization required. |
 
-**The contract WASM is intentionally NOT upgradeable.** There is no `upgrade(new_wasm_hash)` function. To migrate, deploy a new contract and migrate state explicitly.
-
-The auto-generated client struct is `DidStellarRegistryClient`.
-
 ---
 
 ## Authorization
@@ -77,13 +73,14 @@ Codes are part of the ABI. Numeric values MUST NOT be renumbered.
 | 11 | `KeyEmpty` | `public_key_multibase` is empty. |
 | 12 | `ServiceTypeTooLong` | `service_type.len()` > 64 chars. |
 | 13 | `ServiceIdTooLong` | `id_suffix.len()` > 32 chars. |
-| 14 | `ServiceIdInvalidFormat` | `id_suffix` does not match `^[a-z0-9-]+$`. |
+| 14 | `ServiceIdInvalidFormat` | `id_suffix` does not match `^[a-z0-9][a-z0-9-]*[a-z0-9]$` (or a single `[a-z0-9]`); leading/trailing hyphens rejected. |
 | 15 | `ServiceEndpointInvalid` | `service_endpoint` is not `https://...` or > 255 chars. |
 | 16 | `MetadataUriInvalid` | `metadata_uri` is not `https://...` or > 255 chars. |
 | 17 | `NoProposedAdmin` | `accept_admin` called when no proposal exists or proposal expired. |
 | 18 | `ServiceTypeEmpty` | `service_type` is empty. |
 | 19 | `VersionOverflow` | DID `version` has reached `u32::MAX`; further mutations are rejected. |
 | 20 | `MetadataInconsistent` | `metadata_hash` is set but `metadata_uri` is absent. |
+| 21 | `DuplicateServiceId` | Two services in the same record share the same `id_suffix`. |
 
 ---
 
@@ -138,7 +135,7 @@ Defined in `src/model.rs`:
 | `key_agreement.len()` | 0–1 |
 | `services.len()` | 0–3 |
 | `public_key_multibase` | 1–128 chars; unique within each relationship |
-| `service.id_suffix` | 1–32 chars; `^[a-z0-9-]+$` |
+| `service.id_suffix` | 1–32 chars; `^[a-z0-9][a-z0-9-]*[a-z0-9]$` (or single char); unique across services |
 | `service.service_type` | 1–64 chars |
 | `service.service_endpoint` | `https://`, ≤ 255 chars |
 | `metadata_uri` | `https://`, ≤ 255 chars |
