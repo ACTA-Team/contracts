@@ -1,6 +1,6 @@
 //! Contract events. Published on key state transitions for on-chain observability.
 
-use soroban_sdk::{contractevent, Address, BytesN, Env, String};
+use soroban_sdk::{contractevent, Address, Env, String};
 
 // --- Vault lifecycle ---
 
@@ -73,11 +73,6 @@ pub struct AdminNominated {
 pub struct AdminTransferred {
     pub old_admin: Address,
     pub new_admin: Address,
-}
-
-#[contractevent]
-pub struct ContractUpgraded {
-    pub new_wasm_hash: BytesN<32>,
 }
 
 // --- Publishers ---
@@ -166,13 +161,6 @@ pub fn admin_transferred(e: &Env, old_admin: &Address, new_admin: &Address) {
     AdminTransferred {
         old_admin: old_admin.clone(),
         new_admin: new_admin.clone(),
-    }
-    .publish(e);
-}
-
-pub fn contract_upgraded(e: &Env, new_wasm_hash: &BytesN<32>) {
-    ContractUpgraded {
-        new_wasm_hash: new_wasm_hash.clone(),
     }
     .publish(e);
 }

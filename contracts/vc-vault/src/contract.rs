@@ -8,7 +8,7 @@ use crate::storage;
 use crate::validator::*;
 use crate::vault;
 use soroban_sdk::{
-    contract, contractimpl, contractmeta, panic_with_error, symbol_short, Address, BytesN, Env,
+    contract, contractimpl, contractmeta, panic_with_error, symbol_short, Address, Env,
     IntoVal, String, Vec,
 };
 
@@ -61,13 +61,6 @@ impl VcVaultTrait for VcVaultContract {
         storage::remove_pending_admin(&e);
         storage::extend_instance_ttl(&e);
         events::admin_transferred(&e, &old_admin, &pending);
-    }
-
-    fn upgrade(e: Env, new_wasm_hash: BytesN<32>) {
-        require_contract_admin(&e);
-        storage::extend_instance_ttl(&e);
-        events::contract_upgraded(&e, &new_wasm_hash);
-        e.deployer().update_current_contract_wasm(new_wasm_hash);
     }
 
     fn version(e: Env) -> String {

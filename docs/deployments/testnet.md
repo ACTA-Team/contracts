@@ -16,7 +16,7 @@ RPC: `https://soroban-testnet.stellar.org:443`
 
 | Version | Contract ID | Date | Notes |
 |---|---|---|---|
-| 0.1.0 | `CBTNMBRD3TSGLPEZRD226U5LR7G3RWOYHCILAUEMRZAP7AHUZJ7CP4AB` | 2026-06-22 | First release. Deploys single-tenant vaults (deterministic address from `keccak(salt‖XDR(owner))`), centralizes fee config, `is_vault` registry. Constructed with vault template WASM hash `576b4c7b3d5aeafb9610bc569f45e1a007d2eff92855938a0bf933e657558ef9`. WASM hash `f94a77905d87f9a195ea837414b4995c7d3d66bed0e287481710246bc1d5bdcd`. |
+| 0.1.0 | `CDRFQRIP4FA3WMPWCSAM3XEY6EM6EGKRYZRSCSVZ5NHCF6AGEVR2XEPQ` | 2026-06-22 | First release. Deploys single-tenant vaults (deterministic address from `keccak(salt‖XDR(owner))`), centralizes fee config, `is_vault` registry. Constructed with vault template WASM hash `2bd0323a98acb8469606808368da6c79824f2dd8391494b94ddbeb3d22c1a957`. WASM hash `f94a77905d87f9a195ea837414b4995c7d3d66bed0e287481710246bc1d5bdcd`. |
 
 ## vc-vault
 
@@ -30,4 +30,4 @@ with its hash.
 | 0.1.0 | `CC3SQ7UTAQQDQF6PUQMQIGK3BMPB22OKMHE5Y5XELEX3JFAKC72SQOAM` | 2026-05-06 | Tranche 1 initial deploy (multi-tenant). |
 | 0.2.0 | `CBXC6LXBY5FGEG46VZ4AJ2AH2EJBINBA7BMILIEO4EJYI6ZTY7K7J5D5` | 2026-05-07 | SOW D2: O(1) index + pagination + migrate + batch_issue. WASM hash `c8da61dd3dd46b2810a743d50a388c09a00f0b7e8e2df7ceb5a71c8ce5dc4dd8`. |
 | 0.3.0 | `CATL4IDH7XXPDC2UHSEX2GP45PPBVDFSKUDTKCSQICDOJVDLYNKISXFH` | 2026-05-14 | Refactoring: constructor, types rename, push_vc extraction, input caps, event emissions, O(1) issuer storage, tombstone TTL fix. WASM hash `775a141520de56fb4b1ebeb55d63e49fadf03f467ea8444cddb2caed2756ca8c`. |
-| 0.4.0 | WASM hash `576b4c7b3d5aeafb9610bc569f45e1a007d2eff92855938a0bf933e657558ef9` (template; deployed via factory) | 2026-06-22 | Single-tenant rearchitecture + open issuance (deny-by-exception) + fees moved to factory. Installed as a template; instances created by `vc-vault-factory` `CBTNMBRD3TSGLPEZRD226U5LR7G3RWOYHCILAUEMRZAP7AHUZJ7CP4AB`. |
+| 0.4.0 | WASM hash `2bd0323a98acb8469606808368da6c79824f2dd8391494b94ddbeb3d22c1a957` (template; deployed via factory) | 2026-06-22 | Single-tenant rearchitecture + open issuance (deny-by-exception) + fees moved to factory; `upgrade` entrypoint removed (immutable). Installed as a template; instances created by `vc-vault-factory` `CDRFQRIP4FA3WMPWCSAM3XEY6EM6EGKRYZRSCSVZ5NHCF6AGEVR2XEPQ`. |
