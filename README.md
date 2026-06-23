@@ -2,7 +2,7 @@
 
 Soroban smart contracts for the ACTA identity and Verifiable Credential infrastructure on Stellar.
 
-**Latest release:** [vc-vault v0.3.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/vc-vault-v0.3.0)
+**Latest release:** [vc-vault v0.4.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/vc-vault-v0.4.0)
 
 ---
 
