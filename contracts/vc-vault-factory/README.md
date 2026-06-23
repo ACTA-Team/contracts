@@ -1,6 +1,6 @@
 # vc-vault-factory
 
-Soroban smart contract that deploys and tracks **single-tenant `vc-vault` instances** on Stellar. Each holder gets their own vault contract — one deployment per identity — rather than sharing a single multi-tenant contract. The factory derives deterministic vault addresses from `(owner, salt)` and maintains a registry used by vaults to validate cross-vault VC transfers.
+Soroban smart contract that deploys and tracks **single-tenant `vc-vault` instances** on Stellar. Each holder gets their own vault contract, one deployment per identity, rather than sharing a single multi-tenant contract. The factory derives deterministic vault addresses from `(owner, salt)` and maintains a registry used by vaults to validate cross-vault VC transfers.
 
 ---
 
@@ -54,8 +54,6 @@ All amounts are validated to be in `[min_fee, MAX_FEE_AMOUNT]` (`MAX_FEE_AMOUNT 
 | `nominate_admin(new_admin)` | admin | Propose a successor (two-step). |
 | `accept_admin()` | proposed admin | Complete the transfer. Fails with `NoPendingAdmin` if none pending. |
 | `get_admin() -> Address` | none | Read the current admin. |
-
-The factory is **immutable** — there is no `upgrade` entrypoint, and the vault template hash (`vault_init_meta`) is fixed at construction. To ship a new vault version, deploy a new factory.
 
 ---
 
@@ -111,7 +109,7 @@ deploy_salt   = keccak256( user_salt (32 bytes) || XDR(owner) )
 vault_address = hash( factory_address || deploy_salt )
 ```
 
-`XDR(owner)` is the canonical XDR serialization of the owner `Address` (i.e. `Address.toXDR(env)` on-chain / the equivalent ScAddress XDR encoding off-chain) — **not** its StrKey display string. A client precomputing a vault address must hash the raw XDR bytes of the owner address, not the `"G..."`/`"C..."` text.
+`XDR(owner)` is the canonical XDR serialization of the owner `Address` (i.e. `Address.toXDR(env)` on-chain / the equivalent ScAddress XDR encoding off-chain), **not** its StrKey display string. A client precomputing a vault address must hash the raw XDR bytes of the owner address, not the `"G..."`/`"C..."` text.
 
 Two different owners using the same user salt get different vault addresses. The same owner using different salts also gets different addresses. This means a vault address can be pre-computed client-side before submitting a transaction.
 

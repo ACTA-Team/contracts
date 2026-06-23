@@ -2,8 +2,6 @@
 
 Soroban smart contract implementing a **single-tenant Verifiable Credential vault** on Stellar. Each holder gets their **own** vault instance (one contract per identity), deployed by [`vc-vault-factory`](../vc-vault-factory/README.md). A vault stores credentials, tracks their issuance status, and handles revocation and cross-vault migration.
 
-Issuance is **open** (deny-by-exception): anyone may deposit a credential into a vault unless they are on the vault's denylist. Fees are **not** configured here — at issuance the vault asks the factory for a quote (`quote_fee`) and transfers the fee accordingly. See the [factory README](../vc-vault-factory/README.md#fee-configuration) for fee config.
-
 > `verify_vc` returns the on-chain **status** of a credential (Valid / Revoked / Invalid). It is a revocation signal only, **not** proof of authenticity — because issuance is open, integrators MUST verify the issuer's signature and resolve the issuer DID off-chain before trusting a credential.
 
 ---

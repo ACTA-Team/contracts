@@ -26,7 +26,7 @@ See [`contracts/did-stellar-registry/README.md`](contracts/did-stellar-registry/
 
 ### `vc-vault-factory`
 
-Deploys and tracks **single-tenant `vc-vault` instances** — one vault contract per holder, rather than a shared multi-tenant contract. Derives deterministic vault addresses from `(owner, salt)`, centralizes fee configuration, and maintains the `is_vault` registry that vaults use to validate cross-vault transfers.
+Deploys and tracks **single-tenant `vc-vault` instances**, one vault contract per holder, rather than a shared multi-tenant contract. Derives deterministic vault addresses from `(owner, salt)`, centralizes fee configuration, and maintains the `is_vault` registry that vaults use to validate cross-vault transfers.
 
 | Category | Functions |
 |---|---|
@@ -40,7 +40,7 @@ See [`contracts/vc-vault-factory/README.md`](contracts/vc-vault-factory/README.m
 
 ### `vc-vault`
 
-**Single-tenant** Verifiable Credential vault — each holder owns their own instance, deployed by the factory. Manages VC storage, issuance status, revocation, and cross-vault migration. Issuance is **open** (anyone may issue unless denylisted); fees are quoted by the factory at issuance time.
+**Single-tenant** Verifiable Credential vault, each holder owns their own instance, deployed by the factory. Manages VC storage, issuance status, revocation, and cross-vault migration. Issuance is **open** (anyone may issue unless denylisted); fees are quoted by the factory at issuance time.
 
 | Category | Functions |
 |---|---|

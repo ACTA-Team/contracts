@@ -36,10 +36,6 @@ Two-step admin transfer. Per-DID mutations are NOT admin-gated — the admin rol
 | `accept_admin()` | Proposed admin accepts the role. Both the current admin (already past) and the proposed admin must have signed the two calls. Emits `AdminTransferred`. Fails with `NoProposedAdmin` if no proposal exists. |
 | `get_admin() -> Address` | Read the current admin. No authorization required. |
 
-**The contract WASM is intentionally NOT upgradeable.** There is no `upgrade(new_wasm_hash)` function. To migrate, deploy a new contract and migrate state explicitly.
-
-The auto-generated client struct is `DidStellarRegistryClient`.
-
 ---
 
 ## Authorization
