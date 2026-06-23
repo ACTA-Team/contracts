@@ -18,6 +18,19 @@ RPC: `https://soroban-testnet.stellar.org:443`
 |---|---|---|---|
 | 0.1.0 | `CDRFQRIP4FA3WMPWCSAM3XEY6EM6EGKRYZRSCSVZ5NHCF6AGEVR2XEPQ` | 2026-06-22 | First release. Deploys single-tenant vaults (deterministic address from `keccak(salt‖XDR(owner))`), centralizes fee config, `is_vault` registry. Constructed with vault template WASM hash `2bd0323a98acb8469606808368da6c79824f2dd8391494b94ddbeb3d22c1a957`. WASM hash `f94a77905d87f9a195ea837414b4995c7d3d66bed0e287481710246bc1d5bdcd`. |
 
+### Fee configuration (factory `CDRFQRIP…`, set 2026-06-22)
+
+| Field | Value |
+|---|---|
+| enabled | `true` |
+| token | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` (native XLM SAC) |
+| dest | `GAP7AUGY2Q2NKIHJ2XMZAGVHD7KDF2UAUEPXE5HRXL7BOXRWDHXHG6IY` |
+| standard | `50000000` stroops = **5 XLM ≈ 1 USD** @ ~$0.20/XLM |
+
+Charged per credential issued; the issuer pays. The amount is fixed on-chain (does
+not track the USD price). Adjust with `set_fee_standard` / `set_fee_custom`, or
+`set_fee_enabled false` to disable.
+
 ## vc-vault
 
 Since v0.4.0 the vault is **single-tenant** and is no longer deployed standalone —
