@@ -2,7 +2,7 @@
 
 Soroban smart contracts for the ACTA identity and Verifiable Credential infrastructure on Stellar.
 
-**Latest release:** [vc-vault v0.3.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/vc-vault-v0.3.0)
+**Latest release:** [vc-vault v0.4.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/vc-vault-v0.4.0)
 
 ---
 
@@ -30,7 +30,7 @@ Per-holder vault for Verifiable Credentials on Stellar. Manages VC storage, issu
 
 | Category | Functions |
 |---|---|
-| Admin | `nominate_admin`, `accept_contract_admin`, `upgrade`, `version`, `fee_*` |
+| Admin | `nominate_admin`, `accept_contract_admin`, `version` |
 | Vault | `create_vault`, `create_sponsored_vault`, `set_vault_admin`, `authorize_issuer`, `authorize_issuers`, `revoke_issuer`, `revoke_vault`, `list_authorized_issuers`, `list_denied_issuers`, `authorized_issuer_count`, `denied_issuer_count` |
 | Credentials | `issue`, `batch_issue`, `issue_linked`, `revoke`, `verify_vc`, `get_vc`, `list_vc_ids`, `vc_count`, `push` |
 

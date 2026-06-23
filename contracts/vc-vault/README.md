@@ -20,7 +20,6 @@ The contract admin is set atomically at deploy time via Soroban's `__constructor
 |---|---|---|
 | `nominate_admin(new_admin)` | `contract_admin` | Propose a new contract admin. Must be accepted by the nominee. |
 | `accept_contract_admin()` | pending nominee | Complete the two-step admin transfer. Fails with `NoPendingAdmin` if no nomination exists. |
-| `upgrade(new_wasm_hash)` | `contract_admin` | Replace the contract WASM. Irreversible per-invocation. |
 | `version()` | none | Returns the crate version string (from `CARGO_PKG_VERSION`). |
 
 ### Fee configuration

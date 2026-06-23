@@ -1,6 +1,6 @@
 //! Public contract interface. All exported functions are defined here.
 
-use soroban_sdk::{Address, BytesN, Env, String, Vec};
+use soroban_sdk::{Address, Env, String, Vec};
 
 use crate::types::{VCStatus, VerifiableCredential};
 
@@ -9,7 +9,6 @@ pub trait VcVaultTrait {
     // --- Admin ---
     fn nominate_admin(e: Env, new_admin: Address);
     fn accept_contract_admin(e: Env);
-    fn upgrade(e: Env, new_wasm_hash: BytesN<32>);
     fn version(e: Env) -> String;
 
     // --- Vault management ---
