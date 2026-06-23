@@ -24,26 +24,39 @@ See [`contracts/did-stellar-registry/README.md`](contracts/did-stellar-registry/
 
 ---
 
+### `vc-vault-factory`
+
+Deploys and tracks **single-tenant `vc-vault` instances** — one vault contract per holder, rather than a shared multi-tenant contract. Derives deterministic vault addresses from `(owner, salt)`, centralizes fee configuration, and maintains the `is_vault` registry that vaults use to validate cross-vault transfers.
+
+| Category | Functions |
+|---|---|
+| Deploy | `deploy`, `deploy_sponsored`, `is_vault` |
+| Fees | `set_fee_config`, `set_fee_enabled`, `set_fee_standard`, `set_fee_custom`, `remove_fee_custom`, `set_min_fee`, `quote_fee` |
+| Admin | `nominate_admin`, `accept_admin`, `get_admin` |
+
+See [`contracts/vc-vault-factory/README.md`](contracts/vc-vault-factory/README.md) for the full ABI.
+
+---
+
 ### `vc-vault`
 
-Per-holder vault for Verifiable Credentials on Stellar. Manages VC storage, issuance status, revocation, issuer authorization, and fee collection in USDC. Contract admin is set at deploy time via `__constructor`.
+**Single-tenant** Verifiable Credential vault — each holder owns their own instance, deployed by the factory. Manages VC storage, issuance status, revocation, and cross-vault migration. Issuance is **open** (anyone may issue unless denylisted); fees are quoted by the factory at issuance time.
 
 | Category | Functions |
 |---|---|
 | Admin | `nominate_admin`, `accept_contract_admin`, `version` |
-| Vault | `create_vault`, `create_sponsored_vault`, `set_vault_admin`, `authorize_issuer`, `authorize_issuers`, `revoke_issuer`, `revoke_vault`, `list_authorized_issuers`, `list_denied_issuers`, `authorized_issuer_count`, `denied_issuer_count` |
-| Credentials | `issue`, `batch_issue`, `issue_linked`, `revoke`, `verify_vc`, `get_vc`, `list_vc_ids`, `vc_count`, `push` |
-
-See [`contracts/vc-vault/README.md`](contracts/vc-vault/README.md) for the full ABI, authorization model, and error codes.
+| Vault | `set_vault_admin`, `set_vault_did`, `vault_did`, `vault_owner`, `deny_issuer`, `allow_issuer`, `revoke_vault`, `list_denied_issuers`, `denied_issuer_count` |
+| Credentials | `issue`, `batch_issue`, `revoke`, `push`, `receive_push`, `verify_vc`, `get_vc`, `list_vc_ids`, `vc_count` |
 
 ---
 
 ## Testnet Deployments
 
-| Contract | Contract ID |
-|---|---|
-| `did-stellar-registry` | `CB7ATU7SF5QUKJMSULJDJVWJZVDXC23HTZX6NFUDTSFPVT6MA575NNZJ` |
-| `vc-vault` | `CATL4IDH7XXPDC2UHSEX2GP45PPBVDFSKUDTKCSQICDOJVDLYNKISXFH` |
+| Contract | Version | Contract ID / WASM hash |
+|---|---|---|
+| `did-stellar-registry` | 0.2.0 | `CBUNQ3GX3ZQ4MF64H7JCYZMXLGOS47VPIQQS7NCR6V3KX6YP7O72L5QF` |
+| `vc-vault-factory` | 0.1.0 | `CDRFQRIP4FA3WMPWCSAM3XEY6EM6EGKRYZRSCSVZ5NHCF6AGEVR2XEPQ` |
+| `vc-vault` | 0.4.0 | template WASM hash `2bd0323a98acb8469606808368da6c79824f2dd8391494b94ddbeb3d22c1a957` (instances deployed via the factory) |
 
 Network: Stellar Testnet (`Test SDF Network ; September 2015`)  
 Full deployment record: [`docs/deployments/testnet.md`](docs/deployments/testnet.md)
@@ -53,8 +66,9 @@ Full deployment record: [`docs/deployments/testnet.md`](docs/deployments/testnet
 ## Build
 
 ```bash
-# Build a specific contract
+# Build a specific contract (or `all`)
 ./scripts/build.sh vc-vault
+./scripts/build.sh vc-vault-factory
 ./scripts/build.sh did-stellar-registry
 ```
 
@@ -71,11 +85,12 @@ Output files:
 ./scripts/deploy.sh <package> <network> <source-account>
 
 # Examples
-./scripts/deploy.sh did-stellar-registry testnet acta_deployer
-./scripts/deploy.sh vc-vault testnet acta_deployer
+./scripts/deploy.sh did-stellar-registry testnet acta_deployer   # deploy
+./scripts/deploy.sh vc-vault             testnet acta_deployer   # install template, prints WASM hash
+./scripts/deploy.sh vc-vault-factory     testnet acta_deployer   # installs vault + deploys factory
 ```
 
-Record the resulting contract ID in [`docs/deployments/<network>.md`](docs/deployments/).
+`vc-vault` is not deployed standalone — the factory instantiates per-holder vaults via `factory.deploy(...)`. Record the resulting IDs in [`docs/deployments/<network>.md`](docs/deployments/).
 
 ---
 
@@ -95,8 +110,10 @@ The `did:stellar` v0.1 method specification lives at [`docs/did-spec/did-stellar
 ## Tests
 
 ```bash
-cargo test -p vc-vault-contract          # 127 tests
-cargo test -p did-stellar-registry       # 56 tests
+cargo test                               # whole workspace (146 tests)
+cargo test -p vc-vault-contract          # 61 tests
+cargo test -p vc-vault-factory-contract  # 27 tests
+cargo test -p did-stellar-registry       # 58 tests
 ```
 
 ---

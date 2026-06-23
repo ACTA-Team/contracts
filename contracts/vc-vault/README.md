@@ -1,6 +1,10 @@
 # vc-vault
 
-Soroban smart contract that implements a per-owner **Verifiable Credential vault** on Stellar. Each holder owns an isolated vault where authorized issuers can store, verify, and revoke credentials. The contract also acts as the issuance status registry, so a single deployment handles both storage and lifecycle management.
+Soroban smart contract implementing a **single-tenant Verifiable Credential vault** on Stellar. Each holder gets their **own** vault instance (one contract per identity), deployed by [`vc-vault-factory`](../vc-vault-factory/README.md). A vault stores credentials, tracks their issuance status, and handles revocation and cross-vault migration.
+
+Issuance is **open** (deny-by-exception): anyone may deposit a credential into a vault unless they are on the vault's denylist. Fees are **not** configured here — at issuance the vault asks the factory for a quote (`quote_fee`) and transfers the fee accordingly. See the [factory README](../vc-vault-factory/README.md#fee-configuration) for fee config.
+
+> `verify_vc` returns the on-chain **status** of a credential (Valid / Revoked / Invalid). It is a revocation signal only, **not** proof of authenticity — because issuance is open, integrators MUST verify the issuer's signature and resolve the issuer DID off-chain before trusting a credential.
 
 ---
 
@@ -8,179 +12,107 @@ Soroban smart contract that implements a per-owner **Verifiable Credential vault
 
 ### Deployment
 
-The contract admin is set atomically at deploy time via Soroban's `__constructor` mechanism.
+A vault is normally deployed by the factory, which calls the constructor below. The constructor sets `vault_admin = vault_owner`.
 
 | Function | Auth | Description |
 |---|---|---|
-| `__constructor(contract_admin)` | *(deployer)* | Runs once at deploy. Sets the contract admin and initializes fee state. |
+| `__constructor(vault_owner, contract_admin, did_uri, factory_address)` | *(deployer / factory)* | Runs once at deploy. Stores the owner, admin, DID URI, and the factory address used to quote fees and validate push sources. |
 
 ### Global config
 
 | Function | Auth | Description |
 |---|---|---|
-| `nominate_admin(new_admin)` | `contract_admin` | Propose a new contract admin. Must be accepted by the nominee. |
-| `accept_contract_admin()` | pending nominee | Complete the two-step admin transfer. Fails with `NoPendingAdmin` if no nomination exists. |
-| `version()` | none | Returns the crate version string (from `CARGO_PKG_VERSION`). |
-
-### Fee configuration
-
-Fees are charged in a token of the admin's choosing (e.g. USDC). Four tiers are available; the issuer selects the applicable tier and passes it as `fee_override` when calling `issue`.
-
-| Function | Auth | Description |
-|---|---|---|
-| `set_fee_config(token, dest, amount)` | `contract_admin` | Configure the fee token contract, destination address, and default amount. |
-| `set_fee_enabled(enabled)` | `contract_admin` | Toggle fee charging globally. |
-| `set_fee_admin(amount)` | `contract_admin` | Set the admin-tier fee (default: 0). |
-| `set_fee_standard(amount)` | `contract_admin` | Set the standard-tier fee (default: 1,000,000 stroops). |
-| `set_fee_early(amount)` | `contract_admin` | Set the early-adopter-tier fee (default: 400,000 stroops). |
-| `set_fee_custom(issuer, amount)` | `contract_admin` | Set a custom fee for a specific issuer address. |
-| `get_fee_admin()` | none | Read the admin-tier fee amount. |
-| `get_fee_standard()` | none | Read the standard-tier fee amount. |
-| `get_fee_early()` | none | Read the early-adopter-tier fee amount. |
-| `get_fee_custom(issuer)` | none | Read the custom fee for an issuer, falling back to the default amount if none is set. |
-| `fee_config()` | none | Returns a `FeeConfig` struct with all fee state (enabled, configured, token, dest, amount). |
+| `nominate_admin(new_admin)` | `contract_admin` | Propose a new contract admin (two-step). |
+| `accept_contract_admin()` | pending nominee | Complete the admin transfer. Fails with `NoPendingAdmin` if none pending. |
+| `version()` | none | Returns the crate version string. |
 
 ### Vault management
 
-Each vault is scoped to an owner `Address`. The vault admin starts as the owner and can be transferred.
+| Function | Auth | Description |
+|---|---|---|
+| `set_vault_admin(new_admin)` | vault admin | Transfer vault governance. Emits `VaultAdminChanged`. |
+| `set_vault_did(did_uri)` | `vault_owner` | Update the vault's DID URI (≤ 256 bytes). Emits `VaultDidChanged`. |
+| `vault_did()` | none | Returns the vault's DID URI, or `None`. |
+| `vault_owner()` | none | Returns the vault owner address. |
+| `deny_issuer(issuer_addr)` | vault admin | Add an issuer to the denylist. Denied issuers cannot `issue`. No-op if already present. |
+| `allow_issuer(issuer_addr)` | vault admin | Remove an issuer from the denylist. No-op if absent. |
+| `revoke_vault()` | vault admin | Permanently lock the vault against all writes. Irreversible. |
+| `list_denied_issuers(offset, limit)` | none | Paginated denylist. `limit` ≤ `MAX_LIST_LIMIT` (200). |
+| `denied_issuer_count()` | none | Number of denied issuers. |
+
+### Credential operations
 
 | Function | Auth | Description |
 |---|---|---|
-| `create_vault(owner, did_uri)` | `owner` | Initialize a vault for `owner`. Fails with `VaultAlreadyExists` if the vault already exists. |
-| `create_sponsored_vault(sponsor, owner, did_uri)` | `sponsor` | Create a vault on behalf of `owner`. Sponsor must be the contract admin or an authorized sponsor, unless `open_to_all` is enabled. |
-| `set_vault_admin(owner, new_admin)` | vault admin | Transfer vault governance to `new_admin`. Emits `VaultAdminChanged`. |
-| `authorize_issuer(owner, issuer)` | vault admin | Add a single issuer to the vault's allowlist. Fails if already authorized. |
-| `authorize_issuers(owner, issuers)` | vault admin | Replace the full issuer list. Duplicates in the input are silently dropped. |
-| `revoke_issuer(owner, issuer)` | vault admin | Remove an issuer from the allowlist and add them to the deny list. Denied issuers cannot be auto-authorized on future `issue` calls. |
-| `revoke_vault(owner)` | vault admin | Permanently lock the vault against writes. Irreversible. |
-| `list_authorized_issuers(owner, offset, limit)` | none | Paginated list of authorized issuers. `limit` must not exceed `MAX_LIST_LIMIT` (200). |
-| `list_denied_issuers(owner, offset, limit)` | none | Paginated list of denied issuers. |
-| `authorized_issuer_count(owner)` | none | Number of currently authorized issuers. |
-| `denied_issuer_count(owner)` | none | Number of currently denied issuers. |
-| `set_sponsored_vault_open_to_all(open)` | `contract_admin` | When `true`, any address can create sponsored vaults without being explicitly authorized. |
-| `get_sponsored_vault_open_to_all()` | none | Query the current open-to-all setting. |
-| `add_sponsored_vault_sponsor(sponsor)` | `contract_admin` | Add an address to the authorized sponsors list. |
-| `remove_sponsored_vault_sponsor(sponsor)` | `contract_admin` | Remove an address from the authorized sponsors list. |
-
-### VC operations
-
-| Function | Auth | Description |
-|---|---|---|
-| `issue(owner, vc_id, vc_data, vault_contract, issuer, issuer_did, fee_override)` | `issuer` | Store a VC in `owner`'s vault. Auto-authorizes `issuer` if not already in the allowlist and not denied. Charges `fee_override` tokens if fees are enabled and `fee_override > 0`. Returns `vc_id`. |
-| `batch_issue(issuer, owner, vault_contract, issuer_did, fee_override, vcs)` | `issuer` | Issue multiple VCs in one call. `vcs` is a list of `(vc_id, vc_data)` pairs. A single fee transfer covers the whole batch (`fee_override × n`). Fails if empty or exceeds `MAX_BATCH_SIZE` (5). Returns list of issued vc_ids. |
-| `revoke(owner, vc_id, date)` | vault admin | Permanently revoke a VC. `date` is an ISO-8601 timestamp recorded on-chain. |
-| `list_vc_ids(owner, offset, limit)` | none | Paginated list of active VC IDs in `owner`'s vault. `limit` must not exceed `MAX_LIST_LIMIT` (200). |
-| `vc_count(owner)` | none | Number of active VCs in `owner`'s vault. |
-| `get_vc(owner, vc_id)` | none | Return the `VerifiableCredential` payload, or `None` if not found. |
-| `verify_vc(owner, vc_id)` | none | Return `VCStatus::Valid`, `VCStatus::Revoked(date)`, or `VCStatus::Invalid`. |
-| `push(from_owner, to_owner, vc_id, issuer)` | `from_owner` | Move a `Valid` VC from one vault to another. `issuer` must be authorized in the source vault. Revoked VCs cannot be pushed. Emits `VCPushed`. |
-
-### Linked VCs
-
-Linked VCs establish a parent–child relationship between credentials across vaults.
-
-| Function | Auth | Description |
-|---|---|---|
-| `issue_linked(issuer, owner, vc_id, data, issuance_contract, issuer_did, parent_owner, parent_vc_id)` | `issuer` | Issue a VC that references a parent VC. Validates that the parent is `Valid` at issuance time. |
-| `get_vc_parent(owner, vc_id)` | none | Return `Some((parent_owner, parent_vc_id))` for linked VCs, or `None` for regular VCs. |
+| `issue(vc_id, vc_data, vault_contract, issuer_addr, issuer_did) -> vc_id` | `issuer_addr` | Store a VC. `vault_contract` must equal this contract's address. Fails if the issuer is denied (`IssuerDenied`), the vault is revoked, or `vc_id` already exists. Charges the factory-quoted fee. |
+| `batch_issue(issuer_addr, vault_contract, issuer_did, vcs) -> Vec<vc_id>` | `issuer_addr` | Issue 1–`MAX_BATCH_SIZE` (5) VCs atomically. `vcs` is a list of `(vc_id, vc_data)`. One fee transfer covers the batch (`unit × n`). |
+| `revoke(vc_id, date)` | `vault_owner` | Revoke a `Valid` VC. `date` is an ISO-8601 timestamp recorded on-chain. |
+| `push(vc_id, dest_vault)` | vault admin | Migrate a `Valid` VC to `dest_vault` (same owner only). Invokes `receive_push` on the destination. Emits `VCPushed`. |
+| `receive_push(source_vault, source_owner, vc_id, vc_data, issuer_did)` | `source_vault` | Callback target of `push`. Verifies `source_vault` is a real vault (factory `is_vault`) and that `source_owner` matches this vault's owner (`PushOwnerMismatch`). |
+| `verify_vc(vc_id) -> VCStatus` | none | On-chain status: `Valid` / `Revoked(date)` / `Invalid`. |
+| `get_vc(vc_id) -> Option<VerifiableCredential>` | none | Returns the VC payload, or `None`. |
+| `list_vc_ids(offset, limit) -> Vec<String>` | none | Paginated list of active VC IDs. `limit` ≤ 200. |
+| `vc_count() -> u32` | none | Number of active VCs. |
 
 ---
 
 ## Authorization
 
-| Role | Who signs | What they can do |
+| Role | Who signs | Capabilities |
 |---|---|---|
-| `contract_admin` | Contract-level administrator | Upgrade, configure fees, manage sponsors, nominate successor |
-| vault admin | Per-vault administrator (starts as `owner`) | Manage issuer allowlist, revoke vault, revoke VCs, transfer vault admin |
-| `owner` | Vault owner | Create vault |
-| `issuer` | Authorized credential issuer | Issue and push VCs |
-| `sponsor` | Authorized sponsor | Create vaults on behalf of users |
+| `contract_admin` | protocol administrator | Nominate a successor admin (two-step). No upgrade, no fee config. |
+| vault admin | per-vault admin (starts as `vault_owner`) | `set_vault_admin`, `deny_issuer`, `allow_issuer`, `revoke_vault`, `push` |
+| `vault_owner` | the holder | `set_vault_did`, `revoke` (a credential) |
+| issuer | any address not on the denylist | `issue`, `batch_issue` |
 
-Authorization is enforced via `require_auth()` on every privileged operation. Read-only functions (`list_vc_ids`, `get_vc`, `verify_vc`, `fee_config`, etc.) require no signature.
+Authorization is enforced via `require_auth()` on every privileged operation. Read-only functions require no signature.
 
 ---
 
-## Error Codes
+## Error codes
+
+Codes are part of the ABI and are never renumbered. Codes `2`, `3`, and `20` are **deprecated** (from the former issuer-allowlist model) and retained only for ABI stability.
 
 | Code | Name | When |
-|---|---|---|
-| 1 | `VaultAlreadyExists` | `create_vault` or `create_sponsored_vault` called for an owner that already has a vault |
-| 2 | `IssuerNotAuthorized` | Issuer not in vault's allowlist (and not eligible for auto-auth) |
-| 3 | `IssuerAlreadyAuthorized` | `authorize_issuer` called for an issuer already in the list |
+|---:|---|---|
 | 4 | `VaultRevoked` | Write attempted on a revoked vault |
-| 6 | `VCNotFound` | VC not present in the vault or status registry |
-| 7 | `VCAlreadyRevoked` | `revoke` or `push` attempted on an already-revoked VC |
-| 8 | `VaultNotInitialized` | Operation on a vault that has not been created |
-| 9 | `NotInitialized` | Contract-level operation attempted before the contract admin is set |
-| 10 | `InvalidVaultContract` | `vault_contract` param does not match this contract's address |
-| 11 | `NotAuthorizedSponsor` | `create_sponsored_vault` by an address that is not authorized |
-| 12 | `VCAlreadyExists` | `issue` or `push` would create a duplicate VC ID in the target vault |
-| 13 | `NoPendingAdmin` | `accept_contract_admin` called with no active nomination |
-| 14 | `ParentVCInvalid` | `issue_linked` called with a parent VC that does not exist or is revoked |
-| 15 | `VaultFull` | u32 VC position counter would overflow (~4.3 billion VCs) |
-| 16 | `LimitTooLarge` | `list_vc_ids` / `list_authorized_issuers` `limit` exceeds `MAX_LIST_LIMIT` (200) |
-| 17 | `BatchTooLarge` | `batch_issue` request exceeds `MAX_BATCH_SIZE` (5) |
-| 18 | `BatchEmpty` | `batch_issue` called with an empty VC list |
-| 19 | `InputTooLong` | A string field exceeds its per-field length cap |
-| 20 | `IssuerListTooLong` | `authorize_issuers` called with a list exceeding `MAX_ISSUERS_LIST` (100) |
-| 22 | `InvalidFeeAmount` | Fee amount is negative |
-| 23 | `FeeOutOfBounds` | Fee amount exceeds `MAX_FEE_AMOUNT` (10^18 stroops) |
+| 6 | `VCNotFound` | VC not present / not `Valid` for the operation |
+| 7 | `VCAlreadyRevoked` | Defined; revoke guards on non-`Valid` status |
+| 8 | `VaultNotInitialized` | Vault state missing (should not occur in practice) |
+| 9 | `NotInitialized` | Contract-level op before the admin is set |
+| 10 | `InvalidVaultContract` | `vault_contract` param ≠ this contract's address |
+| 12 | `VCAlreadyExists` | `issue` / `batch_issue` / `receive_push` would duplicate a `vc_id` |
+| 13 | `NoPendingAdmin` | `accept_contract_admin` with no nomination |
+| 15 | `VaultFull` | Active-VC counter would overflow `u32` |
+| 16 | `LimitTooLarge` | Pagination `limit` exceeds `MAX_LIST_LIMIT` (200) |
+| 17 | `BatchTooLarge` | `batch_issue` exceeds `MAX_BATCH_SIZE` (5) |
+| 18 | `BatchEmpty` | `batch_issue` with an empty list |
+| 19 | `InputTooLong` | A string field exceeds its per-field cap (vc_id ≤ 64, vc_data ≤ 10_000, DIDs ≤ 256, date ≤ 64) |
+| 23 | `FeeOutOfBounds` | Batch fee total (`unit × n`) overflowed `i128` |
+| 24 | `SourceNotAVault` | `receive_push` source is not registered in the factory |
+| 25 | `IssuerDenied` | Issuer is on this vault's denylist |
+| 26 | `PushOwnerMismatch` | `receive_push` source owner ≠ this vault's owner |
 
 ---
 
 ## Events
 
-All state-changing operations emit a typed `#[contractevent]` for on-chain observability.
+All state-changing operations emit a typed `#[contractevent]`.
 
 | Event | Fields | Emitted by |
 |---|---|---|
 | `ContractInitialized` | `admin` | *(constructor)* |
-| `VaultCreated` | `owner`, `did_uri` | `create_vault` |
-| `SponsoredVaultCreated` | `sponsor`, `owner`, `did_uri` | `create_sponsored_vault` |
-| `VaultRevoked` | `owner` | `revoke_vault` |
-| `VaultAdminChanged` | `owner`, `old_admin`, `new_admin` | `set_vault_admin` |
-| `IssuerAuthorized` | `owner`, `issuer` | `authorize_issuer`, `authorize_issuers` |
-| `IssuerRevoked` | `owner`, `issuer` | `revoke_issuer` |
-| `VCIssued` | `owner`, `vc_id`, `issuer` | `issue`, `batch_issue` |
-| `VCRevoked` | `owner`, `vc_id`, `date` | `revoke` |
-| `VCPushed` | `from_owner`, `to_owner`, `vc_id` | `push` |
-| `LinkedVCIssued` | `issuer`, `owner`, `vc_id`, `parent_owner`, `parent_vc_id` | `issue_linked` |
-
----
-
-## Storage layout
-
-| Key | Type | Description |
-|---|---|---|
-| `ContractAdmin` (instance) | `Address` | Current contract admin |
-| `PendingAdmin` (instance) | `Address` | Pending admin nomination (cleared on accept) |
-| `FeeEnabled` (instance) | `bool` | Whether fee charging is active |
-| `FeeTokenContract` (instance) | `Address` | Token contract used for fees |
-| `FeeDest` (instance) | `Address` | Fee recipient address |
-| `FeeAmount` (instance) | `i128` | Default fee amount |
-| `FeeAdmin` (instance) | `i128` | Admin-tier fee |
-| `FeeStandard` (instance) | `i128` | Standard-tier fee |
-| `FeeEarly` (instance) | `i128` | Early-adopter-tier fee |
-| `FeeCustom(issuer)` (instance) | `i128` | Custom fee per issuer |
-| `SponsoredVaultOpenToAll` (instance) | `bool` | Whether sponsored vault creation is unrestricted |
-| `VaultAdmin(owner)` (persistent) | `Address` | Current admin of this vault |
-| `VaultDid(owner)` (persistent) | `String` | DID URI associated with the vault |
-| `VaultRevoked(owner)` (persistent) | `bool` | Whether this vault is permanently revoked |
-| `VaultIssuerCount(owner)` (persistent) | `u32` | Number of authorized issuers |
-| `VaultIssuerIndex(owner, pos)` (persistent) | `Address` | Authorized issuer at position `pos` |
-| `VaultIssuerPosition(owner, issuer)` (persistent) | `u32` | Position of `issuer` in the authorized index |
-| `VaultDeniedIssuerCount(owner)` (persistent) | `u32` | Number of denied issuers |
-| `VaultDeniedIssuerIndex(owner, pos)` (persistent) | `Address` | Denied issuer at position `pos` |
-| `VaultDeniedIssuerPosition(owner, issuer)` (persistent) | `u32` | Position of `issuer` in the denied index |
-| `VaultVC(owner, vc_id)` (persistent) | `VerifiableCredential` | VC payload |
-| `VaultVCCount(owner)` (persistent) | `u32` | Number of active VCs |
-| `VaultVCIndex(owner, pos)` (persistent) | `String` | VC ID at position `pos` |
-| `VaultVCPosition(owner, vc_id)` (persistent) | `u32` | Position of `vc_id` in the VC index |
-| `VCStatus(owner, vc_id)` (persistent) | `VCStatus` | `Valid`, `Revoked(date)`, or `Invalid` (default) |
-| `VCParent(owner, vc_id)` (persistent) | `(Address, String)` | Parent vault + VC ID for linked credentials |
-| `SponsoredVaultSponsor(sponsor)` (persistent) | `bool` | Presence flag for authorized sponsors |
-
-TTL is extended on every read and write: ~30-day threshold, ~180-day bump for persistent entries; same for instance storage.
+| `VaultCreated` | `owner`, `did_uri` | *(constructor)* |
+| `AdminNominated` | `current`, `new_admin` | `nominate_admin` |
+| `AdminTransferred` | `old_admin`, `new_admin` | `accept_contract_admin` |
+| `VaultAdminChanged` | `old_admin`, `new_admin` | `set_vault_admin` |
+| `VaultDidChanged` | `did_uri` | `set_vault_did` |
+| `IssuerDenied` | `issuer` | `deny_issuer` |
+| `IssuerAllowed` | `issuer` | `allow_issuer` |
+| `VaultRevoked` | — | `revoke_vault` |
+| `VCIssued` | `vc_id`, `issuer` | `issue`, `batch_issue`, `receive_push` |
+| `VCRevoked` | `vc_id`, `date` | `revoke` |
+| `VCPushed` | `vc_id`, `dest_vault` | `push` |
 
 ---
 
@@ -203,19 +135,19 @@ pub enum VCStatus {
 
 ---
 
-## Building
+## Storage
+
+Single-tenant: keys are **not** namespaced by owner. Instance storage holds the contract admin/pending admin; persistent storage holds the vault metadata (`VaultOwner`, `VaultFactory`, `VaultAdmin`, `VaultDid`, `VaultRevoked`), the active-VC index (`VaultVC(vc_id)`, `VaultVCCount`, `VaultVCIndex(pos)`, `VaultVCPosition(vc_id)`), per-VC status (`VCStatus(vc_id)`), and the denylist (`VaultDeniedIssuerCount`, `VaultDeniedIssuerIndex(pos)`, `VaultDeniedIssuerPosition(addr)`). TTL is extended on every read and write (~30-day threshold, ~180-day bump).
+
+---
+
+## Build & deploy
+
+Since v0.4.0 the vault is a **template**: it is not deployed standalone — the factory instantiates vaults. To publish the template:
 
 ```sh
-# Build optimized WASM
-./scripts/build.sh
-# Output: target/wasm32v1-none/release/vc_vault_contract.optimized.wasm
+./scripts/build.sh vc-vault                 # optimized WASM
+./scripts/deploy.sh vc-vault testnet <src>  # install template, prints the WASM hash
 ```
 
-## Deploying
-
-```sh
-# Deploy to testnet (requires Stellar CLI)
-./scripts/deploy.sh vc-vault testnet <source-account>
-```
-
-Record the resulting contract ID in `docs/deployments/testnet.md`.
+Then deploy the factory with that hash (see the [factory README](../vc-vault-factory/README.md)); users create vaults via `factory.deploy(...)`.
