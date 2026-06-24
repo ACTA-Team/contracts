@@ -13,19 +13,36 @@
 
 ## Abstract
 
-`did:stellar` is a Decentralized Identifier method for the Stellar network. An identity is materialized as an opaque 128-bit identifier registered in a canonical Soroban smart contract per network. The method is independent of any specific issuer, wallet-agnostic, and compliant with W3C DID Core 1.1.
+In one sentence: a `did:stellar` is an identifier you control yourself — not an
+account issued by a company — anchored on the Stellar network.
+
+`did:stellar` is a [Decentralized Identifier (DID)](https://www.w3.org/TR/did-1.1/#x1-introduction)
+method for the Stellar network. An identity is materialized as an opaque 128-bit
+identifier registered in a canonical Soroban smart contract per network. The
+method is independent of any specific issuer, wallet-agnostic, and compliant with
+[W3C DID Core 1.1](https://www.w3.org/TR/did-1.1/).
 
 ---
 
 ## Terminology
 
+Each W3C term below links to its official definition; click through if anything
+is unfamiliar.
+
 | Term | Definition |
 |---|---|
-| **Controller account** | Classic Stellar account (`G...`) that authorizes on-chain mutations of a DID. |
-| **DidRecord** | On-chain structure holding the current state of a DID. |
-| **didId** | Opaque 128-bit identifier, base32 lowercase, exactly 26 characters. |
-| **Registry contract** | Canonical Soroban contract maintaining the authoritative state of all DIDs on a given network. |
-| **Tombstone document** | DID Document produced for a deactivated DID; contains empty cryptographic arrays. |
+| **[DID](https://www.w3.org/TR/did-1.1/#x1-introduction)** | Decentralized Identifier. A globally unique identifier (e.g. `did:stellar:testnet:bk7q…`) that resolves to a DID Document and is controlled by its subject, not by a central registrar. |
+| **[DID Document](https://www.w3.org/TR/did-1.1/#x4-data-model)** | The JSON-LD document a DID resolves to. Lists the subject's public keys and services — a cryptographic "business card". |
+| **[DID URL](https://www.w3.org/TR/did-1.1/#x3-2-did-url-syntax)** / **[fragment](https://www.w3.org/TR/did-1.1/#fragment)** | A DID followed by a `#fragment` (e.g. `…#auth-1`) that points at one entry *inside* the DID Document. The fragment is not part of the DID itself. |
+| **[verificationMethod](https://www.w3.org/TR/did-1.1/#x5-2-verification-methods)** | A public key entry in the DID Document. |
+| **[verification relationship](https://www.w3.org/TR/did-1.1/#x5-3-verification-relationships)** | *How* a key may be used. This method publishes three: `authentication` (proving you control the DID — e.g. login), `assertionMethod` (signing credentials as an issuer), and `keyAgreement` (deriving keys to encrypt *to* the subject). |
+| **[service](https://www.w3.org/TR/did-1.1/#x5-4-services)** | A network endpoint advertised in the DID Document (e.g. a credential issuer URL). |
+| **[Multikey](https://www.w3.org/TR/cid-1.0/#x2-2-2-multikey)** / **[multibase](https://www.w3.org/TR/cid-1.0/#multibase)** | Encodings for public keys. Multikey prefixes the raw key with a code identifying its algorithm, so the value is self-describing; multibase prefixes a string with a code identifying its base (here base58btc → `z…`). |
+| **Controller account** | Classic Stellar account (`G...`) that authorizes on-chain mutations of a DID. On-chain control mechanism only — NOT the W3C DID-Document `controller` property (see §5.3). |
+| **DidRecord** | On-chain structure holding the current state of a DID (defined in [`model.rs`](../../contracts/did-stellar-registry/src/model.rs)). |
+| **didId** | Opaque 128-bit identifier. Stored on-chain as 16 raw bytes; rendered everywhere else as base32 lowercase, exactly 26 characters (§2.3). |
+| **Registry contract** | Canonical Soroban contract maintaining the authoritative state of all DIDs on a given network ([`did-stellar-registry`](../../contracts/did-stellar-registry/README.md)). |
+| **Tombstone document** | DID Document produced for a deactivated DID; contains empty cryptographic arrays (Annex A.3). |
 
 ---
 
@@ -115,10 +132,24 @@ Both `network` and `didId` components are always lowercase. The full DID MUST ma
 ### 2.3 DID Identifier Generation
 
 1. The client generates 16 bytes using a cryptographically secure random number generator (CSPRNG).
-2. Encode the 16 bytes as base32 lowercase without padding per RFC 4648, Section 6. The result MUST be exactly 26 characters.
+2. Encode the 16 bytes as base32 lowercase without padding per [RFC 4648 §6](https://www.rfc-editor.org/rfc/rfc4648#section-6). The result MUST be exactly 26 characters.
 3. Construct the DID: `did:stellar:{network}:{didId}`.
 4. The 26-character `didId` is the base32 encoding; the 16 raw bytes are stored on-chain as `BytesN<16>` to minimize storage rent.
 5. If the registry contract rejects registration due to a collision, the client retries with fresh random bytes.
+
+> **One value, two shapes — where each lives.** The DID has a single identity in
+> two encodings. Keep them straight:
+>
+> ```
+> 16 raw bytes            base32 lowercase (26 chars)        full DID string
+> 0x000102…0f      ──►    aaaqeayeaudaocajbifqydiob4   ──►    did:stellar:testnet:aaaqeayeaudaocajbifqydiob4
+> └─ ON-CHAIN ─┘          └────────── SDK / resolver / humans / events ──────────┘
+> ```
+>
+> The contract only ever stores and accepts the **16 bytes** (`BytesN<16>`); it
+> never sees the base32 string. The 26-char form and the `did:stellar:…` string
+> exist only off-chain, produced by the SDK/resolver. This pairing is fixed by
+> Test Vector 1 (Annex A.1).
 
 ### 2.4 Canonicalization Rules
 
@@ -141,11 +172,28 @@ Both `network` and `didId` components are always lowercase. The full DID MUST ma
 
 ### 3.2 Data Model
 
-The registry stores one `DidRecord` per DID. The `didId` is stored on-chain as 16 bytes (`BytesN<16>`) to reduce storage rent. The base32 ↔ bytes conversion is handled by the client SDK.
+The registry stores one `DidRecord` per DID, defined in
+[`model.rs`](../../contracts/did-stellar-registry/src/model.rs). The `didId` is
+stored on-chain as 16 bytes (`BytesN<16>`) to reduce storage rent. The base32 ↔
+bytes conversion is handled by the client SDK.
+
+The three key collections map to W3C
+[verification relationships](https://www.w3.org/TR/did-1.1/#x5-3-verification-relationships)
+— each says *what a key is allowed to do*:
+
+| Field | Purpose | Count |
+|---|---|---|
+| `authentication` | Prove control of the DID (e.g. login, the proof of control in §6). At least one is required. | 1–3 |
+| `assertion_method` | Sign Verifiable Credentials when the DID acts as an issuer. | 0–3 |
+| `key_agreement` | Let others derive a shared secret to encrypt data *to* the subject. | 0–1 |
+| `services` | Advertise endpoints (e.g. an issuer or messaging URL). | 0–3 |
+
+Counts are capped to bound worst-case storage rent and CPU per mutation (§9.1).
 
 ```rust
 pub struct DidKey {
-    pub public_key_multibase: String,  // Multikey encoding, e.g. z6Mk... for Ed25519
+    // Multikey-encoded public key, e.g. z6Mk... (Ed25519). See https://www.w3.org/TR/cid-1.0/#x2-2-2-multikey
+    pub public_key_multibase: String,
 }
 
 pub struct DidService {
@@ -180,14 +228,22 @@ pub struct DidRecord {
 | `assertion_method.len()` | 0–3. |
 | `key_agreement.len()` | 0–1. |
 | `services.len()` | 0–3. |
-| `public_key_multibase` | Non-empty, maximum 128 characters. No duplicate keys within the same relationship. |
-| `service.id_suffix` | Maximum 32 characters. Must match `^[a-z0-9-]+$`. |
-| `service.service_type` | Maximum 64 characters. |
+| `public_key_multibase` | Non-empty, 1–128 characters. No duplicate keys within the same relationship. |
+| `service.id_suffix` | 1–32 characters, non-empty. MUST match `^[a-z0-9][a-z0-9-]*[a-z0-9]$` (or a single `[a-z0-9]` char): lowercase ASCII letters, digits, and interior hyphens only — **leading and trailing hyphens are rejected**. MUST be unique across all services in the record. |
+| `service.service_type` | 1–64 characters, non-empty. |
 | `service.service_endpoint` | Absolute HTTPS URL (`https://`), maximum 255 characters. |
 | `metadata_uri` | If present: absolute HTTPS URL, maximum 255 characters. |
-| `metadata_hash` | If present: 32 bytes (SHA-256 of the remote content). |
+| `metadata_hash` | If present: 32 bytes (SHA-256 of the remote content). If `metadata_hash` is set, `metadata_uri` MUST also be set (a hash with no referent is rejected). |
 
 HTTP (`http://`) is not accepted in `service_endpoint` or `metadata_uri`.
+
+These constraints are enforced on-chain by `validate_record` in
+[`contract.rs`](../../contracts/did-stellar-registry/src/contract.rs); the
+numeric bounds are declared in
+[`model.rs`](../../contracts/did-stellar-registry/src/model.rs) and each
+violation maps to a typed error in
+[`errors.rs`](../../contracts/did-stellar-registry/src/errors.rs) (enumerated in
+the [contract README](../../contracts/did-stellar-registry/README.md#error-codes)).
 
 ### 3.4 Storage Key
 
@@ -202,6 +258,28 @@ Each DID occupies one persistent storage entry keyed by its 16-byte `didId`.
 ---
 
 ## 4. Contract Operations
+
+A DID has a simple two-state lifecycle. `register` creates it; `update` and
+`transfer_controller` keep it active and bump its version; `deactivate` retires
+it permanently. There is **no** path back from `Deactivated`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Active: register
+    Active --> Active: update (rotate keys, edit services/metadata)
+    Active --> Active: transfer_controller (change controller)
+    Active --> Deactivated: deactivate
+    Deactivated --> [*]
+    note right of Deactivated
+        Terminal. Empty key sets,
+        controller + metadata kept for audit.
+        A new identity needs a fresh didId.
+    end note
+```
+
+The per-operation semantics are in §4.4; the client-side ceremony in §4.6; and
+the recommended client reaction to each error in §4.7. The canonical
+implementation is [`contract.rs`](../../contracts/did-stellar-registry/src/contract.rs).
 
 ### 4.1 Public ABI
 
@@ -283,7 +361,9 @@ contract regardless of caller input:
   rejected with `VersionOverflow` (code 19) rather than wrapping.
 
 > The Rust excerpts below are illustrative and reproduce the canonical
-> `did-stellar-registry` implementation (`src/contract.rs`). They are provided
+> `did-stellar-registry` implementation
+> ([`src/contract.rs`](../../contracts/did-stellar-registry/src/contract.rs)).
+> They are provided
 > to make the behavior unambiguous; the normative requirements are the prose,
 > the state-transition tables, and the error tables.
 
@@ -608,6 +688,24 @@ signing is always delegated to the wallet that controls the `controller` account
 2. The current controller signs `deactivate(did_id, expected_version)`.
 3. After confirmation the DID is a tombstone and irreversible; a new identity requires a fresh `didId` and a new `register` call (semantics in §4.4.4).
 
+### 4.7 Client Error Handling
+
+When a mutation is rejected, the contract returns a typed
+[`RegistryError`](../../contracts/did-stellar-registry/src/errors.rs). The
+recommended client reaction depends on the class of error:
+
+| Error (code) | Cause | Recommended client action |
+|---|---|---|
+| `VersionMismatch` (3) | Someone else mutated the DID since you read it. | **Retry:** re-read the record, rebuild the payload with the new `version`, resubmit (§4.3). |
+| `DidAlreadyExists` (1) | The random `did_id` is already taken (astronomically rare). | **Regenerate:** pick fresh random bytes (§2.3) and call `register` again. |
+| `DidNotFound` (2) | The DID was never registered (or wrong network). | **Fail / fix input:** do not retry blindly; verify the `did_id` and network. |
+| `DidDeactivated` (4) | The DID is a tombstone; it can never be mutated again. | **Permanent:** stop. A new identity requires a new `did_id`. |
+| `VersionOverflow` (19) | `version` reached `u32::MAX` (not reachable in practice). | **Permanent:** the DID can no longer be mutated. |
+| Validation errors (5–16, 18, 20, 21) | The submitted `DidRecord` violates a §3.3 bound. | **Fix input:** these are deterministic — correct the payload locally (counts, lengths, URL scheme, duplicates, metadata pairing) before resubmitting. Retrying unchanged will fail identically. |
+
+Clients SHOULD validate the payload locally against §3.3 *before* submitting, so
+validation errors are caught without spending a transaction fee.
+
 ---
 
 ## 5. DID Document
@@ -636,7 +734,7 @@ Every resolved DID Document MUST include both contexts:
 
 ### 5.3 Self-Control — No `controller` Field
 
-The DID Document MUST NOT publish a `controller` field. Per [W3C DID Core 1.1 §5.1.2](https://www.w3.org/TR/did-1.1/#controller), the absence of `controller` means the DID is self-controlled: the DID subject is its own controller, and only keys listed in its own DID Document are authoritative for proving control.
+The DID Document MUST NOT publish a `controller` field. Per [W3C DID Core 1.1 §5.1.2](https://www.w3.org/TR/did-1.1/#x5-1-2-did-controller), the absence of `controller` means the DID is self-controlled: the DID subject is its own controller, and only keys listed in its own DID Document are authoritative for proving control.
 
 Consequences:
 1. The DID does not depend on any external DID.
@@ -656,7 +754,14 @@ Each key in `DidRecord` maps to one `verificationMethod` entry:
 
 ID examples: `#auth-1`, `#auth-2`, `#assert-1`, `#keyagr-1`.
 
-In v0.1, all keys are Ed25519 expressed with the Multikey prefix `z6Mk...` (varint `0xed 0x01` + 32 raw bytes, multibase base58btc).
+In v0.1, all keys are Ed25519 expressed as a
+[Multikey](https://www.w3.org/TR/cid-1.0/#x2-2-2-multikey) — a self-describing
+key encoding. The leading `z6Mk...` is read as: `z` =
+[multibase](https://www.w3.org/TR/cid-1.0/#multibase) base58btc, then the varint
+multicodec prefix `0xed 0x01` marking *Ed25519 public key*, then the 32 raw key
+bytes. Because the algorithm is encoded in the value itself, no separate `type`
+field is needed to know how to verify a signature. See
+[`publicKeyMultibase`](https://www.w3.org/TR/cid-1.0/#dfn-publickeymultibase).
 
 ### 5.5 Verification Relationships
 
@@ -765,8 +870,29 @@ The challenge MUST be canonicalized using [RFC 8785 — JSON Canonicalization Sc
 ### 6.4 Signing
 
 - **Algorithm:** Ed25519.
+- **Signing key:** the private key matching one of the DID's `authentication` keys (§5.5) — **not** the Stellar controller account key.
 - **Message:** UTF-8 bytes of the JCS output applied to the challenge.
 - **Encoding:** The signature is transmitted as base64url without padding.
+
+**Worked shape.** Given the challenge in §6.2, canonicalization, signing, and
+the wire payload look like this (values illustrative):
+
+```jsonc
+// 1. JCS-canonicalized challenge (keys sorted, no whitespace) — the exact bytes signed
+{"did":"did:stellar:testnet:bk7q2x4m3r7n5s2v7t6y6p2cde","domain":"verifier.example.com","nonce":"5f9b2a1c0d3e4f6789012345abcdef01","timestamp":"2026-04-26T12:34:56Z"}
+
+// 2. proof sent to the verifier
+{
+  "challenge": { "did": "did:stellar:testnet:bk7q…", "domain": "verifier.example.com",
+                 "nonce": "5f9b…ef01", "timestamp": "2026-04-26T12:34:56Z" },
+  "verificationMethod": "did:stellar:testnet:bk7q…#auth-1",  // which key signed
+  "signature": "yT8w…QkA"                                    // Ed25519 sig, base64url, no padding
+}
+```
+
+The verifier re-derives line 1 from the received `challenge` (never trusting a
+pre-serialized blob) and checks the signature against the `publicKeyMultibase`
+of `#auth-1` per §6.5.
 
 ### 6.5 Verification Algorithm
 
@@ -1247,13 +1373,86 @@ status-list endpoints.
 - Verifiers that do not understand `StellarStatusRegistryEntry` fall back to their
   own status-evaluation logic (status processing is non-normative in §4.10).
 
+---
+
+## Annex C — Worked Example: A DID's Full Life (Informative)
+
+*This annex is informative.* It walks one DID from birth to retirement to show
+how the pieces in §2–§6 connect. Ledger numbers and keys are illustrative;
+`did_id` matches Test Vector 1 (Annex A.1).
+
+**Cast.** *Alice* runs an issuer service. Her Stellar controller account is
+`GA…CTRL`. She keeps two separate keypairs: an **authentication** key (proving
+control) and an **assertion** key (signing credentials).
+
+### Step 1 — Create (`register`)
+
+Alice's SDK generates 16 random bytes `0x000102…0f`, which encode to
+`aaaqeayeaudaocajbifqydiob4` (§2.3), giving the DID
+`did:stellar:testnet:aaaqeayeaudaocajbifqydiob4`. She assembles a `DidRecord`
+with one `authentication` key and one `assertion_method` key, then signs and
+submits `register(did_id, initial_record)` (§4.4.1). The contract sets
+`version = 1` and emits `DidRegistered`.
+
+### Step 2 — Resolve (read)
+
+Anyone can now resolve the DID (§5.7): the resolver calls `get(did_id)`, gets the
+`DidRecord`, and builds the DID Document — `authentication: [#auth-1]`,
+`assertionMethod: [#assert-1]`, **no top-level `controller`** (§5.3). Metadata
+reports `versionId: "1"` and `method.stellarAccount: GA…CTRL`.
+
+### Step 3 — Issue a credential (off-chain, uses the DID)
+
+Alice issues a Verifiable Credential with `issuer = "did:stellar:testnet:aaaq…"`,
+signing it with her **assertion** key, referencing `…#assert-1` in the proof. A
+verifier resolves the DID, confirms `#assert-1` is in `assertionMethod`, and
+checks the signature (Annex B.2). For revocation discovery she adds a
+`credentialStatus` pointing at the `vc-vault` (Annex B.4).
+
+### Step 4 — Prove control on login (`authentication`)
+
+To log in to a relying party, Alice signs the party's challenge with her
+**authentication** key and presents the proof (§6). The verifier checks it
+against `#auth-1`. Her assertion key is never involved — the relationships keep
+the two roles separate.
+
+### Step 5 — Rotate a key (`update`)
+
+Alice's authentication key is exposed. She reads the record (`version = 1`),
+swaps in a new key, and submits `update(did_id, expected_version = 1, next_record)`
+(§4.4.2). The contract bumps to `version = 2`; the old key vanishes from every
+future resolution. Note her **controller stays `GA…CTRL`** — `update` cannot
+change it.
+
+> If a second client had also read `version = 1` and tried to update after her,
+> it would hit `VersionMismatch` and must re-read and retry (§4.7) — this is the
+> conflict in Test Vector 4 (Annex A.4).
+
+### Step 6 — Hand over control (`transfer_controller`)
+
+Alice migrates operations to a new account `GB…NEW`. Signing as the *current*
+controller, she submits `transfer_controller(did_id, expected_version = 2, GB…NEW)`
+(§4.4.3) → `version = 3`. Keys, services, and the resolved DID Document are
+unchanged; only `method.stellarAccount` now reads `GB…NEW`.
+
+### Step 7 — Retire (`deactivate`)
+
+The identity is decommissioned. The controller submits
+`deactivate(did_id, expected_version = 3)` (§4.4.4) → `version = 4`,
+`deactivated = true`, all key sets emptied (controller + metadata kept for
+audit). Resolution now returns the **tombstone** (Annex A.3) with HTTP 410, proof
+of control fails, and any credential check sees the issuer as deactivated. This
+is terminal — a new identity needs a brand-new `did_id` from Step 1.
+
+---
+
 ## 11. References
 
 - [W3C Decentralized Identifiers (DIDs) v1.1](https://www.w3.org/TR/did-1.1/)
 - [W3C Decentralized Identifier Resolution (DID Resolution) v0.3](https://www.w3.org/TR/did-resolution/)
 - [W3C Verifiable Credentials Data Model 2.0](https://www.w3.org/TR/vc-data-model-2.0/)
 - [W3C DID Specification Registries](https://www.w3.org/TR/did-spec-registries/)
-- [W3C Multikey](https://www.w3.org/TR/cid-1.0/#multikey)
+- [W3C Multikey](https://www.w3.org/TR/cid-1.0/#x2-2-2-multikey)
 - [RFC 4648 — Base32 encoding](https://www.rfc-editor.org/rfc/rfc4648)
 - [RFC 8785 — JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785)
 - [Stellar RPC Methods](https://developers.stellar.org/docs/data/rpc)
