@@ -255,28 +255,308 @@ The client MUST:
 
 ### 4.4 Mutation Semantics
 
-**`register`**
-- Fails with `DidAlreadyExists` if a record for `did_id` already exists.
-- Sets `version = 1`, `created_ledger = current_ledger`, `updated_ledger = current_ledger`, `deactivated = false`.
+This section is the normative reference for the four DID lifecycle operations:
+`register` (create), `update`, `transfer_controller`, and `deactivate`. Every
+mutation follows the same internal contract pipeline:
 
-**`update`**
-- Fails with `VersionMismatch` if `expected_version != current.version`.
-- Fails with `DidDeactivated` if `current.deactivated == true`.
-- Replaces the entire `DidRecord` except `created_ledger`, which is preserved.
-- Increments `version`, updates `updated_ledger`.
+```
+1. Load        — read the current DidRecord (all ops except register).
+2. Guard       — reject if deactivated; reject if expected_version is stale;
+                 reject if version would overflow.
+3. Authorize   — controller.require_auth() (the relevant controller).
+4. Validate    — re-check the full payload against §3.3 (register, update).
+5. Write       — persist the new DidRecord and extend its storage TTL.
+6. Emit        — publish the typed event for that operation (§4.5).
+```
 
-**`transfer_controller`**
-- Fails with `VersionMismatch` if `expected_version != current.version`.
-- Preserves all keys, services, and metadata.
-- Updates only `controller`, `version`, and `updated_ledger`.
+Three invariants hold across **all** operations and are enforced by the
+contract regardless of caller input:
 
-**`deactivate`**
-- Fails with `VersionMismatch` if `expected_version != current.version`.
-- Fails with `DidDeactivated` if already deactivated.
-- Sets `deactivated = true`.
-- Empties `authentication`, `assertion_method`, `key_agreement`, and `services`.
-- Preserves `controller`, `metadata_uri`, and `metadata_hash` for audit purposes.
-- Irreversible: a deactivated DID cannot be reactivated.
+- **The contract owns the bookkeeping fields.** `version`, `created_ledger`,
+  `updated_ledger`, and `deactivated` are always computed on-chain. Any value a
+  caller places in these fields of a submitted `DidRecord` is **ignored and
+  overwritten** — never trusted.
+- **`created_ledger` is immutable.** It is set once at `register` and copied
+  forward unchanged by every later mutation.
+- **`version` is monotonic.** It starts at `1` and increments by exactly `1` on
+  each successful mutation. If it would exceed `u32::MAX` the mutation is
+  rejected with `VersionOverflow` (code 19) rather than wrapping.
+
+> The Rust excerpts below are illustrative and reproduce the canonical
+> `did-stellar-registry` implementation (`src/contract.rs`). They are provided
+> to make the behavior unambiguous; the normative requirements are the prose,
+> the state-transition tables, and the error tables.
+
+---
+
+#### 4.4.1 `register` — create a DID
+
+`register(did_id: BytesN<16>, initial_record: DidRecord)`
+
+Creates the first and only record for `did_id`. This is the only operation that
+takes **no** `expected_version`: there is no prior state to guard against.
+
+| Aspect | Behavior |
+|---|---|
+| **Authorizes** | `initial_record.controller` (`require_auth()`). The caller proves it controls the Stellar account it is naming as controller. |
+| **Precondition** | No record exists for `did_id`. Otherwise `DidAlreadyExists` (1). |
+| **Validation** | Full `validate_record` per §3.3 (key counts, key length/uniqueness, service bounds, HTTPS URLs, metadata consistency). |
+| **Set by contract** | `version = 1`, `created_ledger = updated_ledger = current ledger`, `deactivated = false`. Caller-supplied values for these fields are discarded. |
+| **Event** | `DidRegistered { did_id, controller, version: 1 }`. |
+
+**Contract behavior:**
+
+```rust
+fn register(e: Env, did_id: BytesN<16>, initial_record: DidRecord) {
+    if storage::has_record(&e, &did_id) {
+        panic_with_error!(&e, RegistryError::DidAlreadyExists);
+    }
+    // The caller asserts control of this address by authorizing.
+    initial_record.controller.require_auth();
+    validate_record(&e, &initial_record);
+
+    // Bookkeeping fields are forced — whatever the caller passed is ignored.
+    let current_ledger = e.ledger().sequence();
+    let record = DidRecord {
+        controller: initial_record.controller.clone(),
+        authentication: initial_record.authentication,
+        // assertion_method / key_agreement / services / metadata_* carried over
+        version: 1,
+        created_ledger: current_ledger,
+        updated_ledger: current_ledger,
+        deactivated: false,
+        ..
+    };
+    storage::write_record(&e, &did_id, &record);
+    events::did_registered(&e, &did_id, &record.controller, record.version);
+}
+```
+
+**Example.** Registering a minimal DID with one authentication key
+(`did_id = 0x000102…0f`, which encodes to `aaaqeayeaudaocajbifqydiob4`):
+
+```jsonc
+// initial_record submitted by the client
+{
+  "controller": "GA…CONTROLLER",
+  "authentication": [{ "public_key_multibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY" }],
+  "assertion_method": [], "key_agreement": [], "services": [],
+  "metadata_uri": null, "metadata_hash": null,
+  "version": 0, "created_ledger": 0, "updated_ledger": 0, "deactivated": false // ← all ignored
+}
+// stored DidRecord after register (ledger = 51_200)
+{
+  "controller": "GA…CONTROLLER",
+  "authentication": [{ "public_key_multibase": "z6Mkha…2doY" }],
+  "assertion_method": [], "key_agreement": [], "services": [],
+  "metadata_uri": null, "metadata_hash": null,
+  "version": 1, "created_ledger": 51200, "updated_ledger": 51200, "deactivated": false
+}
+```
+
+---
+
+#### 4.4.2 `update` — rotate keys, change services or metadata
+
+`update(did_id: BytesN<16>, expected_version: u32, next_record: DidRecord)`
+
+Replaces the mutable content of an active DID in a single atomic write. This is
+the operation used for **key rotation** (§7.3), adding or removing assertion
+keys, editing services, and changing off-chain metadata pointers.
+
+| Aspect | Behavior |
+|---|---|
+| **Authorizes** | The **current** `controller` (`require_auth()`), read from on-chain state — not the controller field of `next_record`. |
+| **Preconditions** | Record exists (`DidNotFound` 2); not deactivated (`DidDeactivated` 4); `expected_version == current.version` (`VersionMismatch` 3); `version < u32::MAX` (`VersionOverflow` 19). |
+| **Validation** | Full `validate_record` on `next_record` per §3.3. |
+| **Replaced** | `authentication`, `assertion_method`, `key_agreement`, `services`, `metadata_uri`, `metadata_hash` — taken verbatim from `next_record`. |
+| **Preserved / forced** | `created_ledger` preserved; `controller` **pinned to the current value** (any `next_record.controller` is ignored — see note); `deactivated` forced to `false`; `version` incremented; `updated_ledger = current ledger`. |
+| **Event** | `DidUpdated { did_id, version }`. |
+
+> **`update` never changes the controller.** The contract copies the existing
+> controller forward and ignores `next_record.controller`. Ownership changes go
+> exclusively through `transfer_controller` (§4.4.3), which emits the dedicated
+> `DidControllerTransferred` event so indexers can track ownership reliably. An
+> `update` payload that names a different controller is **not** rejected — the
+> field is silently ignored — so clients SHOULD set `next_record.controller` to
+> the current controller to avoid confusion.
+
+**Contract behavior:**
+
+```rust
+fn update(e: Env, did_id: BytesN<16>, expected_version: u32, next_record: DidRecord) {
+    let current = require_record(&e, &did_id);     // DidNotFound if absent
+    require_active(&e, &current);                  // DidDeactivated if tombstoned
+    require_version(&e, expected_version, current.version); // VersionMismatch
+    current.controller.require_auth();             // current controller authorizes
+    validate_record(&e, &next_record);
+
+    if current.version == u32::MAX { panic_with_error!(&e, RegistryError::VersionOverflow); }
+    let updated = DidRecord {
+        controller: current.controller.clone(),    // pinned — next_record.controller ignored
+        authentication: next_record.authentication,
+        assertion_method: next_record.assertion_method,
+        key_agreement: next_record.key_agreement,
+        services: next_record.services,
+        metadata_uri: next_record.metadata_uri,
+        metadata_hash: next_record.metadata_hash,
+        version: current.version + 1,
+        created_ledger: current.created_ledger,     // immutable
+        updated_ledger: e.ledger().sequence(),
+        deactivated: false,
+    };
+    storage::write_record(&e, &did_id, &updated);
+    events::did_updated(&e, &did_id, updated.version);
+}
+```
+
+**Example — key rotation.** A subject whose `auth-1` key was compromised submits
+`update(did_id, expected_version = 1, next_record)` with a fresh key:
+
+```jsonc
+// before (version 1)                          // after update (version 2)
+{ "authentication": [{"…": "z6Mk…OLD"}],        { "authentication": [{"…": "z6Mk…NEW"}],
+  "version": 1, "created_ledger": 51200,          "version": 2, "created_ledger": 51200,
+  "updated_ledger": 51200 }                       "updated_ledger": 88010 }
+```
+
+The compromised key no longer appears in any resolved DID Document once the
+transaction confirms.
+
+---
+
+#### 4.4.3 `transfer_controller` — hand over on-chain control
+
+`transfer_controller(did_id: BytesN<16>, expected_version: u32, new_controller: Address)`
+
+Reassigns the Stellar account that authorizes future mutations. This is the
+**only** way the `controller` changes. It does **not** touch the DID's keys,
+services, or metadata, so it does **not** change the resolved DID Document — it
+only updates `didDocumentMetadata.method.stellarAccount` and bumps `versionId`
+(§5.7).
+
+| Aspect | Behavior |
+|---|---|
+| **Authorizes** | The **current** (outgoing) `controller` — not `new_controller`. The new controller does not need to sign; the handover is push-style. |
+| **Preconditions** | Record exists; not deactivated; `expected_version` matches; no version overflow. |
+| **Preserved** | `authentication`, `assertion_method`, `key_agreement`, `services`, `metadata_uri`, `metadata_hash`, `created_ledger` — all unchanged. |
+| **Changed** | `controller = new_controller`; `version` incremented; `updated_ledger = current ledger`. |
+| **Event** | `DidControllerTransferred { did_id, old_controller, new_controller, version }`. |
+
+**Contract behavior:**
+
+```rust
+fn transfer_controller(e: Env, did_id: BytesN<16>, expected_version: u32, new_controller: Address) {
+    let current = require_record(&e, &did_id);
+    require_active(&e, &current);
+    require_version(&e, expected_version, current.version);
+    current.controller.require_auth();             // outgoing controller authorizes
+    if current.version == u32::MAX { panic_with_error!(&e, RegistryError::VersionOverflow); }
+
+    let old_controller = current.controller.clone();
+    let updated = DidRecord {
+        controller: new_controller.clone(),         // only this changes…
+        authentication: current.authentication,     // …everything else carries over
+        assertion_method: current.assertion_method,
+        key_agreement: current.key_agreement,
+        services: current.services,
+        metadata_uri: current.metadata_uri,
+        metadata_hash: current.metadata_hash,
+        version: current.version + 1,
+        created_ledger: current.created_ledger,
+        updated_ledger: e.ledger().sequence(),
+        deactivated: false,
+    };
+    storage::write_record(&e, &did_id, &updated);
+    events::did_controller_transferred(&e, &did_id, &old_controller, &new_controller, updated.version);
+}
+```
+
+> Because only the outgoing controller signs, a transfer to an unintended
+> address cannot be undone by the new controller refusing it. Clients SHOULD
+> confirm `new_controller` out-of-band before submitting.
+
+---
+
+#### 4.4.4 `deactivate` — permanently retire a DID
+
+`deactivate(did_id: BytesN<16>, expected_version: u32)`
+
+Tombstones the DID. This is **irreversible**: there is no reactivation path, and
+the `deactivated` flag can never return to `false`. A subject who needs a new
+identity must `register` a fresh `did_id`.
+
+| Aspect | Behavior |
+|---|---|
+| **Authorizes** | The current `controller`. |
+| **Preconditions** | Record exists; not already deactivated (`DidDeactivated` 4); `expected_version` matches; no version overflow. |
+| **Emptied** | `authentication`, `assertion_method`, `key_agreement`, `services` are all set to empty vectors. |
+| **Preserved** | `controller`, `metadata_uri`, `metadata_hash`, `created_ledger` — kept for audit. |
+| **Set** | `deactivated = true`; `version` incremented; `updated_ledger = current ledger`. |
+| **Event** | `DidDeactivated { did_id, version }`. |
+
+A resolver reading a record with `deactivated == true` MUST return the tombstone
+DID Document (Annex A.3) and proof of control MUST fail (§6.5 step 7).
+
+**Contract behavior:**
+
+```rust
+fn deactivate(e: Env, did_id: BytesN<16>, expected_version: u32) {
+    let current = require_record(&e, &did_id);
+    require_active(&e, &current);                  // DidDeactivated if already tombstoned
+    require_version(&e, expected_version, current.version);
+    current.controller.require_auth();
+    if current.version == u32::MAX { panic_with_error!(&e, RegistryError::VersionOverflow); }
+
+    let tombstone = DidRecord {
+        controller: current.controller,             // preserved for audit
+        authentication: Vec::new(&e),                // all key sets emptied
+        assertion_method: Vec::new(&e),
+        key_agreement: Vec::new(&e),
+        services: Vec::new(&e),
+        metadata_uri: current.metadata_uri,          // preserved for audit
+        metadata_hash: current.metadata_hash,
+        version: current.version + 1,
+        created_ledger: current.created_ledger,
+        updated_ledger: e.ledger().sequence(),
+        deactivated: true,                           // one-way
+    };
+    storage::write_record(&e, &did_id, &tombstone);
+    events::did_deactivated(&e, &did_id, tombstone.version);
+}
+```
+
+**Example.** Deactivating the DID from §4.4.2 (version 2) yields the tombstone:
+
+```jsonc
+{
+  "controller": "GA…CONTROLLER",   // preserved
+  "authentication": [], "assertion_method": [], "key_agreement": [], "services": [],
+  "metadata_uri": null, "metadata_hash": null,
+  "version": 3, "created_ledger": 51200, "updated_ledger": 91440,
+  "deactivated": true
+}
+```
+
+Any subsequent `update`, `transfer_controller`, or `deactivate` on this DID
+fails with `DidDeactivated` (4).
+
+---
+
+#### 4.4.5 Per-operation error matrix
+
+| Error (code) | `register` | `update` | `transfer_controller` | `deactivate` |
+|---|:--:|:--:|:--:|:--:|
+| `DidAlreadyExists` (1) | ✔ | | | |
+| `DidNotFound` (2) | | ✔ | ✔ | ✔ |
+| `VersionMismatch` (3) | | ✔ | ✔ | ✔ |
+| `DidDeactivated` (4) | | ✔ | ✔ | ✔ |
+| `VersionOverflow` (19) | | ✔ | ✔ | ✔ |
+| Validation errors (5–16, 18, 20, 21) | ✔ | ✔ | | |
+
+`transfer_controller` and `deactivate` carry no `DidRecord` payload, so they
+never raise the §3.3 validation errors. The full validation error set is
+defined in §3.3 and enumerated in the contract README.
 
 ### 4.5 Events
 
@@ -293,7 +573,11 @@ Each successful state-changing operation emits a typed Soroban event for externa
 
 ### 4.6 Operation Flows
 
-All mutation operations follow the same prepare → sign → submit pattern used by Soroban transactions. The client SDK never holds private keys; signing is always delegated to the wallet that controls the `controller` account.
+This section describes the **client-side** lifecycle. For the contract-side
+semantics of each operation (what is validated, changed, preserved, and emitted)
+see §4.4. All mutation operations follow the same prepare → sign → submit
+pattern used by Soroban transactions. The client SDK never holds private keys;
+signing is always delegated to the wallet that controls the `controller` account.
 
 #### 4.6.1 Registration Flow
 
@@ -314,15 +598,15 @@ All mutation operations follow the same prepare → sign → submit pattern used
 
 #### 4.6.3 Controller Transfer Flow
 
-1. The current controller signs `transfer_controller(did_id, expected_version, new_controller)`.
-2. The DID retains its `didId`, all keys, and all services.
-3. The on-chain `DidRecord.controller` reflects the new controller address immediately after the transaction is confirmed.
+1. The client reads the current `DidRecord` and notes `version`.
+2. The current controller signs `transfer_controller(did_id, expected_version, new_controller)`.
+3. The on-chain `DidRecord.controller` reflects the new controller address immediately after the transaction is confirmed (semantics in §4.4.3).
 
 #### 4.6.4 Deactivation Flow
 
-1. The current controller signs `deactivate(did_id, expected_version)`.
-2. After confirmation, the on-chain record has `deactivated = true` with all cryptographic arrays emptied. Consumers constructing a DID Document from the record MUST produce a tombstone document and treat the DID as inactive.
-3. The deactivation is irreversible. A new DID requires a new `didId` and a fresh `register` call.
+1. The client reads the current `DidRecord` and notes `version`.
+2. The current controller signs `deactivate(did_id, expected_version)`.
+3. After confirmation the DID is a tombstone and irreversible; a new identity requires a fresh `didId` and a new `register` call (semantics in §4.4.4).
 
 ---
 
