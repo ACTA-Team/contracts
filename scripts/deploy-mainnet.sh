@@ -10,7 +10,7 @@ set -eu
 
 NETWORK_NAME=mainnet
 PASSPHRASE="Public Global Stellar Network ; September 2015"
-RPC_URL="https://mainnet.sorobanrpc.com"
+RPC_URL="${RPC_URL:-https://mainnet.sorobanrpc.com}"
 HORIZON_URL="https://horizon.stellar.org"
 USDC_ISSUER="GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
 TMP_IDENTITY="_acta_deployer"
