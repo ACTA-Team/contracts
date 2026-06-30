@@ -100,15 +100,11 @@ print_params() {
 }
 
 bootstrap_network() {
-    step "Ensuring '$NETWORK_NAME' network is configured"
-    if stellar network ls 2>/dev/null | grep -qx "$NETWORK_NAME"; then
-        say "  network '$NETWORK_NAME' already configured"
-    else
-        run stellar network add "$NETWORK_NAME" \
-            --rpc-url "$RPC_URL" \
-            --network-passphrase "$PASSPHRASE"
-        say "  added network '$NETWORK_NAME'"
-    fi
+    step "Configuring '$NETWORK_NAME' network ($RPC_URL)"
+    run stellar network add "$NETWORK_NAME" \
+        --rpc-url "$RPC_URL" \
+        --network-passphrase "$PASSPHRASE"
+    say "  network '$NETWORK_NAME' -> $RPC_URL"
 }
 
 confirm_gate() {
