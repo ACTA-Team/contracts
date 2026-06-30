@@ -24,7 +24,7 @@ RPC: `https://soroban-testnet.stellar.org:443`
 |---|---|
 | enabled | `true` |
 | token | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` (native XLM SAC) |
-| dest | `GAP7AUGY2Q2NKIHJ2XMZAGVHD7KDF2UAUEPXE5HRXL7BOXRWDHXHG6IY` |
+| dest | _(deployer wallet)_ |
 | standard | `50000000` stroops = **5 XLM ≈ 1 USD** @ ~$0.20/XLM |
 
 Charged per credential issued; the issuer pays. The amount is fixed on-chain (does
