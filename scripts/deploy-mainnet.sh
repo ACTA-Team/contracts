@@ -33,6 +33,12 @@ DID_ADMIN="${DID_ADMIN:-}"
 FACTORY_ADMIN="${FACTORY_ADMIN:-}"
 FEE_DEST="${FEE_DEST:-}"
 
+# Resume support: pre-set any of these (e.g. in .env) to skip an already-done
+# step after a partial run, so a re-run doesn't redeploy/repay for it.
+DID_ID="${DID_ID:-}"
+VAULT_HASH="${VAULT_HASH:-}"
+FACTORY_ID="${FACTORY_ID:-}"
+
 DRY_RUN=0
 SUBCOMMAND=""
 
@@ -167,6 +173,10 @@ build_all() {
 }
 
 deploy_did() {
+    if [ -n "$DID_ID" ]; then
+        step "Skipping did-stellar-registry (using existing $DID_ID)"
+        return 0
+    fi
     step "Deploying did-stellar-registry (admin $DID_ADMIN)"
     DID_ID="$(capture '<DID_ID>' stellar contract deploy \
         --wasm target/wasm32v1-none/release/did_stellar_registry.optimized.wasm \
@@ -176,6 +186,10 @@ deploy_did() {
 }
 
 upload_vault() {
+    if [ -n "$VAULT_HASH" ]; then
+        step "Skipping vc-vault upload (using existing hash $VAULT_HASH)"
+        return 0
+    fi
     step "Uploading vc-vault template WASM"
     VAULT_HASH="$(capture '<VAULT_HASH>' stellar contract upload \
         --wasm target/wasm32v1-none/release/vc_vault_contract.optimized.wasm \
@@ -184,6 +198,10 @@ upload_vault() {
 }
 
 deploy_factory() {
+    if [ -n "$FACTORY_ID" ]; then
+        step "Skipping vc-vault-factory (using existing $FACTORY_ID)"
+        return 0
+    fi
     step "Deploying vc-vault-factory (admin $FACTORY_ADMIN)"
     FACTORY_ID="$(capture '<FACTORY_ID>' stellar contract deploy \
         --wasm target/wasm32v1-none/release/vc_vault_factory_contract.optimized.wasm \
