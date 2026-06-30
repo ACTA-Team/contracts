@@ -25,6 +25,7 @@ fi
 FEE_TOKEN="${FEE_TOKEN:-CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75}"
 FEE_STANDARD="${FEE_STANDARD:-10000000}"
 FEE_ENABLED="${FEE_ENABLED:-true}"
+INCLUSION_FEE="${INCLUSION_FEE:-1000000}"
 
 # Identity-dependent params.
 DEPLOYER_ADDRESS="${DEPLOYER_ADDRESS:-}"
@@ -169,7 +170,7 @@ deploy_did() {
     step "Deploying did-stellar-registry (admin $DID_ADMIN)"
     DID_ID="$(capture '<DID_ID>' stellar contract deploy \
         --wasm target/wasm32v1-none/release/did_stellar_registry.optimized.wasm \
-        --source "$TMP_IDENTITY" --network "$NETWORK_NAME" \
+        --source "$TMP_IDENTITY" --network "$NETWORK_NAME" --inclusion-fee "$INCLUSION_FEE" \
         -- --admin "$DID_ADMIN")"
     say "  DID contract id: $DID_ID"
 }
@@ -178,7 +179,7 @@ upload_vault() {
     step "Uploading vc-vault template WASM"
     VAULT_HASH="$(capture '<VAULT_HASH>' stellar contract upload \
         --wasm target/wasm32v1-none/release/vc_vault_contract.optimized.wasm \
-        --source "$TMP_IDENTITY" --network "$NETWORK_NAME")"
+        --source "$TMP_IDENTITY" --network "$NETWORK_NAME" --inclusion-fee "$INCLUSION_FEE")"
     say "  vault template hash: $VAULT_HASH"
 }
 
@@ -186,7 +187,7 @@ deploy_factory() {
     step "Deploying vc-vault-factory (admin $FACTORY_ADMIN)"
     FACTORY_ID="$(capture '<FACTORY_ID>' stellar contract deploy \
         --wasm target/wasm32v1-none/release/vc_vault_factory_contract.optimized.wasm \
-        --source "$TMP_IDENTITY" --network "$NETWORK_NAME" \
+        --source "$TMP_IDENTITY" --network "$NETWORK_NAME" --inclusion-fee "$INCLUSION_FEE" \
         -- --vault_init_meta "{\"vault_hash\":\"$VAULT_HASH\",\"contract_admin\":\"$FACTORY_ADMIN\"}")"
     say "  factory contract id: $FACTORY_ID"
 }
@@ -217,11 +218,11 @@ check_trustline() {
 configure_fees() {
     step "Configuring factory fee (USDC)"
     run stellar contract invoke \
-        --id "$FACTORY_ID" --source "$TMP_IDENTITY" --network "$NETWORK_NAME" \
+        --id "$FACTORY_ID" --source "$TMP_IDENTITY" --network "$NETWORK_NAME" --inclusion-fee "$INCLUSION_FEE" \
         -- set_fee_config --token "$FEE_TOKEN" --dest "$FEE_DEST" --standard "$FEE_STANDARD"
     say "  fee_config set: token=$FEE_TOKEN dest=$FEE_DEST standard=$FEE_STANDARD"
     run stellar contract invoke \
-        --id "$FACTORY_ID" --source "$TMP_IDENTITY" --network "$NETWORK_NAME" \
+        --id "$FACTORY_ID" --source "$TMP_IDENTITY" --network "$NETWORK_NAME" --inclusion-fee "$INCLUSION_FEE" \
         -- set_fee_enabled --enabled "$EFFECTIVE_FEE_ENABLED"
     say "  fee_enabled set: $EFFECTIVE_FEE_ENABLED"
 }
