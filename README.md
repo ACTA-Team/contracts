@@ -2,7 +2,7 @@
 
 Soroban smart contracts for the ACTA identity and Verifiable Credential infrastructure on Stellar.
 
-**Latest release:** [vc-vault v0.4.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/vc-vault-v0.4.0)
+**Live on mainnet:** [mainnet-v1.0.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/mainnet-v1.0.0) · **Latest contract release:** [vc-vault v0.4.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/vc-vault-v0.4.0)
 
 ---
 
@@ -47,6 +47,20 @@ See [`contracts/vc-vault-factory/README.md`](contracts/vc-vault-factory/README.m
 | Admin | `nominate_admin`, `accept_contract_admin`, `version` |
 | Vault | `set_vault_admin`, `set_vault_did`, `vault_did`, `vault_owner`, `deny_issuer`, `allow_issuer`, `revoke_vault`, `list_denied_issuers`, `denied_issuer_count` |
 | Credentials | `issue`, `batch_issue`, `revoke`, `push`, `receive_push`, `verify_vc`, `get_vc`, `list_vc_ids`, `vc_count` |
+
+---
+
+## Mainnet Deployments
+
+| Contract | Version | Contract ID / WASM hash |
+|---|---|---|
+| `did-stellar-registry` | 0.2.0 | `CD6LSWW5ZSXOO5WAIHKQLQ262TW7BPI37PNEVMMA273BAPC65NN2AYXQ` |
+| `vc-vault-factory` | 0.1.0 | `CCWNZ6UMUXCDOVP2TWOPVLI4KP4VY4YF7VKPN6XLYVHNFAT24NDB33CX` |
+| `vc-vault` | 0.4.0 | template WASM hash `2bd0323a98acb8469606808368da6c79824f2dd8391494b94ddbeb3d22c1a957` (instances deployed via the factory) |
+
+Network: Stellar Mainnet (`Public Global Stellar Network ; September 2015`)  
+Factory fee: **1 USDC per credential** issued (paid by the issuer).  
+Full deployment record: [`docs/deployments/mainnet.md`](docs/deployments/mainnet.md)
 
 ---
 
@@ -98,12 +112,14 @@ Output files:
 
 The `did:stellar` v0.1 method specification lives at [`docs/did-spec/did-stellar-v0.1.md`](docs/did-spec/did-stellar-v0.1.md). It covers:
 
+- Goals and design decisions
 - DID syntax and identifier generation
-- On-chain data model (`DidRecord`)
-- Contract operations and mutation semantics
+- On-chain registry data model (`DidRecord`) and contract operations
 - DID Document construction rules
 - Proof of control protocol
-- Normative test vectors
+- Security, privacy, and cost considerations
+- Acceptance criteria and normative test vectors
+- Integrator notes and a worked end-to-end example
 
 ---
 
