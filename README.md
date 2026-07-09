@@ -106,17 +106,6 @@ Output files:
 
 `vc-vault` is not deployed standalone — the factory instantiates per-holder vaults via `factory.deploy(...)`. Record the resulting IDs in [`docs/deployments/<network>.md`](docs/deployments/).
 
-### Mainnet
-
-Mainnet uses a dedicated one-shot orchestrator that reads all parameters (deployer key/address, USDC fee config) from a gitignored `.env` — nothing sensitive is committed:
-
-```bash
-./scripts/deploy-mainnet.sh --dry-run   # review every transaction without spending
-./scripts/deploy-mainnet.sh             # deploy all three, then configure the USDC fee
-```
-
-It verifies the signer resolves to the expected address, preflights funding and the USDC trustline, and is resumable — pre-set `DID_ID` / `VAULT_HASH` / `FACTORY_ID` to skip already-completed steps after a partial run.
-
 ---
 
 ## Specification
