@@ -107,7 +107,7 @@ pub fn remove_denied_issuer_from_index(e: &Env, issuer: &Address) {
     if position != last {
         // Normal swap-and-pop moves the last entry into the freed slot.
         // Defensive: if the last slot is somehow missing (corrupt state), clear
-        // the freed slot instead of leaving the removed issuer there — otherwise
+        // the freed slot instead of leaving the removed issuer there - otherwise
         // it becomes a ghost index entry. Never panic on the missing slot.
         match read_denied_issuer_at(e, last) {
             Some(last_addr) => {

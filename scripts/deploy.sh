@@ -12,7 +12,7 @@ set -eu
 #
 # Deployment model (since vc-vault v0.4.0):
 #   - did-stellar-registry: deployed standalone (constructor: --admin).
-#   - vc-vault: single-tenant TEMPLATE — not deployed standalone. Its WASM is
+#   - vc-vault: single-tenant TEMPLATE - not deployed standalone. Its WASM is
 #     installed (uploaded) and the resulting hash is handed to the factory.
 #     Individual vaults are created by calling vc-vault-factory.deploy(...).
 #   - vc-vault-factory: deployed with the vault template hash + a contract admin.
@@ -23,8 +23,8 @@ set -eu
 #   ./scripts/deploy.sh vc-vault-factory    testnet acta_deployer   # installs vault + deploys factory
 #
 # Env overrides:
-#   DID_ADMIN / FACTORY_ADMIN  — admin address (defaults to the source address)
-#   VAULT_HASH                 — reuse a pre-installed vc-vault template hash
+#   DID_ADMIN / FACTORY_ADMIN - admin address (defaults to the source address)
+#   VAULT_HASH - reuse a pre-installed vc-vault template hash
 #
 # Prerequisites: stellar-cli configured, network added, source key funded, and
 #   ./scripts/build.sh <package>  run first.

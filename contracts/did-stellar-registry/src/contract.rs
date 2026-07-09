@@ -63,7 +63,7 @@ pub trait DidStellarRegistryInterface {
     // --- Contract-level admin -----------------------------------------------
     // The admin governs future contract-wide operations (none today; reserved
     // for emergency pause, parameter updates, etc.). Per-DID mutations are
-    // NOT admin-gated — they remain authorized exclusively by the DID
+    // NOT admin-gated - they remain authorized exclusively by the DID
     // controller.
 
     /// Propose a new contract admin. The current admin MUST authorize. The
@@ -84,7 +84,7 @@ pub struct DidStellarRegistry;
 
 #[contractimpl]
 impl DidStellarRegistry {
-    /// Soroban constructor — runs exactly once at deployment time. Sets the
+    /// Soroban constructor - runs exactly once at deployment time. Sets the
     /// initial admin. The deployer MUST sign as `admin`.
     pub fn __constructor(e: Env, admin: Address) {
         admin.require_auth();
@@ -104,7 +104,7 @@ impl DidStellarRegistryInterface for DidStellarRegistry {
         // Authorization: the caller is asserting they control this address.
         initial_record.controller.require_auth();
 
-        // Validate the payload — bounds, formats, no duplicates.
+        // Validate the payload - bounds, formats, no duplicates.
         validate_record(&e, &initial_record);
 
         // Override creation/update bookkeeping. Whatever the caller passed in
@@ -148,7 +148,7 @@ impl DidStellarRegistryInterface for DidStellarRegistry {
         }
         let new_version = current.version + 1;
         let updated = DidRecord {
-            // Controller is pinned to the current value — next_record.controller
+            // Controller is pinned to the current value - next_record.controller
             // is intentionally ignored here.
             controller: current.controller.clone(),
             authentication: next_record.authentication,
@@ -292,7 +292,7 @@ fn require_version(e: &Env, expected: u32, current: u32) {
 
 /// Full record validation. Enforces every bound declared in `model.rs`.
 /// Called from `register` and `update`. Does NOT inspect or modify the
-/// version/ledger/deactivated bookkeeping fields — those are owned by the
+/// version/ledger/deactivated bookkeeping fields - those are owned by the
 /// contract.
 fn validate_record(e: &Env, record: &DidRecord) {
     // --- Key counts ---
@@ -317,7 +317,7 @@ fn validate_record(e: &Env, record: &DidRecord) {
 
     // --- Services ---
     // Each service is validated individually, and `id_suffix` must be unique
-    // across all services — duplicates would resolve to the same
+    // across all services - duplicates would resolve to the same
     // `{did}#service-{id_suffix}` fragment, making the DID Document ambiguous.
     // Pairwise comparison is bounded because `services.len() <= MAX_SERVICE_COUNT` (3).
     for i in 0..record.services.len() {
@@ -351,7 +351,7 @@ fn validate_keys_no_duplicates(e: &Env, keys: &soroban_sdk::Vec<DidKey>) {
     for i in 0..n {
         let k: DidKey = keys.get_unchecked(i);
         validate_key(e, &k);
-        // Compare against later entries — pairwise comparison is bounded
+        // Compare against later entries - pairwise comparison is bounded
         // because `n <= 3`.
         for j in (i + 1)..n {
             let other: DidKey = keys.get_unchecked(j);

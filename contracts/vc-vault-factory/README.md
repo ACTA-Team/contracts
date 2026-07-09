@@ -24,7 +24,7 @@ Soroban smart contract that deploys and tracks **single-tenant `vc-vault` instan
 | Function | Auth | Description |
 |---|---|---|
 | `deploy(owner, did_uri, salt)` | `owner` | Deploy a new `vc-vault` for `owner`. Returns the new vault address. |
-| `deploy_sponsored(deployer, owner, did_uri, salt)` | `deployer` | Deploy a vault on behalf of `owner`. The deployer signs and pays; the vault belongs to `owner` from creation. Anyone can be a deployer — no whitelist. |
+| `deploy_sponsored(deployer, owner, did_uri, salt)` | `deployer` | Deploy a vault on behalf of `owner`. The deployer signs and pays; the vault belongs to `owner` from creation. Anyone can be a deployer - no whitelist. |
 | `is_vault(vault_address)` | none | Return `true` if `vault_address` was deployed by this factory. Used by `receive_push` inside vaults to validate transfer sources. |
 
 `salt` is a `BytesN<32>` chosen by the caller. Internally the factory derives the actual deploy salt as `keccak256(user_salt ‖ XDR(owner))`, which makes vault addresses deterministic per `(owner, salt)` pair and prevents frontrunning.

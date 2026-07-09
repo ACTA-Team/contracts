@@ -355,8 +355,8 @@ impl VcVaultTrait for VcVaultContract {
         // push is owner-scoped migration: the source vault must belong to the
         // same owner as this destination vault. `source_owner` is supplied by
         // the authenticated source vault (it reads its own stored owner before
-        // invoking us), so we avoid re-entering the source vault — which is
-        // still on the call stack — to query `vault_owner`.
+        // invoking us), so we avoid re-entering the source vault - which is
+        // still on the call stack - to query `vault_owner`.
         if source_owner != storage::read_vault_owner(&e) {
             panic_with_error!(e, ContractError::PushOwnerMismatch);
         }

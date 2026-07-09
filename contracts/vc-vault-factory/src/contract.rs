@@ -18,7 +18,7 @@ pub trait VaultFactory {
     fn deploy(e: Env, owner: Address, did_uri: String, user_salt: BytesN<32>) -> Address;
 
     /// Deploy a vault on behalf of `owner`. `deployer` signs and pays; the vault
-    /// belongs to `owner` from creation. Anyone can be a deployer — no whitelist.
+    /// belongs to `owner` from creation. Anyone can be a deployer - no whitelist.
     fn deploy_sponsored(e: Env, deployer: Address, owner: Address, did_uri: String, user_salt: BytesN<32>) -> Address;
 
     /// Return true if `vault_address` was deployed by this factory.

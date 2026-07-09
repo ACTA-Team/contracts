@@ -180,8 +180,8 @@
         "caller_b_update": { "expected_version": 1, "error": "VersionMismatch" }
       },
       "expected": {
-        "caller_a": "success — version becomes 2",
-        "caller_b": "error VersionMismatch — on-chain version is now 2, not 1"
+        "caller_a": "success - version becomes 2",
+        "caller_b": "error VersionMismatch - on-chain version is now 2, not 1"
       }
     },
     {

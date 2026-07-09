@@ -386,7 +386,7 @@ fn test_index_remove_middle_uses_swap_and_pop() {
     assert!(remaining.contains(id_a.clone()));
     assert!(remaining.contains(id_c.clone()));
     assert!(!remaining.contains(id_b));
-    // The revoked VC payload survives — only the active index is freed.
+    // The revoked VC payload survives - only the active index is freed.
     assert_eq!(client.verify_vc(&id_a), crate::types::VCStatus::Valid);
     assert_eq!(client.verify_vc(&id_c), crate::types::VCStatus::Valid);
 }
@@ -853,8 +853,7 @@ fn test_get_vc_rejects_oversized_vc_id() {
 // --- Event emission tests ---
 //
 // env.events().all() returns events from the last invocation only, so each
-// test calls the entrypoint and asserts the event count immediately —
-// before any other contract call that would clear the event buffer.
+// test calls the entrypoint and asserts the event count immediately - // before any other contract call that would clear the event buffer.
 
 #[test]
 fn test_constructor_emits_contract_initialized_and_vault_created() {

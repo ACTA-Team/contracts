@@ -127,7 +127,7 @@ pub fn remove_vc_from_index(e: &Env, vc_id: &String) {
     if position != last {
         // Normal swap-and-pop moves the last entry into the freed slot.
         // Defensive: if the last slot is somehow missing (corrupt state), clear
-        // the freed slot instead of leaving the removed id there — otherwise it
+        // the freed slot instead of leaving the removed id there - otherwise it
         // becomes a ghost index entry. Never panic on the missing slot.
         match read_vc_id_at(e, last) {
             Some(last_id) => {

@@ -6,7 +6,7 @@ use soroban_sdk::{
 use crate::{storage::VaultInitMeta, VaultFactoryContract, VaultFactoryContractClient};
 
 mod vc_vault {
-    // Use the unoptimized WASM in tests — the optimized variant requires the
+    // Use the unoptimized WASM in tests - the optimized variant requires the
     // `stellar` CLI (wasm-opt) which adds heavy CI dependencies. Soroban's
     // sandbox executes either binary identically.
     soroban_sdk::contractimport!(
@@ -285,8 +285,7 @@ fn test_deploy_sponsored_vault_belongs_to_owner_not_deployer() {
 }
 
 /// Both entrypoints derive the vault address from (owner, salt), so two
-/// different owners reusing the same user salt land on different addresses —
-/// whether deployed via `deploy` or `deploy_sponsored`. (The same-owner +
+/// different owners reusing the same user salt land on different addresses - /// whether deployed via `deploy` or `deploy_sponsored`. (The same-owner +
 /// same-salt collapse to one address can't be asserted here because a second
 /// deploy of the same pair panics with "already exists".)
 #[test]
@@ -441,7 +440,7 @@ fn test_push_cannot_revive_revoked_vc_in_destination() {
     let vc_data = String::from_str(&e, "<data>");
     let issuer_did = String::from_str(&e, "did:issuer");
 
-    // Destination vault B issues then revokes the credential — index entry is
+    // Destination vault B issues then revokes the credential - index entry is
     // dropped but the Revoked status persists.
     vault_b_client.issue(&vc_id, &vc_data, &vault_b, &issuer, &issuer_did);
     vault_b_client.revoke(&vc_id, &String::from_str(&e, "2026-06-03"));
@@ -450,7 +449,7 @@ fn test_push_cannot_revive_revoked_vc_in_destination() {
         vc_vault::VCStatus::Revoked(_)
     ));
 
-    // Source vault A issues the same vc_id (allowed — independent vault) and
+    // Source vault A issues the same vc_id (allowed - independent vault) and
     // pushes to B. This must panic with VCAlreadyExists, not overwrite the
     // revoked status.
     vault_a_client.issue(&vc_id, &vc_data, &vault_a, &issuer, &issuer_did);

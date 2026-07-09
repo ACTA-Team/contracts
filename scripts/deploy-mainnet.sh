@@ -246,7 +246,7 @@ configure_fees() {
 }
 
 print_summary() {
-    step "Deploy summary — record these in docs/deployments/mainnet.md"
+    step "Deploy summary - record these in docs/deployments/mainnet.md"
     say "  did-stellar-registry : $DID_ID"
     say "  vc-vault template    : $VAULT_HASH"
     say "  vc-vault-factory     : $FACTORY_ID"
@@ -254,7 +254,7 @@ print_summary() {
     say "  fee standard / state : $FEE_STANDARD / $EFFECTIVE_FEE_ENABLED"
     if [ "$DRY_RUN" -eq 1 ]; then
         say ""
-        say "  (dry-run — nothing was deployed; values above are placeholders)"
+        say "  (dry-run - nothing was deployed; values above are placeholders)"
     fi
 }
 

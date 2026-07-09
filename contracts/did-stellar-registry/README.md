@@ -28,7 +28,7 @@ All mutations require `controller.require_auth()`. All mutations except `registe
 
 ### Contract-level admin
 
-Two-step admin transfer. Per-DID mutations are NOT admin-gated — the admin role exists for future contract-wide governance only.
+Two-step admin transfer. Per-DID mutations are NOT admin-gated - the admin role exists for future contract-wide governance only.
 
 | Function | Purpose |
 |---|---|
@@ -167,5 +167,5 @@ stellar contract build
 
 - [`did:stellar` v0.1 specification](../../docs/did-spec/did-stellar-v0.1.md)
 - [Test vectors](../../docs/did-spec/test-vectors/vectors.json)
-- W3C DID Core 1.1 — https://www.w3.org/TR/did-1.1/
-- W3C DID Resolution v0.3 — https://www.w3.org/TR/did-resolution/
+- W3C DID Core 1.1 - https://www.w3.org/TR/did-1.1/
+- W3C DID Resolution v0.3 - https://www.w3.org/TR/did-resolution/

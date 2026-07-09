@@ -2,7 +2,7 @@
 
 Soroban smart contract implementing a **single-tenant Verifiable Credential vault** on Stellar. Each holder gets their **own** vault instance (one contract per identity), deployed by [`vc-vault-factory`](../vc-vault-factory/README.md). A vault stores credentials, tracks their issuance status, and handles revocation and cross-vault migration.
 
-> `verify_vc` returns the on-chain **status** of a credential (Valid / Revoked / Invalid). It is a revocation signal only, **not** proof of authenticity — because issuance is open, integrators MUST verify the issuer's signature and resolve the issuer DID off-chain before trusting a credential.
+> `verify_vc` returns the on-chain **status** of a credential (Valid / Revoked / Invalid). It is a revocation signal only, **not** proof of authenticity - because issuance is open, integrators MUST verify the issuer's signature and resolve the issuer DID off-chain before trusting a credential.
 
 ---
 
@@ -107,7 +107,7 @@ All state-changing operations emit a typed `#[contractevent]`.
 | `VaultDidChanged` | `did_uri` | `set_vault_did` |
 | `IssuerDenied` | `issuer` | `deny_issuer` |
 | `IssuerAllowed` | `issuer` | `allow_issuer` |
-| `VaultRevoked` | — | `revoke_vault` |
+| `VaultRevoked` | - | `revoke_vault` |
 | `VCIssued` | `vc_id`, `issuer` | `issue`, `batch_issue`, `receive_push` |
 | `VCRevoked` | `vc_id`, `date` | `revoke` |
 | `VCPushed` | `vc_id`, `dest_vault` | `push` |
@@ -119,7 +119,7 @@ All state-changing operations emit a typed `#[contractevent]`.
 ```rust
 pub struct VerifiableCredential {
     pub id: String,
-    pub data: String,          // ciphertext only — never store plaintext PII
+    pub data: String,          // ciphertext only - never store plaintext PII
     pub issuance_contract: Address,
     pub issuer_did: String,
 }
@@ -141,7 +141,7 @@ Single-tenant: keys are **not** namespaced by owner. Instance storage holds the 
 
 ## Build & deploy
 
-Since v0.4.0 the vault is a **template**: it is not deployed standalone — the factory instantiates vaults. To publish the template:
+Since v0.4.0 the vault is a **template**: it is not deployed standalone - the factory instantiates vaults. To publish the template:
 
 ```sh
 ./scripts/build.sh vc-vault                 # optimized WASM

@@ -76,8 +76,7 @@ pub fn write_record(e: &Env, did_id: &BytesN<16>, record: &DidRecord) {
 }
 
 // --- Admin (instance storage) -----------------------------------------------
-// The admin lives in instance storage so it shares the contract's lifetime —
-// every contract invocation that touches admin extends the TTL via
+// The admin lives in instance storage so it shares the contract's lifetime - // every contract invocation that touches admin extends the TTL via
 // `extend_instance`. The proposed admin uses temporary storage so an
 // unaccepted nomination auto-expires; this bounds the time window during
 // which a stale proposal could be accepted.
@@ -89,7 +88,7 @@ pub fn extend_instance(e: &Env) {
         .extend_ttl(LEDGER_THRESHOLD_INSTANCE, LEDGER_BUMP_INSTANCE);
 }
 
-/// Read the current admin. Panics if no admin is set — callers must ensure
+/// Read the current admin. Panics if no admin is set - callers must ensure
 /// the constructor has run before calling this. In practice the constructor
 /// is always invoked at deploy time, so this invariant always holds.
 pub fn get_admin(e: &Env) -> Address {

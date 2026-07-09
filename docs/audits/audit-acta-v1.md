@@ -1,4 +1,4 @@
-# Security Audit Report — vc-vault Contract
+# Security Audit Report - vc-vault Contract
 
 | | |
 |---|---|
@@ -8,7 +8,7 @@
 | **SDK** | `soroban-sdk 23.4.0` |
 | **Branch** | `feat/audit-vc-vault-contract` |
 | **Audit Date** | February 2026 |
-| **Status** | Completed — fixes applied in-branch |
+| **Status** | Completed - fixes applied in-branch |
 
 ---
 
@@ -31,7 +31,7 @@ This document presents the results of a security review of the `vc-vault` smart 
 
 The audit identified **24 findings** across High, Medium, and Low severity levels. Three findings are classified as **High severity**, all of which have been resolved. The most critical was a cross-vault namespace collision attack (A-17) that allowed any issuer to overwrite or reset the revocation status of any credential on the network by reusing a known `vc_id`.
 
-Five additional findings (A-22 through A-26) were discovered after the initial review through coverage-guided fuzzing and automated analysis. A-22 through A-24 stem from `push` not clearing the `VCStatus` entry in the source vault. A-25 and A-26 are complementary gaps in the destination vault: A-25 — `push` did not write the status for the recipient; A-26 — the unconditional status write introduced by the A-25 fix could overwrite an existing revoked status, allowing a credential revocation to be silently undone.
+Five additional findings (A-22 through A-26) were discovered after the initial review through coverage-guided fuzzing and automated analysis. A-22 through A-24 stem from `push` not clearing the `VCStatus` entry in the source vault. A-25 and A-26 are complementary gaps in the destination vault: A-25 - `push` did not write the status for the recipient; A-26 - the unconditional status write introduced by the A-25 fix could overwrite an existing revoked status, allowing a credential revocation to be silently undone.
 
 Of the 24 findings, **23 have been fixed** and **1 has been left out of scope** with documented rationale.
 
@@ -110,20 +110,20 @@ Run a target with: `cargo fuzz run fuzz_lifecycle` from `contracts/vc-vault/`.
 | ID | Title | Severity | Status |
 |---|---|---|---|
 | A-01 | Bootstrap side-effect in `create_vault` | High | Fixed |
-| A-02 | Fee tier system is dead code | Medium | Out of scope — left intentionally |
+| A-02 | Fee tier system is dead code | Medium | Out of scope - left intentionally |
 | A-03 | `FeeCustom(Address)` in instance storage | Medium | Fixed |
 | A-04 | `verify_vc` returns untyped `Map<String, String>` | Medium | Fixed |
 | A-05 | Denied list not cleared on manual re-authorization | Low | Fixed |
 | A-06 | `validate_vault_initialized` called twice per operation | Low | Fixed |
 | A-07 | No events emitted | Medium | Fixed |
-| A-09 | Tests use `mock_all_auths()` — auth never exercised | Medium | Fixed |
+| A-09 | Tests use `mock_all_auths()` - auth never exercised | Medium | Fixed |
 | A-10 | `VaultIssuers` is an unbounded Vec with linear search | Low | Fixed |
 | A-11 | Re-issuing an existing `vc_id` resets revocation | High | Fixed |
 | A-13 | `set_contract_admin` is a one-step transfer | Low | Fixed |
 | A-14 | `default_issuer_did` written but never read | Low | Fixed |
 | A-15 | `read_legacy_issuance_revocations` panics if map absent | Low | Fixed |
 | A-16 | `SponsoredVaultSponsors` unbounded Vec in instance storage | Low | Fixed |
-| A-17 | `VCStatus` lacks namespace — cross-vault collision attack | High | Fixed |
+| A-17 | `VCStatus` lacks namespace - cross-vault collision attack | High | Fixed |
 | A-18 | `build.sh` has no fail-fast | Medium | Fixed |
 | A-19 | Hard-coded TTL constants may exceed network limits | Medium | Fixed |
 | A-20 | `release.sh` suppresses errors with `\|\| true` | Low | Fixed |
@@ -141,7 +141,7 @@ Run a target with: `cargo fuzz run fuzz_lifecycle` from `contracts/vc-vault/`.
 
 ---
 
-### A-01 — Bootstrap side-effect in `create_vault` [HIGH] — Fixed
+### A-01 - Bootstrap side-effect in `create_vault` [HIGH] - Fixed
 
 **Location:** `contract.rs`
 
@@ -172,13 +172,13 @@ The bootstrap block was removed. `create_vault` now panics with `NotInitialized`
 
 ---
 
-### A-03 — `FeeCustom(Address)` in instance storage [MEDIUM] — Fixed
+### A-03 - `FeeCustom(Address)` in instance storage [MEDIUM] - Fixed
 
 **Location:** `storage/mod.rs`
 
 **Description:**
 
-`FeeCustom(Address)` entries were stored in instance storage. Instance storage has a fixed-size budget on Soroban. Each per-issuer custom fee entry consumed instance space, and a sufficiently large number of custom fee issuers would exhaust the budget, causing all instance reads and writes — including `ContractAdmin` and `FeeEnabled` — to fail.
+`FeeCustom(Address)` entries were stored in instance storage. Instance storage has a fixed-size budget on Soroban. Each per-issuer custom fee entry consumed instance space, and a sufficiently large number of custom fee issuers would exhaust the budget, causing all instance reads and writes - including `ContractAdmin` and `FeeEnabled` - to fail.
 
 **Impact:**
 
@@ -190,7 +190,7 @@ Denial of service on all contract operations in a scenario with many issuers, tr
 
 ---
 
-### A-04 — `verify_vc` returns untyped `Map<String, String>` [MEDIUM] — Fixed
+### A-04 - `verify_vc` returns untyped `Map<String, String>` [MEDIUM] - Fixed
 
 **Location:** `api/mod.rs`, `contract.rs`
 
@@ -204,11 +204,11 @@ No direct security risk. SDK consumers are exposed to untyped data, increasing t
 
 **Resolution:**
 
-`verify_vc` now returns `VCStatus` directly — `Valid`, `Invalid`, or `Revoked(date: String)`. The `issuance_status_to_map` helper was removed. Cross-contract invocations through external issuance contracts now also expect `VCStatus`. The `#[derive(Debug)]` derive was added to `VCStatus` to support `assert_eq!` in tests.
+`verify_vc` now returns `VCStatus` directly - `Valid`, `Invalid`, or `Revoked(date: String)`. The `issuance_status_to_map` helper was removed. Cross-contract invocations through external issuance contracts now also expect `VCStatus`. The `#[derive(Debug)]` derive was added to `VCStatus` to support `assert_eq!` in tests.
 
 ---
 
-### A-05 — Denied list not cleared on manual re-authorization [LOW] — Fixed
+### A-05 - Denied list not cleared on manual re-authorization [LOW] - Fixed
 
 **Location:** `vault/issuer.rs`
 
@@ -226,7 +226,7 @@ Inconsistent authorization state. A vault admin who revokes an issuer and later 
 
 ---
 
-### A-06 — `validate_vault_initialized` called twice per operation [LOW] — Fixed
+### A-06 - `validate_vault_initialized` called twice per operation [LOW] - Fixed
 
 **Location:** `contract.rs`
 
@@ -244,7 +244,7 @@ Redundant explicit calls to `validate_vault_initialized` were removed from `push
 
 ---
 
-### A-07 — No events emitted [MEDIUM] — Fixed
+### A-07 - No events emitted [MEDIUM] - Fixed
 
 **Location:** `contract.rs`, new module `src/events/mod.rs`
 
@@ -272,7 +272,7 @@ A dedicated `events` module was created using the `#[contractevent]` macro (soro
 
 ---
 
-### A-09 — Tests use `mock_all_auths()` — auth never exercised [MEDIUM] — Fixed
+### A-09 - Tests use `mock_all_auths()` - auth never exercised [MEDIUM] - Fixed
 
 **Location:** `test.rs`
 
@@ -296,7 +296,7 @@ A `setup_no_mock()` helper was added (identical to `setup()` but without `mock_a
 
 ---
 
-### A-10 — `VaultIssuers` is an unbounded Vec with linear search [LOW] — Fixed
+### A-10 - `VaultIssuers` is an unbounded Vec with linear search [LOW] - Fixed
 
 **Location:** `storage/mod.rs`, `vault/issuer.rs`
 
@@ -314,7 +314,7 @@ A documentation comment was added to the issuer storage functions establishing t
 
 ---
 
-### A-11 — Re-issuing an existing `vc_id` resets revocation [HIGH] — Fixed
+### A-11 - Re-issuing an existing `vc_id` resets revocation [HIGH] - Fixed
 
 **Location:** `contract.rs`, `vault/credential.rs`
 
@@ -337,7 +337,7 @@ An issuer could unilaterally un-revoke any previously revoked credential by re-i
 
 ---
 
-### A-13 — `set_contract_admin` is a one-step transfer [LOW] — Fixed
+### A-13 - `set_contract_admin` is a one-step transfer [LOW] - Fixed
 
 **Location:** `contract.rs`, `api/mod.rs`
 
@@ -353,14 +353,14 @@ Accidental permanent loss of the contract admin role. No exploit path by a third
 
 `set_contract_admin` was replaced with a two-step transfer:
 
-1. `nominate_admin(new_admin)` — current admin signs; writes `new_admin` to `DataKey::PendingAdmin`.
-2. `accept_contract_admin()` — `new_admin` signs; promotes `PendingAdmin` to `ContractAdmin` and clears the pending entry.
+1. `nominate_admin(new_admin)` - current admin signs; writes `new_admin` to `DataKey::PendingAdmin`.
+2. `accept_contract_admin()` - `new_admin` signs; promotes `PendingAdmin` to `ContractAdmin` and clears the pending entry.
 
 If `accept_contract_admin` is called with no pending nomination, the contract panics with `NoPendingAdmin` (error `13`). An accidental nomination to an inaccessible address is recoverable by nominating a different address before the transfer is accepted.
 
 ---
 
-### A-14 — `default_issuer_did` written but never read [LOW] — Fixed
+### A-14 - `default_issuer_did` written but never read [LOW] - Fixed
 
 **Location:** `contract.rs`, `storage/mod.rs`
 
@@ -378,7 +378,7 @@ The `default_issuer_did` parameter was removed from `initialize`. `DataKey::Defa
 
 ---
 
-### A-15 — `read_legacy_issuance_revocations` panics if map is absent [LOW] — Fixed
+### A-15 - `read_legacy_issuance_revocations` panics if map is absent [LOW] - Fixed
 
 **Location:** `storage/mod.rs`
 
@@ -402,7 +402,7 @@ Replaced `.unwrap()` with `.unwrap_or_else(|| Map::new(e))`. An absent revocatio
 
 ---
 
-### A-16 — `SponsoredVaultSponsors` unbounded Vec in instance storage [LOW] — Fixed
+### A-16 - `SponsoredVaultSponsors` unbounded Vec in instance storage [LOW] - Fixed
 
 **Location:** `storage/mod.rs`
 
@@ -420,7 +420,7 @@ The `SponsoredVaultSponsors` Vec was replaced with individual persistent storage
 
 ---
 
-### A-17 — `VCStatus` lacks namespace — cross-vault collision attack [HIGH] — Fixed
+### A-17 - `VCStatus` lacks namespace - cross-vault collision attack [HIGH] - Fixed
 
 **Location:** `storage/mod.rs`, `contract.rs`
 
@@ -440,7 +440,7 @@ Because `issue` always writes `VCStatus(vc_id, Valid)` and `VCOwner(vc_id, owner
 2. Attacker learns `"vc-42"` from `list_vc_ids(victim)`.
 3. Attacker calls `issue(attacker_vault, "vc-42", ...)` in their own vault → `VCStatus("vc-42")` is overwritten to `Valid`.
 4. `verify_vc(victim, "vc-42")` now returns `"valid"`.
-5. `VCOwner("vc-42")` now points to the attacker — the attacker controls future revocation of `"vc-42"` in the victim's vault.
+5. `VCOwner("vc-42")` now points to the attacker - the attacker controls future revocation of `"vc-42"` in the victim's vault.
 
 **Impact:**
 
@@ -448,11 +448,11 @@ Critical. Any revocation can be silently reversed by an external party. Attacker
 
 **Resolution:**
 
-`DataKey::VCStatus` changed from `VCStatus(String)` to `VCStatus(Address, String)` — scoped by `(owner, vc_id)`. `DataKey::VCOwner` was removed entirely; the `revoke` function now takes an explicit `owner: Address` parameter. All read/write callsites were updated. The `verify_vc` function was updated to pass the owner when reading status for locally-issued credentials.
+`DataKey::VCStatus` changed from `VCStatus(String)` to `VCStatus(Address, String)` - scoped by `(owner, vc_id)`. `DataKey::VCOwner` was removed entirely; the `revoke` function now takes an explicit `owner: Address` parameter. All read/write callsites were updated. The `verify_vc` function was updated to pass the owner when reading status for locally-issued credentials.
 
 ---
 
-### A-18 — `build.sh` has no fail-fast [MEDIUM] — Fixed
+### A-18 - `build.sh` has no fail-fast [MEDIUM] - Fixed
 
 **Location:** `scripts/build.sh`
 
@@ -470,7 +470,7 @@ A developer with a compilation error could silently deploy an outdated contract 
 
 ---
 
-### A-19 — Hard-coded TTL constants may exceed network limits [MEDIUM] — Fixed
+### A-19 - Hard-coded TTL constants may exceed network limits [MEDIUM] - Fixed
 
 **Location:** `storage/mod.rs`
 
@@ -483,7 +483,7 @@ const PERSISTENT_TTL_THRESHOLD: u32 = 30_000_000;
 const PERSISTENT_TTL_EXTEND_TO: u32 = 31_536_000;
 ```
 
-The `extend_to` values were set at the presumed mainnet maximum. If the target network's `max_entry_ttl` was lower than these constants — as is the case on some testnets and private networks — every `extend_ttl` call would deterministically fail, causing all entrypoints that touch storage to trap.
+The `extend_to` values were set at the presumed mainnet maximum. If the target network's `max_entry_ttl` was lower than these constants - as is the case on some testnets and private networks - every `extend_ttl` call would deterministically fail, causing all entrypoints that touch storage to trap.
 
 **Impact:**
 
@@ -497,7 +497,7 @@ Constants reduced to values safely within all known network limits:
 
 ---
 
-### A-20 — `release.sh` suppresses errors with `|| true` [LOW] — Fixed
+### A-20 - `release.sh` suppresses errors with `|| true` [LOW] - Fixed
 
 **Location:** `scripts/release.sh`
 
@@ -532,7 +532,7 @@ stellar keys show vc_vault_admin 2>/dev/null || \
 
 ---
 
-### A-21 — `authorize_issuers` allows duplicates; `revoke_issuer` removes only first occurrence [LOW] — Fixed
+### A-21 - `authorize_issuers` allows duplicates; `revoke_issuer` removes only first occurrence [LOW] - Fixed
 
 **Location:** `vault/issuer.rs`
 
@@ -552,11 +552,11 @@ An issuer could remain authorized after an explicit revocation if duplicates wer
 
 ---
 
-### A-22 — `issue` allows re-issuance of a `vc_id` after `push` [MEDIUM] — Fixed
+### A-22 - `issue` allows re-issuance of a `vc_id` after `push` [MEDIUM] - Fixed
 
-**Location:** `contract.rs` — `issue`
+**Location:** `contract.rs` - `issue`
 
-**Discovered by:** `fuzz_lifecycle` — sequence `Issue → Push → Issue (same vc_id)`
+**Discovered by:** `fuzz_lifecycle` - sequence `Issue → Push → Issue (same vc_id)`
 
 **Description:**
 
@@ -590,11 +590,11 @@ if storage::read_vault_vc(&e, &owner, &vc_id).is_some()
 
 ---
 
-### A-23 — `revoke` operates on a `vc_id` that was pushed to another vault [LOW] — Fixed
+### A-23 - `revoke` operates on a `vc_id` that was pushed to another vault [LOW] - Fixed
 
-**Location:** `contract.rs` — `revoke`
+**Location:** `contract.rs` - `revoke`
 
-**Discovered by:** `fuzz_lifecycle` — sequence `Issue → Push → Revoke (same vc_id, source vault)`
+**Discovered by:** `fuzz_lifecycle` - sequence `Issue → Push → Revoke (same vc_id, source vault)`
 
 **Description:**
 
@@ -628,11 +628,11 @@ A regression test `test_revoke_after_push_panics` was added.
 
 ---
 
-### A-24 — `push` allows moving a revoked credential [LOW] — Fixed
+### A-24 - `push` allows moving a revoked credential [LOW] - Fixed
 
-**Location:** `contract.rs` — `push`
+**Location:** `contract.rs` - `push`
 
-**Discovered by:** `fuzz_lifecycle` — sequence `Issue → Revoke → Push`
+**Discovered by:** `fuzz_lifecycle` - sequence `Issue → Revoke → Push`
 
 **Description:**
 
@@ -644,7 +644,7 @@ if vc_opt.is_none() {
 }
 ```
 
-No check was performed on the credential's status. A revoked credential — one that had been explicitly invalidated — could be transferred to a destination vault. The destination vault would then contain the VC payload but with no associated status (defaulting to `Invalid`), since `push` does not transfer the `VCStatus` entry.
+No check was performed on the credential's status. A revoked credential - one that had been explicitly invalidated - could be transferred to a destination vault. The destination vault would then contain the VC payload but with no associated status (defaulting to `Invalid`), since `push` does not transfer the `VCStatus` entry.
 
 **Impact:**
 
@@ -664,9 +664,9 @@ A regression test `test_push_revoked_vc_panics` was added.
 
 ---
 
-### A-25 — `push` does not write `VCStatus` in destination vault [MEDIUM] — Fixed
+### A-25 - `push` does not write `VCStatus` in destination vault [MEDIUM] - Fixed
 
-**Location:** `contract.rs` — `push`
+**Location:** `contract.rs` - `push`
 
 **Discovered by:** Almanax automated analysis
 
@@ -682,8 +682,8 @@ storage::append_vault_vc_id(&e, &to_owner, &vc_id);         // ID list ✓
 
 `read_vc_status` returns `VCStatus::Invalid` when the key is absent (`unwrap_or(Invalid)`). As a result:
 
-- `verify_vc(to_owner, vc_id)` finds the payload, reads the missing status, and returns `Invalid` — the recipient cannot verify that their credential is valid.
-- `revoke(to_owner, vc_id)` checks `VCStatus != Valid`, which is true, and panics with `VCNotFound` — the recipient cannot revoke a credential they own.
+- `verify_vc(to_owner, vc_id)` finds the payload, reads the missing status, and returns `Invalid` - the recipient cannot verify that their credential is valid.
+- `revoke(to_owner, vc_id)` checks `VCStatus != Valid`, which is true, and panics with `VCNotFound` - the recipient cannot revoke a credential they own.
 - A second `push` from `to_owner` also fails on the same status guard.
 
 **Impact:**
@@ -704,22 +704,22 @@ Two regression tests were added: `test_verify_vc_valid_after_push_on_destination
 
 ---
 
-### A-26 — `push` overwrites existing revoked status in destination vault [MEDIUM] — Fixed
+### A-26 - `push` overwrites existing revoked status in destination vault [MEDIUM] - Fixed
 
-**Location:** `contract.rs` — `push`
+**Location:** `contract.rs` - `push`
 
 **Discovered by:** Almanax automated analysis
 
 **Description:**
 
-The fix for A-25 introduced an unconditional `write_vc_status(to_owner, vc_id, Valid)`. This write has no precondition on what is already stored under `(to_owner, vc_id)`. If the destination vault already has a history for that `vc_id` — for example, a credential that was issued directly to `to_owner` and then revoked — the push silently overwrites the `Revoked` status with `Valid`.
+The fix for A-25 introduced an unconditional `write_vc_status(to_owner, vc_id, Valid)`. This write has no precondition on what is already stored under `(to_owner, vc_id)`. If the destination vault already has a history for that `vc_id` - for example, a credential that was issued directly to `to_owner` and then revoked - the push silently overwrites the `Revoked` status with `Valid`.
 
 Attack sequence:
 1. `to_owner` has `vc-123` issued to their vault and revokes it → `VCStatus(to_owner, vc-123) = Revoked`.
 2. An adversary issues their own `vc-123` to their vault → `VCStatus(attacker, vc-123) = Valid`.
 3. The adversary calls `push(attacker, to_owner, vc-123)`.
 4. `push` writes `VCStatus(to_owner, vc-123) = Valid`, overwriting the `Revoked` entry.
-5. `verify_vc(to_owner, vc-123)` now returns `Valid` — the revocation was undone without `to_owner`'s consent.
+5. `verify_vc(to_owner, vc-123)` now returns `Valid` - the revocation was undone without `to_owner`'s consent.
 
 **Impact:**
 
@@ -747,7 +747,7 @@ The following findings were reviewed and acknowledged as intentional behavior. N
 
 ---
 
-### A-02 — Fee tier system is dead code [MEDIUM] — Out of scope
+### A-02 - Fee tier system is dead code [MEDIUM] - Out of scope
 
 Reviewed and left intentionally. The fee tier system (`FeeAdmin`, `FeeStandard`, `FeeEarly`) is reserved for a future billing model, poses no direct security risk in its current state, and was explicitly excluded from the scope of this audit.
 
@@ -755,15 +755,15 @@ Reviewed and left intentionally. The fee tier system (`FeeAdmin`, `FeeStandard`,
 
 ## 8. Conclusion
 
-The `vc-vault` contract implements a well-structured Verifiable Credential lifecycle system on Soroban. The audit identified three High severity issues, all of which have been addressed. The most critical — a cross-vault namespace collision (A-17) that allowed any issuer to reverse any revocation on the network — was remediated by namespacing the `VCStatus` key with the vault owner address.
+The `vc-vault` contract implements a well-structured Verifiable Credential lifecycle system on Soroban. The audit identified three High severity issues, all of which have been addressed. The most critical - a cross-vault namespace collision (A-17) that allowed any issuer to reverse any revocation on the network - was remediated by namespacing the `VCStatus` key with the vault owner address.
 
-Five additional findings (A-22 through A-26) were discovered post-review through coverage-guided fuzzing and automated analysis. A-22 through A-24 shared a common root: `push` removed the VC payload from the source vault but left the `VCStatus` entry intact, creating inconsistent state exploitable by subsequent `issue`, `revoke`, and `push` calls. A-25 and A-26 are complementary gaps in the destination vault: A-25 — `push` never wrote the status for the recipient; A-26 — the unconditional status write introduced by the A-25 fix could overwrite an existing revoked status, allowing a revocation to be silently undone. All five have been fixed.
+Five additional findings (A-22 through A-26) were discovered post-review through coverage-guided fuzzing and automated analysis. A-22 through A-24 shared a common root: `push` removed the VC payload from the source vault but left the `VCStatus` entry intact, creating inconsistent state exploitable by subsequent `issue`, `revoke`, and `push` calls. A-25 and A-26 are complementary gaps in the destination vault: A-25 - `push` never wrote the status for the recipient; A-26 - the unconditional status write introduced by the A-25 fix could overwrite an existing revoked status, allowing a revocation to be silently undone. All five have been fixed.
 
 Following the applied fixes, the contract's key security properties hold:
 
 - **Vault isolation:** Storage keys for vault metadata, VC payloads, and VC status are all scoped by the vault owner address. Operations on one vault cannot affect another.
 - **Authorization integrity:** Admin-only, vault-admin-only, and issuer-only functions are protected by `require_auth()` guards, confirmed by targeted authorization tests.
-- **VC lifecycle integrity:** Issued credential IDs are unique per vault and per identity space — re-issuance is blocked even after a credential is pushed to another vault. Revocation is permanent. Only Valid credentials can be pushed or revoked.
+- **VC lifecycle integrity:** Issued credential IDs are unique per vault and per identity space - re-issuance is blocked even after a credential is pushed to another vault. Revocation is permanent. Only Valid credentials can be pushed or revoked.
 - **Observability:** All key state transitions emit on-chain events indexable by third-party tools.
 - **Storage safety:** Instance storage contains only global singleton values. Per-issuer and per-sponsor data uses persistent storage with individual keys.
 

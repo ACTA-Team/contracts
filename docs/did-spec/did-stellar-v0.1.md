@@ -2,10 +2,10 @@
 
 ## Document Status
 
-- **Status:** Draft v0.1 — public spec candidate
+- **Status:** Draft v0.1 - public spec candidate
 - **Method:** `did:stellar`
 - **Canonical repository:** [ACTA-Team/contracts-acta](https://github.com/ACTA-Team/contracts-acta)
-- **Reference implementation:** [ACTA-Team/did-stellar](https://github.com/ACTA-Team/did-stellar) — TypeScript SDK [`@acta-team/did-stellar`](https://www.npmjs.com/package/@acta-team/did-stellar) + hosted HTTP resolver [`did.acta.build`](https://did.acta.build) (§5.8)
+- **Reference implementation:** [ACTA-Team/did-stellar](https://github.com/ACTA-Team/did-stellar) - TypeScript SDK [`@acta-team/did-stellar`](https://www.npmjs.com/package/@acta-team/did-stellar) + hosted HTTP resolver [`did.acta.build`](https://did.acta.build) (§5.8)
 - **Networks:** `mainnet`, `testnet`
 - **Last updated:** 2026-07-03
 - **Conforms to:** [W3C DID Core 1.1](https://www.w3.org/TR/did-1.1/)
@@ -14,8 +14,8 @@
 
 ## Abstract
 
-In one sentence: a `did:stellar` is an identifier you control yourself — not an
-account issued by a company — anchored on the Stellar network.
+In one sentence: a `did:stellar` is an identifier you control yourself - not an
+account issued by a company - anchored on the Stellar network.
 
 `did:stellar` is a [Decentralized Identifier (DID)](https://www.w3.org/TR/did-1.1/#x1-introduction)
 method for the Stellar network. An identity is materialized as an opaque 128-bit
@@ -33,18 +33,18 @@ is unfamiliar.
 | Term | Definition |
 |---|---|
 | **[DID](https://www.w3.org/TR/did-1.1/#x1-introduction)** | Decentralized Identifier. A globally unique identifier (e.g. `did:stellar:testnet:bk7q…`) that resolves to a DID Document and is controlled by its subject, not by a central registrar. |
-| **[DID Document](https://www.w3.org/TR/did-1.1/#x4-data-model)** | The JSON-LD document a DID resolves to. Lists the subject's public keys and services — a cryptographic "business card". |
+| **[DID Document](https://www.w3.org/TR/did-1.1/#x4-data-model)** | The JSON-LD document a DID resolves to. Lists the subject's public keys and services - a cryptographic "business card". |
 | **[DID URL](https://www.w3.org/TR/did-1.1/#x3-2-did-url-syntax)** / **[fragment](https://www.w3.org/TR/did-1.1/#fragment)** | A DID followed by a `#fragment` (e.g. `…#auth-1`) that points at one entry *inside* the DID Document. The fragment is not part of the DID itself. |
 | **[verificationMethod](https://www.w3.org/TR/did-1.1/#x5-2-verification-methods)** | A public key entry in the DID Document. |
-| **[verification relationship](https://www.w3.org/TR/did-1.1/#x5-3-verification-relationships)** | *How* a key may be used. This method publishes three: `authentication` (proving you control the DID — e.g. login), `assertionMethod` (signing credentials as an issuer), and `keyAgreement` (deriving keys to encrypt *to* the subject). |
+| **[verification relationship](https://www.w3.org/TR/did-1.1/#x5-3-verification-relationships)** | *How* a key may be used. This method publishes three: `authentication` (proving you control the DID - e.g. login), `assertionMethod` (signing credentials as an issuer), and `keyAgreement` (deriving keys to encrypt *to* the subject). |
 | **[service](https://www.w3.org/TR/did-1.1/#x5-4-services)** | A network endpoint advertised in the DID Document (e.g. a credential issuer URL). |
 | **[Multikey](https://www.w3.org/TR/cid-1.0/#x2-2-2-multikey)** / **[multibase](https://www.w3.org/TR/cid-1.0/#multibase)** | Encodings for public keys. Multikey prefixes the raw key with a code identifying its algorithm, so the value is self-describing; multibase prefixes a string with a code identifying its base (here base58btc → `z…`). |
-| **Controller account** | Classic Stellar account (`G...`) that authorizes on-chain mutations of a DID. On-chain control mechanism only — NOT the W3C DID-Document `controller` property (see §5.3). |
+| **Controller account** | Classic Stellar account (`G...`) that authorizes on-chain mutations of a DID. On-chain control mechanism only - NOT the W3C DID-Document `controller` property (see §5.3). |
 | **DidRecord** | On-chain structure holding the current state of a DID (defined in [`model.rs`](../../contracts/did-stellar-registry/src/model.rs)). |
 | **didId** | Opaque 128-bit identifier. Stored on-chain as 16 raw bytes; rendered everywhere else as base32 lowercase, exactly 26 characters (§2.3). |
 | **Registry contract** | Canonical Soroban contract maintaining the authoritative state of all DIDs on a given network ([`did-stellar-registry`](../../contracts/did-stellar-registry/README.md)). |
 | **Resolver SDK** | The reference TypeScript implementation of this method, [`@acta-team/did-stellar`](https://www.npmjs.com/package/@acta-team/did-stellar): DID resolution, identifier/Multikey utilities, prepare/submit transaction helpers, and proof-of-control helpers (§5.8.1). |
-| **HTTP resolver API** | Hosted, no-auth HTTP service ([`did.acta.build`](https://did.acta.build)) that wraps the resolver SDK and exposes resolution plus lifecycle endpoints (§5.8.2). A convenience wrapper — not a trusted party of the method. |
+| **HTTP resolver API** | Hosted, no-auth HTTP service ([`did.acta.build`](https://did.acta.build)) that wraps the resolver SDK and exposes resolution plus lifecycle endpoints (§5.8.2). A convenience wrapper - not a trusted party of the method. |
 | **[Universal Resolver](https://github.com/decentralized-identity/universal-resolver)** | DIF's standard HTTP interface for resolving DIDs of any method (`GET /1.0/identifiers/{did}`). The HTTP resolver API implements this interface. |
 | **Tombstone document** | DID Document produced for a deactivated DID; contains empty cryptographic arrays (Annex A.3). |
 
@@ -101,7 +101,7 @@ flowchart LR
 |---|---|
 | **Wallet** | Any classic Stellar account (`G...`) capable of signing Soroban transactions. Authorizes on-chain mutations. |
 | **Client SDK** | Library that prepares Soroban transactions for the four mutation operations and assembles `DidRecord` payloads. The reference implementation is [`@acta-team/did-stellar`](https://www.npmjs.com/package/@acta-team/did-stellar) (§5.8.1). |
-| **HTTP resolver API** | Optional hosted service ([`did.acta.build`](https://did.acta.build), §5.8.2) exposing resolution and lifecycle endpoints over HTTP. It never holds keys and can be replaced by direct RPC reads — it is not a trusted party. |
+| **HTTP resolver API** | Optional hosted service ([`did.acta.build`](https://did.acta.build), §5.8.2) exposing resolution and lifecycle endpoints over HTTP. It never holds keys and can be replaced by direct RPC reads - it is not a trusted party. |
 | **Registry contract** | Canonical Soroban contract per network. Single source of truth for DID state. |
 | **Verifier / Issuer / Integrator** | Any consumer of the DID. Reads current state directly from Stellar RPC. None has a privileged role within the method. |
 | **Contract admin** | Address set at deployment. Can transfer the contract-level admin role through a two-step process. It does **not** authorize, block, or override per-DID mutations in v0.1. |
@@ -144,7 +144,7 @@ Both `network` and `didId` components are always lowercase. The full DID MUST ma
 4. The 26-character `didId` is the base32 encoding; the 16 raw bytes are stored on-chain as `BytesN<16>` to minimize storage rent.
 5. If the registry contract rejects registration due to a collision, the client retries with fresh random bytes.
 
-> **One value, two shapes — where each lives.** The DID has a single identity in
+> **One value, two shapes - where each lives.** The DID has a single identity in
 > two encodings. Keep them straight:
 >
 > ```
@@ -186,7 +186,7 @@ bytes conversion is handled by the client SDK.
 
 The three key collections map to W3C
 [verification relationships](https://www.w3.org/TR/did-1.1/#x5-3-verification-relationships)
-— each says *what a key is allowed to do*:
+- each says *what a key is allowed to do*:
 
 | Field | Purpose | Count |
 |---|---|---|
@@ -236,7 +236,7 @@ pub struct DidRecord {
 | `key_agreement.len()` | 0–1. |
 | `services.len()` | 0–3. |
 | `public_key_multibase` | Non-empty, 1–128 characters. No duplicate keys within the same relationship. |
-| `service.id_suffix` | 1–32 characters, non-empty. MUST match `^[a-z0-9][a-z0-9-]*[a-z0-9]$` (or a single `[a-z0-9]` char): lowercase ASCII letters, digits, and interior hyphens only — **leading and trailing hyphens are rejected**. MUST be unique across all services in the record. |
+| `service.id_suffix` | 1–32 characters, non-empty. MUST match `^[a-z0-9][a-z0-9-]*[a-z0-9]$` (or a single `[a-z0-9]` char): lowercase ASCII letters, digits, and interior hyphens only - **leading and trailing hyphens are rejected**. MUST be unique across all services in the record. |
 | `service.service_type` | 1–64 characters, non-empty. |
 | `service.service_endpoint` | Absolute HTTPS URL (`https://`), maximum 255 characters. |
 | `metadata_uri` | If present: absolute HTTPS URL, maximum 255 characters. |
@@ -361,13 +361,13 @@ This section is the normative reference for the four DID lifecycle operations:
 mutation follows the same internal contract pipeline:
 
 ```
-1. Load        — read the current DidRecord (all ops except register).
-2. Guard       — reject if deactivated; reject if expected_version is stale;
+1. Load - read the current DidRecord (all ops except register).
+2. Guard - reject if deactivated; reject if expected_version is stale;
                  reject if version would overflow.
-3. Authorize   — controller.require_auth() (the relevant controller).
-4. Validate    — re-check the full payload against §3.3 (register, update).
-5. Write       — persist the new DidRecord and extend its storage TTL.
-6. Emit        — publish the typed event for that operation (§4.5).
+3. Authorize - controller.require_auth() (the relevant controller).
+4. Validate - re-check the full payload against §3.3 (register, update).
+5. Write - persist the new DidRecord and extend its storage TTL.
+6. Emit - publish the typed event for that operation (§4.5).
 ```
 
 Three invariants hold across **all** operations and are enforced by the
@@ -376,7 +376,7 @@ contract regardless of caller input:
 - **The contract owns the bookkeeping fields.** `version`, `created_ledger`,
   `updated_ledger`, and `deactivated` are always computed on-chain. Any value a
   caller places in these fields of a submitted `DidRecord` is **ignored and
-  overwritten** — never trusted.
+  overwritten** - never trusted.
 - **`created_ledger` is immutable.** It is set once at `register` and copied
   forward unchanged by every later mutation.
 - **`version` is monotonic.** It starts at `1` and increments by exactly `1` on
@@ -392,7 +392,7 @@ contract regardless of caller input:
 
 ---
 
-#### 4.4.1 `register` — create a DID
+#### 4.4.1 `register` - create a DID
 
 `register(did_id: BytesN<16>, initial_record: DidRecord)`
 
@@ -418,7 +418,7 @@ fn register(e: Env, did_id: BytesN<16>, initial_record: DidRecord) {
     initial_record.controller.require_auth();
     validate_record(&e, &initial_record);
 
-    // Bookkeeping fields are forced — whatever the caller passed is ignored.
+    // Bookkeeping fields are forced - whatever the caller passed is ignored.
     let current_ledger = e.ledger().sequence();
     let record = DidRecord {
         controller: initial_record.controller.clone(),
@@ -459,7 +459,7 @@ fn register(e: Env, did_id: BytesN<16>, initial_record: DidRecord) {
 
 ---
 
-#### 4.4.2 `update` — rotate keys, change services or metadata
+#### 4.4.2 `update` - rotate keys, change services or metadata
 
 `update(did_id: BytesN<16>, expected_version: u32, next_record: DidRecord)`
 
@@ -469,19 +469,19 @@ keys, editing services, and changing off-chain metadata pointers.
 
 | Aspect | Behavior |
 |---|---|
-| **Authorizes** | The **current** `controller` (`require_auth()`), read from on-chain state — not the controller field of `next_record`. |
+| **Authorizes** | The **current** `controller` (`require_auth()`), read from on-chain state - not the controller field of `next_record`. |
 | **Preconditions** | Record exists (`DidNotFound` 2); not deactivated (`DidDeactivated` 4); `expected_version == current.version` (`VersionMismatch` 3); `version < u32::MAX` (`VersionOverflow` 19). |
 | **Validation** | Full `validate_record` on `next_record` per §3.3. |
-| **Replaced** | `authentication`, `assertion_method`, `key_agreement`, `services`, `metadata_uri`, `metadata_hash` — taken verbatim from `next_record`. |
-| **Preserved / forced** | `created_ledger` preserved; `controller` **pinned to the current value** (any `next_record.controller` is ignored — see note); `deactivated` forced to `false`; `version` incremented; `updated_ledger = current ledger`. |
+| **Replaced** | `authentication`, `assertion_method`, `key_agreement`, `services`, `metadata_uri`, `metadata_hash` - taken verbatim from `next_record`. |
+| **Preserved / forced** | `created_ledger` preserved; `controller` **pinned to the current value** (any `next_record.controller` is ignored - see note); `deactivated` forced to `false`; `version` incremented; `updated_ledger = current ledger`. |
 | **Event** | `DidUpdated { did_id, version }`. |
 
 > **`update` never changes the controller.** The contract copies the existing
 > controller forward and ignores `next_record.controller`. Ownership changes go
 > exclusively through `transfer_controller` (§4.4.3), which emits the dedicated
 > `DidControllerTransferred` event so indexers can track ownership reliably. An
-> `update` payload that names a different controller is **not** rejected — the
-> field is silently ignored — so clients SHOULD set `next_record.controller` to
+> `update` payload that names a different controller is **not** rejected - the
+> field is silently ignored - so clients SHOULD set `next_record.controller` to
 > the current controller to avoid confusion.
 
 **Contract behavior:**
@@ -496,7 +496,7 @@ fn update(e: Env, did_id: BytesN<16>, expected_version: u32, next_record: DidRec
 
     if current.version == u32::MAX { panic_with_error!(&e, RegistryError::VersionOverflow); }
     let updated = DidRecord {
-        controller: current.controller.clone(),    // pinned — next_record.controller ignored
+        controller: current.controller.clone(),    // pinned - next_record.controller ignored
         authentication: next_record.authentication,
         assertion_method: next_record.assertion_method,
         key_agreement: next_record.key_agreement,
@@ -513,7 +513,7 @@ fn update(e: Env, did_id: BytesN<16>, expected_version: u32, next_record: DidRec
 }
 ```
 
-**Example — key rotation.** A subject whose `auth-1` key was compromised submits
+**Example - key rotation.** A subject whose `auth-1` key was compromised submits
 `update(did_id, expected_version = 1, next_record)` with a fresh key:
 
 ```jsonc
@@ -528,21 +528,21 @@ transaction confirms.
 
 ---
 
-#### 4.4.3 `transfer_controller` — hand over on-chain control
+#### 4.4.3 `transfer_controller` - hand over on-chain control
 
 `transfer_controller(did_id: BytesN<16>, expected_version: u32, new_controller: Address)`
 
 Reassigns the Stellar account that authorizes future mutations. This is the
 **only** way the `controller` changes. It does **not** touch the DID's keys,
-services, or metadata, so it does **not** change the resolved DID Document — it
+services, or metadata, so it does **not** change the resolved DID Document - it
 only updates `didDocumentMetadata.method.stellarAccount` and bumps `versionId`
 (§5.7).
 
 | Aspect | Behavior |
 |---|---|
-| **Authorizes** | The **current** (outgoing) `controller` — not `new_controller`. The new controller does not need to sign; the handover is push-style. |
+| **Authorizes** | The **current** (outgoing) `controller` - not `new_controller`. The new controller does not need to sign; the handover is push-style. |
 | **Preconditions** | Record exists; not deactivated; `expected_version` matches; no version overflow. |
-| **Preserved** | `authentication`, `assertion_method`, `key_agreement`, `services`, `metadata_uri`, `metadata_hash`, `created_ledger` — all unchanged. |
+| **Preserved** | `authentication`, `assertion_method`, `key_agreement`, `services`, `metadata_uri`, `metadata_hash`, `created_ledger` - all unchanged. |
 | **Changed** | `controller = new_controller`; `version` incremented; `updated_ledger = current ledger`. |
 | **Event** | `DidControllerTransferred { did_id, old_controller, new_controller, version }`. |
 
@@ -581,7 +581,7 @@ fn transfer_controller(e: Env, did_id: BytesN<16>, expected_version: u32, new_co
 
 ---
 
-#### 4.4.4 `deactivate` — permanently retire a DID
+#### 4.4.4 `deactivate` - permanently retire a DID
 
 `deactivate(did_id: BytesN<16>, expected_version: u32)`
 
@@ -594,7 +594,7 @@ identity must `register` a fresh `did_id`.
 | **Authorizes** | The current `controller`. |
 | **Preconditions** | Record exists; not already deactivated (`DidDeactivated` 4); `expected_version` matches; no version overflow. |
 | **Emptied** | `authentication`, `assertion_method`, `key_agreement`, `services` are all set to empty vectors. |
-| **Preserved** | `controller`, `metadata_uri`, `metadata_hash`, `created_ledger` — kept for audit. |
+| **Preserved** | `controller`, `metadata_uri`, `metadata_hash`, `created_ledger` - kept for audit. |
 | **Set** | `deactivated = true`; `version` incremented; `updated_ledger = current ledger`. |
 | **Event** | `DidDeactivated { did_id, version }`. |
 
@@ -732,7 +732,7 @@ recommended client reaction depends on the class of error:
 | `DidNotFound` (2) | The DID was never registered (or wrong network). | **Fail / fix input:** do not retry blindly; verify the `did_id` and network. |
 | `DidDeactivated` (4) | The DID is a tombstone; it can never be mutated again. | **Permanent:** stop. A new identity requires a new `did_id`. |
 | `VersionOverflow` (19) | `version` reached `u32::MAX` (not reachable in practice). | **Permanent:** the DID can no longer be mutated. |
-| Validation errors (5–16, 18, 20, 21) | The submitted `DidRecord` violates a §3.3 bound. | **Fix input:** these are deterministic — correct the payload locally (counts, lengths, URL scheme, duplicates, metadata pairing) before resubmitting. Retrying unchanged will fail identically. |
+| Validation errors (5–16, 18, 20, 21) | The submitted `DidRecord` violates a §3.3 bound. | **Fix input:** these are deterministic - correct the payload locally (counts, lengths, URL scheme, duplicates, metadata pairing) before resubmitting. Retrying unchanged will fail identically. |
 
 Clients SHOULD validate the payload locally against §3.3 *before* submitting, so
 validation errors are caught without spending a transaction fee.
@@ -763,7 +763,7 @@ Every resolved DID Document MUST include both contexts:
 | `keyAgreement` | Fragment references to key agreement keys. |
 | `service` | Array of service entries. |
 
-### 5.3 Self-Control — No `controller` Field
+### 5.3 Self-Control - No `controller` Field
 
 The DID Document MUST NOT publish a `controller` field. Per [W3C DID Core 1.1 §5.1.2](https://www.w3.org/TR/did-1.1/#x5-1-2-did-controller), the absence of `controller` means the DID is self-controlled: the DID subject is its own controller, and only keys listed in its own DID Document are authoritative for proving control.
 
@@ -786,7 +786,7 @@ Each key in `DidRecord` maps to one `verificationMethod` entry:
 ID examples: `#auth-1`, `#auth-2`, `#assert-1`, `#keyagr-1`.
 
 In v0.1, all keys are Ed25519 expressed as a
-[Multikey](https://www.w3.org/TR/cid-1.0/#x2-2-2-multikey) — a self-describing
+[Multikey](https://www.w3.org/TR/cid-1.0/#x2-2-2-multikey) - a self-describing
 key encoding. The leading `z6Mk...` is read as: `z` =
 [multibase](https://www.w3.org/TR/cid-1.0/#multibase) base58btc, then the varint
 multicodec prefix `0xed 0x01` marking *Ed25519 public key*, then the 32 raw key
@@ -865,7 +865,7 @@ For resolvers exposed over HTTP, conditions map to status codes as follows:
 | The DID is not a `did:stellar` DID | `methodNotSupported` | `501` |
 | Registry read / RPC failure | `internalError` | `500` (or `502` when the failure is an upstream RPC error) |
 
-A `transfer_controller` (§4.4) does NOT change the resolved DID Document — it only
+A `transfer_controller` (§4.4) does NOT change the resolved DID Document - it only
 updates `didDocumentMetadata.method.stellarAccount` and bumps `versionId`.
 
 ### 5.8 Reference Implementations (Informative)
@@ -873,12 +873,12 @@ updates `didDocumentMetadata.method.stellarAccount` and bumps `versionId`.
 Two reference implementations of this method live in the
 [ACTA-Team/did-stellar](https://github.com/ACTA-Team/did-stellar) monorepo: a
 TypeScript SDK (`packages/resolver`) and a standalone HTTP resolver service
-(`packages/api`). Both are informative — the normative behavior remains §2–§6 of
+(`packages/api`). Both are informative - the normative behavior remains §2–§6 of
 this specification. The design is trust-minimized: the SDK resolves any
 `did:stellar` with nothing but a Stellar RPC URL, and the hosted HTTP service is
 a replaceable convenience wrapper, never a required intermediary.
 
-#### 5.8.1 TypeScript SDK — `@acta-team/did-stellar`
+#### 5.8.1 TypeScript SDK - `@acta-team/did-stellar`
 
 Published on npm as
 [`@acta-team/did-stellar`](https://www.npmjs.com/package/@acta-team/did-stellar)
@@ -893,7 +893,7 @@ Published on npm as
 | Mutations | `prepareRegisterDidXdr`, `prepareUpdateDidXdr`, `prepareTransferControllerXdr`, `prepareDeactivateDidXdr`, `submitSignedXdr` | §4.6 |
 | Proof of control | `buildChallenge`, `generateNonce`, `jcsCanonicalize`, `verifyProofOfControl` (±5 min window) | §6 |
 | Errors | Typed `DidError` whose codes mirror the contract's `RegistryError` numbers | §4.7 |
-| React | `useDid()` hook (subpath `@acta-team/did-stellar/hooks`) | — |
+| React | `useDid()` hook (subpath `@acta-team/did-stellar/hooks`) | - |
 
 **Resolution behavior.** `resolveDidStellar` validates syntax (§2.2), decodes the
 `didId`, reads the `DidRecord` persistent entry directly via Stellar RPC
@@ -902,7 +902,7 @@ three-component result of §5.7 with
 `contentType: "application/did+ld+json"`. A deactivated record yields the
 tombstone document with `didDocumentMetadata.deactivated = true`; a missing
 record yields `didDocument: null` with `error: "notFound"`. There is no caching
-layer — every call reads fresh ledger state.
+layer - every call reads fresh ledger state.
 
 **DIF driver.** `getResolver()` returns a `{ stellar }` driver compatible with
 the [DIF `did-resolver`](https://github.com/decentralized-identity/did-resolver)
@@ -929,7 +929,7 @@ populated (the ledger-sequence → close-time lookup is not performed). DID URL
 dereferencing and `versionId` / `versionTime` resolution *input* options are not
 implemented; resolution always returns the latest state.
 
-#### 5.8.2 HTTP Resolver API — `did.acta.build`
+#### 5.8.2 HTTP Resolver API - `did.acta.build`
 
 A standalone, no-auth HTTP service (Express) deployed at
 [`https://did.acta.build`](https://did.acta.build). It wraps the SDK and serves
@@ -995,7 +995,7 @@ deployment network configuration (registry contract ID and RPC URL per network)
 is provided via environment variables.
 
 **Trust model.** Anything the HTTP API answers can be independently recomputed
-from Stellar RPC with the SDK — integrators who do not want to trust
+from Stellar RPC with the SDK - integrators who do not want to trust
 `did.acta.build` can self-host the service or resolve directly (§7.11 applies:
 you inherit the trust assumptions of whichever RPC endpoint you read from).
 
@@ -1029,12 +1029,12 @@ The verifier generates a challenge JSON object:
 
 ### 6.3 Canonicalization
 
-The challenge MUST be canonicalized using [RFC 8785 — JSON Canonicalization Scheme (JCS)](https://www.rfc-editor.org/rfc/rfc8785) before signing. JCS produces a deterministic byte sequence regardless of JSON key order.
+The challenge MUST be canonicalized using [RFC 8785 - JSON Canonicalization Scheme (JCS)](https://www.rfc-editor.org/rfc/rfc8785) before signing. JCS produces a deterministic byte sequence regardless of JSON key order.
 
 ### 6.4 Signing
 
 - **Algorithm:** Ed25519.
-- **Signing key:** the private key matching one of the DID's `authentication` keys (§5.5) — **not** the Stellar controller account key.
+- **Signing key:** the private key matching one of the DID's `authentication` keys (§5.5) - **not** the Stellar controller account key.
 - **Message:** UTF-8 bytes of the JCS output applied to the challenge.
 - **Encoding:** The signature is transmitted as base64url without padding.
 
@@ -1042,7 +1042,7 @@ The challenge MUST be canonicalized using [RFC 8785 — JSON Canonicalization Sc
 the wire payload look like this (values illustrative):
 
 ```jsonc
-// 1. JCS-canonicalized challenge (keys sorted, no whitespace) — the exact bytes signed
+// 1. JCS-canonicalized challenge (keys sorted, no whitespace) - the exact bytes signed
 {"did":"did:stellar:testnet:bk7q2x4m3r7n5s2v7t6y6p2cde","domain":"verifier.example.com","nonce":"5f9b2a1c0d3e4f6789012345abcdef01","timestamp":"2026-04-26T12:34:56Z"}
 
 // 2. proof sent to the verifier
@@ -1140,14 +1140,14 @@ documented for the DID operations of §4 (`register` / `update` / `transfer_cont
 
 | Attack | Treatment |
 |---|---|
-| **Eavesdropping** | All on-chain data is public by design (§8.2); there is no confidential payload to eavesdrop. The proof-of-control challenge and signature are not secret — reuse is prevented by `nonce` + `timestamp` + `domain` (§7.5), not by confidentiality. |
+| **Eavesdropping** | All on-chain data is public by design (§8.2); there is no confidential payload to eavesdrop. The proof-of-control challenge and signature are not secret - reuse is prevented by `nonce` + `timestamp` + `domain` (§7.5), not by confidentiality. |
 | **Replay** | See §7.5. On-chain mutations are protected by optimistic concurrency (`expected_version`, §4.3); proof of control by a single-use `nonce` and a ±5-minute `timestamp` window. |
 | **Message insertion** | Every mutation requires `controller.require_auth()` (§4.2), verified by the Soroban host. An attacker cannot insert a forged operation without the controller signature. |
 | **Message deletion** | Confirmed ledger entries are immutable; a `DidRecord` cannot be deleted from the chain. Suppressing *submission* of a transaction is a network-level censorship concern outside this method. |
 | **Message modification** | Stellar transaction signatures and ledger integrity reject in-flight modification: a modified transaction fails signature verification and is not applied. |
-| **Denial of service** | User-controlled input lengths are capped (§3.3) to bound CPU and storage; storage rent / TTL is managed (§7.6). Operations are O(1) over fixed-size records — there is no unbounded work. Network-level flooding is a Stellar-layer concern; submitters bear the fee burden. |
+| **Denial of service** | User-controlled input lengths are capped (§3.3) to bound CPU and storage; storage rent / TTL is managed (§7.6). Operations are O(1) over fixed-size records - there is no unbounded work. Network-level flooding is a Stellar-layer concern; submitters bear the fee burden. |
 | **Amplification** | Operations have bounded, fixed-size effects (no recursion, unbounded loops, or reflection). No input produces a disproportionately large on-chain effect. |
-| **Man-in-the-middle** | On-chain operations are signed, so a MITM cannot forge a controller-authorized mutation. For *resolution*, a MITM on the RPC path could return a stale or forged DID Document — resolvers MUST read from a trusted Stellar RPC endpoint over TLS, or validate ledger entries directly (§7.11). The proof-of-control `domain` binding prevents cross-site relay of a valid proof. |
+| **Man-in-the-middle** | On-chain operations are signed, so a MITM cannot forge a controller-authorized mutation. For *resolution*, a MITM on the RPC path could return a stale or forged DID Document - resolvers MUST read from a trusted Stellar RPC endpoint over TLS, or validate ledger entries directly (§7.11). The proof-of-control `domain` binding prevents cross-site relay of a valid proof. |
 
 Other known attack forms (e.g., social engineering of the controller account, supply-chain
 compromise of an off-chain resolver) are residual risks discussed in §7.11.
@@ -1157,16 +1157,16 @@ compromise of an off-chain resolver) are residual risks discussed in §7.11.
 **Integrity and update authentication.** Every operation in §4.2 is integrity-protected
 and update-authenticated by the Stellar ledger: the `controller` account authorizes each
 mutation via `require_auth()`, and confirmed entries are immutable. The DID Document is
-**not** independently signed — its integrity derives from the verifiable data registry
+**not** independently signed - its integrity derives from the verifiable data registry
 (the ledger), not from a document-level proof. Consumers obtain integrity by reading the
 `DidRecord` from the registry (§5.7), not by checking a signature on the document.
 
 **Cryptographically protected data.** On-chain `DidRecord` fields are
 **integrity-protected** (Stellar consensus + transaction signatures) but **not
-confidential** — all are public. Published verification keys are public by definition.
+confidential** - all are public. Published verification keys are public by definition.
 Proof-of-control messages are protected by Ed25519 signatures (integrity and origin
-authentication only; no confidentiality). Private keys — the controller account key and
-the `authentication` / `assertion_method` keys — are secret and MUST be held off-chain.
+authentication only; no confidentiality). Private keys - the controller account key and
+the `authentication` / `assertion_method` keys - are secret and MUST be held off-chain.
 
 **Unique assignment.** A `did_id` is a 128-bit value; `register` fails with
 `DidAlreadyExists` if the id already exists (§4.4), giving first-writer-wins uniqueness.
@@ -1233,7 +1233,7 @@ addressed for this method:
 | **Correlation** | See §8.3. Reuse of one DID across contexts enables linkage; subjects MAY use distinct DIDs per context. |
 | **Identification** | The `did_id` carries no PII, but `DidRecord.controller` links the DID to a specific Stellar account (§8.4), enabling identification of the controller. |
 | **Secondary use** | All on-chain data is public and permanent and MAY be reused beyond its original intent. Subjects MUST assume any published data is permanently reusable. |
-| **Disclosure** | All `DidRecord` fields — keys, services, controller — are publicly disclosed on the ledger (§8.2). |
+| **Disclosure** | All `DidRecord` fields - keys, services, controller - are publicly disclosed on the ledger (§8.2). |
 | **Exclusion** | A public ledger offers no access control: a subject cannot prevent third parties from observing or recording their on-chain data, nor be notified of such access. |
 
 ---
@@ -1321,13 +1321,13 @@ A conformant implementation of `did:stellar` v0.1 MUST satisfy all of the follow
 
 ---
 
-## Annex A — Test Vectors
+## Annex A - Test Vectors
 
 Test vectors are published at [ACTA-Team/contracts-acta](https://github.com/ACTA-Team/contracts-acta) and MUST be verifiable by any conformant implementation. See `test-vectors/vectors.json` in this repository for the machine-readable form.
 
 All vectors use `network: testnet`. Vector inputs are deterministic (fixed byte sequences) to enable cross-implementation verification.
 
-### A.1 Vector 1 — Minimal Active DID
+### A.1 Vector 1 - Minimal Active DID
 
 **Input:** 16-byte sequence `[0x00, 0x01, ..., 0x0F]`
 
@@ -1360,7 +1360,7 @@ All vectors use `network: testnet`. Vector inputs are deterministic (fixed byte 
 }
 ```
 
-### A.2 Vector 2 — Full DID (authentication + assertionMethod + keyAgreement + service)
+### A.2 Vector 2 - Full DID (authentication + assertionMethod + keyAgreement + service)
 
 **Input:** Same `didId` as vector 1.
 
@@ -1413,7 +1413,7 @@ All vectors use `network: testnet`. Vector inputs are deterministic (fixed byte 
 }
 ```
 
-### A.3 Vector 3 — Deactivated DID (Tombstone)
+### A.3 Vector 3 - Deactivated DID (Tombstone)
 
 **Input:** Same DID as vectors 1–2, after calling `deactivate(did_id, expected_version)`.
 
@@ -1430,36 +1430,34 @@ All vectors use `network: testnet`. Vector inputs are deterministic (fixed byte 
 }
 ```
 
-### A.4 Vector 4 — Concurrent Update Conflict
+### A.4 Vector 4 - Concurrent Update Conflict
 
 **Scenario:** Two callers both read `version=1` and both attempt `update(did_id, expected_version=1, ...)` concurrently.
 
 **Expected:** First caller succeeds; version becomes `2`. Second caller fails with `VersionMismatch` (the on-chain version is now `2`, not `1`).
 
-### A.5 Vector 5 — Valid Proof of Control
+### A.5 Vector 5 - Valid Proof of Control
 
 **Input:** The challenge from §6.2 (`did:stellar:testnet:aaaqeayeaudaocajbifqydiob4`,
 `domain: verifier.example.com`, `nonce: 5f9b2a1c0d3e4f6789012345abcdef01`,
 `timestamp: 2026-04-26T12:34:56Z`), signed with the Ed25519 key published as
 `z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY` in `authentication`.
 
-**Expected:** Verification passes (§6.5). The vector pins `challenge_jcs_hex` —
-the exact [RFC 8785 (JCS)](https://www.rfc-editor.org/rfc/rfc8785) byte form of
-the challenge — so every implementation MUST canonicalize to exactly those bytes
+**Expected:** Verification passes (§6.5). The vector pins `challenge_jcs_hex` - the exact [RFC 8785 (JCS)](https://www.rfc-editor.org/rfc/rfc8785) byte form of
+the challenge - so every implementation MUST canonicalize to exactly those bytes
 before signing. The `auth_key_private_hex` and `signature_base64url` fields in
 `vectors.json` are placeholders pending the reference implementation (the
 private key for the published auth key is not disclosed).
 
-### A.6 Vector 6 — Proof of Control with Expired Timestamp
+### A.6 Vector 6 - Proof of Control with Expired Timestamp
 
-**Input:** Same challenge structure, but `timestamp: 2020-01-01T00:00:00Z` —
-far outside the ±5 minute window of §6.5 step 2.
+**Input:** Same challenge structure, but `timestamp: 2020-01-01T00:00:00Z` - far outside the ±5 minute window of §6.5 step 2.
 
 **Expected:** Verification MUST fail with reason *timestamp out of ±5 minute
 window*, **before** any signature check is attempted (the signature value is
 irrelevant to this vector).
 
-### A.7 Vector 7 — Multiple Authentication Keys (Index Numbering)
+### A.7 Vector 7 - Multiple Authentication Keys (Index Numbering)
 
 **Input:** 16-byte sequence `[0x10, 0x11, ..., 0x1F]` → `didId` (base32)
 `caireeyuculbogazdinryhi6d4`, DID `did:stellar:testnet:caireeyuculbogazdinryhi6d4`.
@@ -1469,7 +1467,7 @@ irrelevant to this vector).
 1-based fragment IDs `#auth-1` and `#auth-2` (§5.4), both referenced from
 `authentication`.
 
-### A.8 Vector 8 — Resolution of an Unregistered DID
+### A.8 Vector 8 - Resolution of an Unregistered DID
 
 **Input:** Well-formed DID `did:stellar:testnet:ucq2fi5euwtkpkfjvkv2zlnov4`;
 `get(did_id)` returns `None`.
@@ -1477,9 +1475,9 @@ irrelevant to this vector).
 **Expected:** `didDocument: null`, `didResolutionMetadata.error = "notFound"`,
 HTTP `404` in the HTTP binding (§5.7.4).
 
-### A.9 Vector 9 — Resolution of a Syntactically Invalid DID
+### A.9 Vector 9 - Resolution of a Syntactically Invalid DID
 
-**Input:** `did:stellar:testnet:TOOSHORT` — fails the §2.2 regex (identifier too
+**Input:** `did:stellar:testnet:TOOSHORT` - fails the §2.2 regex (identifier too
 short and uppercase).
 
 **Expected:** `didDocument: null`, `didResolutionMetadata.error = "invalidDid"`,
@@ -1487,7 +1485,7 @@ HTTP `400` in the HTTP binding (§5.7.4).
 
 ---
 
-## Annex B — Integrator Notes
+## Annex B - Integrator Notes
 
 *This annex is informative, not normative.*
 
@@ -1524,9 +1522,8 @@ The controller account keypair and the assertion keypair SHOULD be stored separa
 
 The `vc-vault` contract maintains an authoritative, real-time status for every
 stored credential via `verify_vc(vc_id) -> Valid | Revoked | Invalid`. To make
-this status **discoverable** by third-party verifiers — as required by
-[W3C VC Data Model 2.0 §4.10 (Status)](https://www.w3.org/TR/vc-data-model-2.0/#status) —
-an issuer SHOULD include a `credentialStatus` property in each issued VC using
+this status **discoverable** by third-party verifiers - as required by
+[W3C VC Data Model 2.0 §4.10 (Status)](https://www.w3.org/TR/vc-data-model-2.0/#status) - an issuer SHOULD include a `credentialStatus` property in each issued VC using
 the status type defined here. Without it, the on-chain status registry is not
 discoverable: a verifier has no standard way to know which contract to query.
 
@@ -1576,7 +1573,7 @@ On-chain status is the authoritative source and reflects `revoke()` /
 Reading status is a read-only RPC call against public ledger state; the issuer is
 **NOT** notified when a verifier checks status. This satisfies the normative
 §4.10 privacy requirement that status mechanisms MUST NOT enable tracking of
-holders or subjects ("phoning home") — a structural advantage over hosted
+holders or subjects ("phoning home") - a structural advantage over hosted
 status-list endpoints.
 
 #### B.4.4 Notes
@@ -1589,7 +1586,7 @@ status-list endpoints.
 
 ---
 
-## Annex C — Worked Example: A DID's Full Life (Informative)
+## Annex C - Worked Example: A DID's Full Life (Informative)
 
 *This annex is informative.* It walks one DID from birth to retirement to show
 how the pieces in §2–§6 connect. Ledger numbers and keys are illustrative;
@@ -1599,7 +1596,7 @@ how the pieces in §2–§6 connect. Ledger numbers and keys are illustrative;
 `GA…CTRL`. She keeps two separate keypairs: an **authentication** key (proving
 control) and an **assertion** key (signing credentials).
 
-### Step 1 — Create (`register`)
+### Step 1 - Create (`register`)
 
 Alice's SDK generates 16 random bytes `0x000102…0f`, which encode to
 `aaaqeayeaudaocajbifqydiob4` (§2.3), giving the DID
@@ -1608,14 +1605,14 @@ with one `authentication` key and one `assertion_method` key, then signs and
 submits `register(did_id, initial_record)` (§4.4.1). The contract sets
 `version = 1` and emits `DidRegistered`.
 
-### Step 2 — Resolve (read)
+### Step 2 - Resolve (read)
 
 Anyone can now resolve the DID (§5.7): the resolver calls `get(did_id)`, gets the
-`DidRecord`, and builds the DID Document — `authentication: [#auth-1]`,
+`DidRecord`, and builds the DID Document - `authentication: [#auth-1]`,
 `assertionMethod: [#assert-1]`, **no top-level `controller`** (§5.3). Metadata
 reports `versionId: "1"` and `method.stellarAccount: GA…CTRL`.
 
-### Step 3 — Issue a credential (off-chain, uses the DID)
+### Step 3 - Issue a credential (off-chain, uses the DID)
 
 Alice issues a Verifiable Credential with `issuer = "did:stellar:testnet:aaaq…"`,
 signing it with her **assertion** key, referencing `…#assert-1` in the proof. A
@@ -1623,40 +1620,40 @@ verifier resolves the DID, confirms `#assert-1` is in `assertionMethod`, and
 checks the signature (Annex B.2). For revocation discovery she adds a
 `credentialStatus` pointing at the `vc-vault` (Annex B.4).
 
-### Step 4 — Prove control on login (`authentication`)
+### Step 4 - Prove control on login (`authentication`)
 
 To log in to a relying party, Alice signs the party's challenge with her
 **authentication** key and presents the proof (§6). The verifier checks it
-against `#auth-1`. Her assertion key is never involved — the relationships keep
+against `#auth-1`. Her assertion key is never involved - the relationships keep
 the two roles separate.
 
-### Step 5 — Rotate a key (`update`)
+### Step 5 - Rotate a key (`update`)
 
 Alice's authentication key is exposed. She reads the record (`version = 1`),
 swaps in a new key, and submits `update(did_id, expected_version = 1, next_record)`
 (§4.4.2). The contract bumps to `version = 2`; the old key vanishes from every
-future resolution. Note her **controller stays `GA…CTRL`** — `update` cannot
+future resolution. Note her **controller stays `GA…CTRL`** - `update` cannot
 change it.
 
 > If a second client had also read `version = 1` and tried to update after her,
-> it would hit `VersionMismatch` and must re-read and retry (§4.7) — this is the
+> it would hit `VersionMismatch` and must re-read and retry (§4.7) - this is the
 > conflict in Test Vector 4 (Annex A.4).
 
-### Step 6 — Hand over control (`transfer_controller`)
+### Step 6 - Hand over control (`transfer_controller`)
 
 Alice migrates operations to a new account `GB…NEW`. Signing as the *current*
 controller, she submits `transfer_controller(did_id, expected_version = 2, GB…NEW)`
 (§4.4.3) → `version = 3`. Keys, services, and the resolved DID Document are
 unchanged; only `method.stellarAccount` now reads `GB…NEW`.
 
-### Step 7 — Retire (`deactivate`)
+### Step 7 - Retire (`deactivate`)
 
 The identity is decommissioned. The controller submits
 `deactivate(did_id, expected_version = 3)` (§4.4.4) → `version = 4`,
 `deactivated = true`, all key sets emptied (controller + metadata kept for
 audit). Resolution now returns the **tombstone** (Annex A.3) with HTTP 410, proof
 of control fails, and any credential check sees the issuer as deactivated. This
-is terminal — a new identity needs a brand-new `did_id` from Step 1.
+is terminal - a new identity needs a brand-new `did_id` from Step 1.
 
 ---
 
@@ -1667,14 +1664,14 @@ is terminal — a new identity needs a brand-new `did_id` from Step 1.
 - [W3C Verifiable Credentials Data Model 2.0](https://www.w3.org/TR/vc-data-model-2.0/)
 - [W3C DID Specification Registries](https://www.w3.org/TR/did-spec-registries/)
 - [W3C Multikey](https://www.w3.org/TR/cid-1.0/#x2-2-2-multikey)
-- [RFC 4648 — Base32 encoding](https://www.rfc-editor.org/rfc/rfc4648)
-- [RFC 8785 — JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785)
+- [RFC 4648 - Base32 encoding](https://www.rfc-editor.org/rfc/rfc4648)
+- [RFC 8785 - JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785)
 - [Stellar RPC Methods](https://developers.stellar.org/docs/data/rpc)
 - [Soroban Smart Contracts](https://developers.stellar.org/docs/build/smart-contracts)
 - [DIF Universal Resolver](https://github.com/decentralized-identity/universal-resolver)
 - [DIF `did-resolver` (JavaScript)](https://github.com/decentralized-identity/did-resolver)
 - [OpenAPI Specification](https://spec.openapis.org/oas/latest.html)
 - Canonical repository: [ACTA-Team/contracts-acta](https://github.com/ACTA-Team/contracts-acta)
-- Reference implementation: [ACTA-Team/did-stellar](https://github.com/ACTA-Team/did-stellar) — npm [`@acta-team/did-stellar`](https://www.npmjs.com/package/@acta-team/did-stellar), hosted resolver [`did.acta.build`](https://did.acta.build)
+- Reference implementation: [ACTA-Team/did-stellar](https://github.com/ACTA-Team/did-stellar) - npm [`@acta-team/did-stellar`](https://www.npmjs.com/package/@acta-team/did-stellar), hosted resolver [`did.acta.build`](https://did.acta.build)
 
 ---

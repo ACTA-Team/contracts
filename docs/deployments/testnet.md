@@ -33,8 +33,7 @@ not track the USD price). Adjust with `set_fee_standard` / `set_fee_custom`, or
 
 ## vc-vault
 
-Since v0.4.0 the vault is **single-tenant** and is no longer deployed standalone —
-individual vaults are instantiated by `vc-vault-factory.deploy(...)`. The release
+Since v0.4.0 the vault is **single-tenant** and is no longer deployed standalone - individual vaults are instantiated by `vc-vault-factory.deploy(...)`. The release
 publishes the vault as an installed WASM **template**; the factory is constructed
 with its hash.
 

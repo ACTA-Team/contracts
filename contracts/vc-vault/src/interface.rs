@@ -26,7 +26,7 @@ pub trait VcVaultTrait {
     fn get_vc(e: Env, vc_id: String) -> Option<VerifiableCredential>;
     /// Returns the on-chain STATUS of a VC (Valid / Revoked / Invalid). This is
     /// a revocation/status signal ONLY, NOT proof of authenticity. Issuance is
-    /// open — anyone can deposit a VC into a vault — so integrators MUST verify
+    /// open - anyone can deposit a VC into a vault - so integrators MUST verify
     /// the issuer's signature and resolve the issuer DID off-chain before
     /// trusting a credential. "Valid in the vault" alone proves nothing.
     fn verify_vc(e: Env, vc_id: String) -> VCStatus;

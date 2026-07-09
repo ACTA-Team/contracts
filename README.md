@@ -104,7 +104,7 @@ Output files:
 ./scripts/deploy.sh vc-vault-factory     testnet acta_deployer   # installs vault + deploys factory
 ```
 
-`vc-vault` is not deployed standalone — the factory instantiates per-holder vaults via `factory.deploy(...)`. Record the resulting IDs in [`docs/deployments/<network>.md`](docs/deployments/).
+`vc-vault` is not deployed standalone - the factory instantiates per-holder vaults via `factory.deploy(...)`. Record the resulting IDs in [`docs/deployments/<network>.md`](docs/deployments/).
 
 ---
 

@@ -263,7 +263,7 @@ fn test_auth_update_requires_controller() {
     let contract_id = env.register(DidStellarRegistry, (Address::generate(&env),));
     let client = DidStellarRegistryClient::new(&env, &contract_id);
     client.register(&did_id, &minimal_record(&env, &controller));
-    // Strip auths — update must fail.
+    // Strip auths - update must fail.
     env.set_auths(&[]);
     client.update(&did_id, &1u32, &minimal_record(&env, &controller));
 }
@@ -542,7 +542,7 @@ fn test_duplicate_keys_same_relation() {
 // --- events ---------------------------------------------------------------
 // These tests verify the full event payload (topics + data), not just that
 // "something" was emitted. `env.events().all()` returns events from the
-// last contract invocation only — each test executes a single mutation
+// last contract invocation only - each test executes a single mutation
 // after setup so the event under inspection is unambiguous.
 
 #[test]
@@ -556,7 +556,7 @@ fn test_events_register_emits_payload() {
         version: 1,
     };
     // `ContractEvents` impls `PartialEq<Vec<(Address, Vec<Val>, Val)>>` via
-    // XDR comparison — the only structural way to assert event payloads.
+    // XDR comparison - the only structural way to assert event payloads.
     assert_eq!(
         env.events().all(),
         vec![
@@ -815,7 +815,7 @@ fn test_constructor_emits_initialized_event() {
     let admin = Address::generate(&env);
     let contract_id = env.register(DidStellarRegistry, (admin.clone(),));
 
-    // Inspect events BEFORE any further client call — `env.events().all()`
+    // Inspect events BEFORE any further client call - `env.events().all()`
     // returns events from the last contract invocation only.
     let expected = ContractInitialized {
         admin: admin.clone(),
@@ -845,7 +845,7 @@ fn test_propose_admin_records_pending_nominee() {
     let nominee = Address::generate(&env);
     client.propose_admin(&nominee);
     // Until accepted, the current admin is unchanged.
-    // (We can't directly read proposed_admin via the public ABI — covered
+    // (We can't directly read proposed_admin via the public ABI - covered
     // indirectly by the accept tests below.)
     assert_ne!(client.get_admin(), nominee);
 }
@@ -858,7 +858,7 @@ fn test_accept_admin_completes_two_step_transfer() {
     client.propose_admin(&nominee);
     client.accept_admin();
 
-    // Inspect events BEFORE `get_admin` — events from a read overwrite the
+    // Inspect events BEFORE `get_admin` - events from a read overwrite the
     // accept_admin invocation in `env.events().all()`.
     let expected = AdminTransferred {
         old_admin: admin.clone(),
@@ -891,7 +891,7 @@ fn test_propose_admin_requires_current_admin_auth() {
     let contract_id = env.register(DidStellarRegistry, (admin,));
     let client = DidStellarRegistryClient::new(&env, &contract_id);
     let nominee = Address::generate(&env);
-    // Strip auths after construction — propose must fail.
+    // Strip auths after construction - propose must fail.
     env.set_auths(&[]);
     client.propose_admin(&nominee);
 }
@@ -906,7 +906,7 @@ fn test_accept_admin_requires_nominee_auth() {
     let client = DidStellarRegistryClient::new(&env, &contract_id);
     let nominee = Address::generate(&env);
     client.propose_admin(&nominee);
-    // Strip auths — accept must fail because nominee can't sign.
+    // Strip auths - accept must fail because nominee can't sign.
     env.set_auths(&[]);
     client.accept_admin();
 }
@@ -951,7 +951,7 @@ fn test_admin_does_not_bypass_did_controller_auth() {
         },
     }]);
 
-    // Admin auth alone is not enough — update must be rejected.
+    // Admin auth alone is not enough - update must be rejected.
     let result = client.try_update(&did_id, &1u32, &minimal_record(&env, &controller));
     assert!(result.is_err());
 }
@@ -1000,7 +1000,7 @@ fn test_boundary_metadata_uri_no_host() {
 #[test]
 #[should_panic(expected = "Error(Contract, #19)")] // VersionOverflow
 fn test_version_overflow() {
-    // A DID at u32::MAX must not panic arithmetically — it must return a
+    // A DID at u32::MAX must not panic arithmetically - it must return a
     // clean VersionOverflow error so the DID remains inspectable.
     let (env, controller, did_id, contract_id, client) = setup();
     client.register(&did_id, &minimal_record(&env, &controller));
@@ -1068,7 +1068,7 @@ fn test_boundary_service_id_trailing_hyphen() {
 #[test]
 #[should_panic(expected = "Error(Contract, #20)")] // MetadataInconsistent
 fn test_boundary_metadata_hash_without_uri() {
-    // A metadata_hash with no metadata_uri is orphaned — must be rejected.
+    // A metadata_hash with no metadata_uri is orphaned - must be rejected.
     let (env, controller, did_id, _id, client) = setup();
     let mut r = minimal_record(&env, &controller);
     r.metadata_hash = Some(BytesN::<32>::from_array(&env, &[0u8; 32]));
