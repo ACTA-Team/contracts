@@ -2,7 +2,7 @@
 
 Soroban smart contracts for the ACTA identity and Verifiable Credential infrastructure on Stellar.
 
-**Latest release:** [vc-vault v0.4.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/vc-vault-v0.4.0)
+**Live on mainnet:** [mainnet-v1.0.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/mainnet-v1.0.0) · **Latest contract release:** [vc-vault v0.4.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/vc-vault-v0.4.0)
 
 ---
 
@@ -50,6 +50,20 @@ See [`contracts/vc-vault-factory/README.md`](contracts/vc-vault-factory/README.m
 
 ---
 
+## Mainnet Deployments
+
+| Contract | Version | Contract ID / WASM hash |
+|---|---|---|
+| `did-stellar-registry` | 0.2.0 | `CD6LSWW5ZSXOO5WAIHKQLQ262TW7BPI37PNEVMMA273BAPC65NN2AYXQ` |
+| `vc-vault-factory` | 0.1.0 | `CCWNZ6UMUXCDOVP2TWOPVLI4KP4VY4YF7VKPN6XLYVHNFAT24NDB33CX` |
+| `vc-vault` | 0.4.0 | template WASM hash `2bd0323a98acb8469606808368da6c79824f2dd8391494b94ddbeb3d22c1a957` (instances deployed via the factory) |
+
+Network: Stellar Mainnet (`Public Global Stellar Network ; September 2015`)  
+Factory fee: **1 USDC per credential** issued (paid by the issuer).  
+Full deployment record: [`docs/deployments/mainnet.md`](docs/deployments/mainnet.md)
+
+---
+
 ## Testnet Deployments
 
 | Contract | Version | Contract ID / WASM hash |
@@ -92,18 +106,31 @@ Output files:
 
 `vc-vault` is not deployed standalone — the factory instantiates per-holder vaults via `factory.deploy(...)`. Record the resulting IDs in [`docs/deployments/<network>.md`](docs/deployments/).
 
+### Mainnet
+
+Mainnet uses a dedicated one-shot orchestrator that reads all parameters (deployer key/address, USDC fee config) from a gitignored `.env` — nothing sensitive is committed:
+
+```bash
+./scripts/deploy-mainnet.sh --dry-run   # review every transaction without spending
+./scripts/deploy-mainnet.sh             # deploy all three, then configure the USDC fee
+```
+
+It verifies the signer resolves to the expected address, preflights funding and the USDC trustline, and is resumable — pre-set `DID_ID` / `VAULT_HASH` / `FACTORY_ID` to skip already-completed steps after a partial run.
+
 ---
 
 ## Specification
 
 The `did:stellar` v0.1 method specification lives at [`docs/did-spec/did-stellar-v0.1.md`](docs/did-spec/did-stellar-v0.1.md). It covers:
 
+- Goals and design decisions
 - DID syntax and identifier generation
-- On-chain data model (`DidRecord`)
-- Contract operations and mutation semantics
+- On-chain registry data model (`DidRecord`) and contract operations
 - DID Document construction rules
 - Proof of control protocol
-- Normative test vectors
+- Security, privacy, and cost considerations
+- Acceptance criteria and normative test vectors
+- Integrator notes and a worked end-to-end example
 
 ---
 
