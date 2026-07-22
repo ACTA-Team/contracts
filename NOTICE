@@ -1,0 +1,25 @@
+contracts-acta
+Copyright 2024-2026 ACTA
+
+This product includes software developed by ACTA (https://acta.build).
+
+This repository contains the ACTA Soroban smart contracts and the normative
+`did:stellar` specification:
+
+  - contracts/vc-vault              — single-tenant Verifiable Credential vault
+  - contracts/vc-vault-factory      — vault deployer and fee configuration
+  - contracts/did-stellar-registry  — on-chain registry for the did:stellar method
+  - docs/did-spec                   — did:stellar v0.1 specification and test vectors
+
+The reference implementation of the `did:stellar` method (TypeScript SDK and
+HTTP resolver) lives in https://github.com/ACTA-Team/did-stellar and is
+likewise licensed under the Apache License, Version 2.0.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy of
+the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+"ACTA" branding is a trademark of ACTA. The Apache License does not grant
+permission to use it.
