@@ -53,4 +53,7 @@ pub enum RegistryError {
     /// Two services share the same `id_suffix`, which would produce duplicate
     /// `{did}#service-{id_suffix}` fragments in the resolved DID Document.
     DuplicateServiceId = 21,
+    /// `register_sponsored` called with `sponsor == initial_record.controller`.
+    /// Use `register` instead.
+    SponsorIsController = 22,
 }

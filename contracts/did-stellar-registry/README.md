@@ -19,12 +19,13 @@ This contract is the canonical source of truth for the state of every `did:stell
 | Function | Purpose |
 |---|---|
 | `register(did_id: BytesN<16>, initial_record: DidRecord)` | Create a new DID. Fails if `did_id` is already taken. |
+| `register_sponsored(sponsor: Address, did_id: BytesN<16>, initial_record: DidRecord)` | Create a new DID paid for by `sponsor`, controlled by `initial_record.controller`. Only `sponsor` signs. Fails with `SponsorIsController` if the two are the same address. |
 | `update(did_id: BytesN<16>, expected_version: u32, next_record: DidRecord)` | Replace the full DID record. Fails on version mismatch or if the DID is deactivated. |
 | `transfer_controller(did_id: BytesN<16>, expected_version: u32, new_controller: Address)` | Change the controller. Keys, services, and metadata are preserved. |
 | `deactivate(did_id: BytesN<16>, expected_version: u32)` | Permanently deactivate the DID. Empties cryptographic material; preserves controller + metadata for audit. Irreversible. |
 | `get(did_id: BytesN<16>) -> Option<DidRecord>` | Read the current record. No authorization required. |
 
-All mutations require `controller.require_auth()`. All mutations except `register` use optimistic concurrency: `expected_version` MUST equal the current on-chain version, or the call is rejected with `VersionMismatch`.
+All mutations require `controller.require_auth()`, except `register_sponsored`, which requires `sponsor.require_auth()` and no signature from the controller. All mutations except `register` use optimistic concurrency: `expected_version` MUST equal the current on-chain version, or the call is rejected with `VersionMismatch`.
 
 ### Contract-level admin
 
@@ -44,6 +45,7 @@ Two-step admin transfer. Per-DID mutations are NOT admin-gated - the admin role 
 |---|---|
 | `__constructor` | `admin` (deployer signs) |
 | `register` | `initial_record.controller` |
+| `register_sponsored` | `sponsor` only - the controller does NOT sign |
 | `update` | current `controller` |
 | `transfer_controller` | current `controller` |
 | `deactivate` | current `controller` |
@@ -81,6 +83,7 @@ Codes are part of the ABI. Numeric values MUST NOT be renumbered.
 | 19 | `VersionOverflow` | DID `version` has reached `u32::MAX`; further mutations are rejected. |
 | 20 | `MetadataInconsistent` | `metadata_hash` is set but `metadata_uri` is absent. |
 | 21 | `DuplicateServiceId` | Two services in the same record share the same `id_suffix`. |
+| 22 | `SponsorIsController` | `register_sponsored` called with `sponsor == initial_record.controller`. Use `register` instead. |
 
 ---
 
@@ -91,6 +94,7 @@ Each successful mutation emits a typed event:
 | Event | Payload | Triggered by |
 |---|---|---|
 | `DidRegistered` | `did_id`, `controller`, `version` | `register` |
+| `DidRegisteredSponsored` | `did_id`, `sponsor`, `controller`, `version` | `register_sponsored` |
 | `DidUpdated` | `did_id`, `version` | `update` |
 | `DidControllerTransferred` | `did_id`, `old_controller`, `new_controller`, `version` | `transfer_controller` |
 | `DidDeactivated` | `did_id`, `version` | `deactivate` |
