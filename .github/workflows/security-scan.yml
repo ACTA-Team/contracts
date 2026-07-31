@@ -1,0 +1,65 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'contracts/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'contracts/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  scout:
+    name: Scout (Soroban Static Analysis)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install Soroban CLI
+        run: cargo install soroban-cli
+
+      - name: Install Scout Audit
+        run: cargo install scout-audit
+
+      - name: Run Scout
+        run: bash scripts/security-scan.sh --scout
+
+      - name: Upload Scout Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scout-report
+          path: docs/audits/scans/
+
+  almanax:
+    name: Almanax (On-Chain Monitor)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Almanax
+        env:
+          ALMANAX_API_KEY: ${{ secrets.ALMANAX_API_KEY }}
+        run: bash scripts/security-scan.sh --almanax
+
+      - name: Upload Almanax Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: almanax-report
+          path: docs/audits/scans/
