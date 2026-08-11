@@ -348,7 +348,7 @@ The contract admin is not an override path for DID authorization. Per-DID mutati
 
 ### 4.3 Optimistic Concurrency
 
-All mutation functions except `register` accept an `expected_version: u32` parameter. The operation MUST fail with `VersionMismatch` if the stored version does not equal the `expected_version` at the time of execution. This prevents silent overwrites when two callers concurrently modify the same DID.
+All mutation functions except `register` and `register_sponsored` accept an `expected_version: u32` parameter. The operation MUST fail with `VersionMismatch` if the stored version does not equal the `expected_version` at the time of execution. This prevents silent overwrites when two callers concurrently modify the same DID.
 
 The client MUST:
 1. Read the current `DidRecord` and note `version`.
@@ -522,7 +522,7 @@ fn register_sponsored(e: Env, sponsor: Address, did_id: BytesN<16>, initial_reco
         panic_with_error!(&e, RegistryError::SponsorIsController);
     }
     validate_record(&e, &initial_record);
-    // ... same bookkeeping override as `register` ...
+    // ... let record = DidRecord { ... } - same bookkeeping override as `register` ...
     storage::write_record(&e, &did_id, &record);
     events::did_registered_sponsored(&e, &did_id, &sponsor, &record.controller, record.version);
 }

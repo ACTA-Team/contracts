@@ -25,7 +25,7 @@ This contract is the canonical source of truth for the state of every `did:stell
 | `deactivate(did_id: BytesN<16>, expected_version: u32)` | Permanently deactivate the DID. Empties cryptographic material; preserves controller + metadata for audit. Irreversible. |
 | `get(did_id: BytesN<16>) -> Option<DidRecord>` | Read the current record. No authorization required. |
 
-All mutations require `controller.require_auth()`, except `register_sponsored`, which requires `sponsor.require_auth()` and no signature from the controller. All mutations except `register` use optimistic concurrency: `expected_version` MUST equal the current on-chain version, or the call is rejected with `VersionMismatch`.
+All mutations require `controller.require_auth()`, except `register_sponsored`, which requires `sponsor.require_auth()` and no signature from the controller. All mutations except `register` and `register_sponsored` use optimistic concurrency: `expected_version` MUST equal the current on-chain version, or the call is rejected with `VersionMismatch`.
 
 ### Contract-level admin
 
