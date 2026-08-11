@@ -10,6 +10,16 @@ pub struct DidRegistered {
     pub version: u32,
 }
 
+/// Emitted by `register_sponsored`. A distinct type rather than a field on
+/// `DidRegistered` so consumers can filter sponsored registrations by topic.
+#[contractevent]
+pub struct DidRegisteredSponsored {
+    pub did_id: BytesN<16>,
+    pub sponsor: Address,
+    pub controller: Address,
+    pub version: u32,
+}
+
 #[contractevent]
 pub struct DidUpdated {
     pub did_id: BytesN<16>,
@@ -46,6 +56,22 @@ pub struct AdminTransferred {
 pub fn did_registered(e: &Env, did_id: &BytesN<16>, controller: &Address, version: u32) {
     DidRegistered {
         did_id: did_id.clone(),
+        controller: controller.clone(),
+        version,
+    }
+    .publish(e);
+}
+
+pub fn did_registered_sponsored(
+    e: &Env,
+    did_id: &BytesN<16>,
+    sponsor: &Address,
+    controller: &Address,
+    version: u32,
+) {
+    DidRegisteredSponsored {
+        did_id: did_id.clone(),
+        sponsor: sponsor.clone(),
         controller: controller.clone(),
         version,
     }

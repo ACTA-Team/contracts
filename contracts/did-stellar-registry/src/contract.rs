@@ -35,6 +35,15 @@ pub trait DidStellarRegistryInterface {
     /// `initial_record.controller` MUST authorize.
     fn register(e: Env, did_id: BytesN<16>, initial_record: DidRecord);
 
+    /// Register a new DID paid for by `sponsor`. Only `sponsor` MUST
+    /// authorize; the controller does not sign and owns the DID from version
+    /// 1. Fails with `SponsorIsController` if the two addresses match.
+    ///
+    /// The controller address is never proved here, and a wrong one yields a
+    /// permanently immutable record. Callers MUST validate it off-chain; see
+    /// spec §4.4.2.
+    fn register_sponsored(e: Env, sponsor: Address, did_id: BytesN<16>, initial_record: DidRecord);
+
     /// Replace the current `DidRecord` with `next_record`. Fails with
     /// `VersionMismatch` if the on-chain version does not match
     /// `expected_version`. Fails with `DidDeactivated` if the DID is already
@@ -127,6 +136,41 @@ impl DidStellarRegistryInterface for DidStellarRegistry {
 
         storage::write_record(&e, &did_id, &record);
         events::did_registered(&e, &did_id, &record.controller, record.version);
+    }
+
+    fn register_sponsored(e: Env, sponsor: Address, did_id: BytesN<16>, initial_record: DidRecord) {
+        if storage::has_record(&e, &did_id) {
+            panic_with_error!(&e, RegistryError::DidAlreadyExists);
+        }
+
+        // Only the sponsor signs. That is the point of this entrypoint, and
+        // its risk.
+        sponsor.require_auth();
+
+        // Sponsoring yourself is `register` plus a custody window.
+        if sponsor == initial_record.controller {
+            panic_with_error!(&e, RegistryError::SponsorIsController);
+        }
+
+        validate_record(&e, &initial_record);
+
+        let current_ledger = e.ledger().sequence();
+        let record = DidRecord {
+            controller: initial_record.controller.clone(),
+            authentication: initial_record.authentication,
+            assertion_method: initial_record.assertion_method,
+            key_agreement: initial_record.key_agreement,
+            services: initial_record.services,
+            metadata_uri: initial_record.metadata_uri,
+            metadata_hash: initial_record.metadata_hash,
+            version: 1,
+            created_ledger: current_ledger,
+            updated_ledger: current_ledger,
+            deactivated: false,
+        };
+
+        storage::write_record(&e, &did_id, &record);
+        events::did_registered_sponsored(&e, &did_id, &sponsor, &record.controller, record.version);
     }
 
     fn update(e: Env, did_id: BytesN<16>, expected_version: u32, next_record: DidRecord) {
