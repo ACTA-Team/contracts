@@ -15,6 +15,7 @@ On-chain registry for the [`did:stellar`](docs/did-spec/did-stellar-v0.1.md) dec
 | Function | Description |
 |---|---|
 | `register` | Create a new DID |
+| `register_sponsored` | Create a new DID paid for and signed by a sponsor, controlled by someone else (0.3.0+, testnet only) |
 | `update` | Replace the full DID record (optimistic concurrency) |
 | `transfer_controller` | Transfer control to a different Stellar account |
 | `deactivate` | Permanently deactivate a DID |
@@ -68,8 +69,8 @@ Full deployment record: [`docs/deployments/mainnet.md`](docs/deployments/mainnet
 
 | Contract | Version | Contract ID / WASM hash |
 |---|---|---|
-| `did-stellar-registry` | 0.2.0 | `CBUNQ3GX3ZQ4MF64H7JCYZMXLGOS47VPIQQS7NCR6V3KX6YP7O72L5QF` |
-| `vc-vault-factory` | 0.1.0 | `CDRFQRIP4FA3WMPWCSAM3XEY6EM6EGKRYZRSCSVZ5NHCF6AGEVR2XEPQ` |
+| `did-stellar-registry` | 0.3.0 | `CAJQFHGAJR5Q2NMGM7IYGM2KK6FLQXT634XZMGEYKKOYN2E2ONCFRSQK` |
+| `vc-vault-factory` | 0.1.0 | `CB23E4GXNRJ367BVPDRMGLADKBQLCWMAWP6SZVGFJPMR2D6I3KBA3B4H` |
 | `vc-vault` | 0.4.0 | template WASM hash `2bd0323a98acb8469606808368da6c79824f2dd8391494b94ddbeb3d22c1a957` (instances deployed via the factory) |
 
 Network: Stellar Testnet (`Test SDF Network ; September 2015`)  
