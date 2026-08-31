@@ -19,26 +19,23 @@ This contract is the canonical source of truth for the state of every `did:stell
 | Function | Purpose |
 |---|---|
 | `register(did_id: BytesN<16>, initial_record: DidRecord)` | Create a new DID. Fails if `did_id` is already taken. |
+| `register_sponsored(sponsor: Address, did_id: BytesN<16>, initial_record: DidRecord)` | Create a new DID paid for by `sponsor`, controlled by `initial_record.controller`. Only `sponsor` signs. Fails with `SponsorIsController` if the two are the same address. |
 | `update(did_id: BytesN<16>, expected_version: u32, next_record: DidRecord)` | Replace the full DID record. Fails on version mismatch or if the DID is deactivated. |
 | `transfer_controller(did_id: BytesN<16>, expected_version: u32, new_controller: Address)` | Change the controller. Keys, services, and metadata are preserved. |
 | `deactivate(did_id: BytesN<16>, expected_version: u32)` | Permanently deactivate the DID. Empties cryptographic material; preserves controller + metadata for audit. Irreversible. |
 | `get(did_id: BytesN<16>) -> Option<DidRecord>` | Read the current record. No authorization required. |
 
-All mutations require `controller.require_auth()`. All mutations except `register` use optimistic concurrency: `expected_version` MUST equal the current on-chain version, or the call is rejected with `VersionMismatch`.
+All mutations require `controller.require_auth()`, except `register_sponsored`, which requires `sponsor.require_auth()` and no signature from the controller. All mutations except `register` and `register_sponsored` use optimistic concurrency: `expected_version` MUST equal the current on-chain version, or the call is rejected with `VersionMismatch`.
 
 ### Contract-level admin
 
-Two-step admin transfer. Per-DID mutations are NOT admin-gated — the admin role exists for future contract-wide governance only.
+Two-step admin transfer. Per-DID mutations are NOT admin-gated - the admin role exists for future contract-wide governance only.
 
 | Function | Purpose |
 |---|---|
 | `propose_admin(new_admin: Address)` | Current admin nominates a successor. Proposal lives in temporary storage and auto-expires (~10 days). |
 | `accept_admin()` | Proposed admin accepts the role. Both the current admin (already past) and the proposed admin must have signed the two calls. Emits `AdminTransferred`. Fails with `NoProposedAdmin` if no proposal exists. |
 | `get_admin() -> Address` | Read the current admin. No authorization required. |
-
-**The contract WASM is intentionally NOT upgradeable.** There is no `upgrade(new_wasm_hash)` function. To migrate, deploy a new contract and migrate state explicitly.
-
-The auto-generated client struct is `DidStellarRegistryClient`.
 
 ---
 
@@ -48,6 +45,7 @@ The auto-generated client struct is `DidStellarRegistryClient`.
 |---|---|
 | `__constructor` | `admin` (deployer signs) |
 | `register` | `initial_record.controller` |
+| `register_sponsored` | `sponsor` only - the controller does NOT sign |
 | `update` | current `controller` |
 | `transfer_controller` | current `controller` |
 | `deactivate` | current `controller` |
@@ -77,13 +75,15 @@ Codes are part of the ABI. Numeric values MUST NOT be renumbered.
 | 11 | `KeyEmpty` | `public_key_multibase` is empty. |
 | 12 | `ServiceTypeTooLong` | `service_type.len()` > 64 chars. |
 | 13 | `ServiceIdTooLong` | `id_suffix.len()` > 32 chars. |
-| 14 | `ServiceIdInvalidFormat` | `id_suffix` does not match `^[a-z0-9-]+$`. |
+| 14 | `ServiceIdInvalidFormat` | `id_suffix` does not match `^[a-z0-9][a-z0-9-]*[a-z0-9]$` (or a single `[a-z0-9]`); leading/trailing hyphens rejected. |
 | 15 | `ServiceEndpointInvalid` | `service_endpoint` is not `https://...` or > 255 chars. |
 | 16 | `MetadataUriInvalid` | `metadata_uri` is not `https://...` or > 255 chars. |
 | 17 | `NoProposedAdmin` | `accept_admin` called when no proposal exists or proposal expired. |
 | 18 | `ServiceTypeEmpty` | `service_type` is empty. |
 | 19 | `VersionOverflow` | DID `version` has reached `u32::MAX`; further mutations are rejected. |
 | 20 | `MetadataInconsistent` | `metadata_hash` is set but `metadata_uri` is absent. |
+| 21 | `DuplicateServiceId` | Two services in the same record share the same `id_suffix`. |
+| 22 | `SponsorIsController` | `register_sponsored` called with `sponsor == initial_record.controller`. Use `register` instead. |
 
 ---
 
@@ -94,6 +94,7 @@ Each successful mutation emits a typed event:
 | Event | Payload | Triggered by |
 |---|---|---|
 | `DidRegistered` | `did_id`, `controller`, `version` | `register` |
+| `DidRegisteredSponsored` | `did_id`, `sponsor`, `controller`, `version` | `register_sponsored` |
 | `DidUpdated` | `did_id`, `version` | `update` |
 | `DidControllerTransferred` | `did_id`, `old_controller`, `new_controller`, `version` | `transfer_controller` |
 | `DidDeactivated` | `did_id`, `version` | `deactivate` |
@@ -138,7 +139,7 @@ Defined in `src/model.rs`:
 | `key_agreement.len()` | 0–1 |
 | `services.len()` | 0–3 |
 | `public_key_multibase` | 1–128 chars; unique within each relationship |
-| `service.id_suffix` | 1–32 chars; `^[a-z0-9-]+$` |
+| `service.id_suffix` | 1–32 chars; `^[a-z0-9][a-z0-9-]*[a-z0-9]$` (or single char); unique across services |
 | `service.service_type` | 1–64 chars |
 | `service.service_endpoint` | `https://`, ≤ 255 chars |
 | `metadata_uri` | `https://`, ≤ 255 chars |
@@ -170,5 +171,5 @@ stellar contract build
 
 - [`did:stellar` v0.1 specification](../../docs/did-spec/did-stellar-v0.1.md)
 - [Test vectors](../../docs/did-spec/test-vectors/vectors.json)
-- W3C DID Core 1.1 — https://www.w3.org/TR/did-1.1/
-- W3C DID Resolution v0.3 — https://www.w3.org/TR/did-resolution/
+- W3C DID Core 1.1 - https://www.w3.org/TR/did-1.1/
+- W3C DID Resolution v0.3 - https://www.w3.org/TR/did-resolution/

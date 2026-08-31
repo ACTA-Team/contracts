@@ -10,15 +10,13 @@
 //!  - events (smoke check that mutations emit something)
 //!  - normative test vectors (matches `docs/did-spec/test-vectors/vectors.json`)
 
-#![cfg(test)]
-
 extern crate std;
 
 use crate::contract::{DidStellarRegistry, DidStellarRegistryClient};
 use crate::errors::RegistryError;
 use crate::events::{
     AdminTransferred, ContractInitialized, DidControllerTransferred, DidDeactivated, DidRegistered,
-    DidUpdated,
+    DidRegisteredSponsored, DidUpdated,
 };
 use crate::model::{DidKey, DidRecord, DidService};
 use soroban_sdk::{
@@ -111,7 +109,7 @@ fn test_register_basic() {
     let r = client.get(&did_id).unwrap();
     assert_eq!(r.controller, controller);
     assert_eq!(r.version, 1);
-    assert_eq!(r.deactivated, false);
+    assert!(!r.deactivated);
     assert_eq!(r.authentication.len(), 1);
     // created_ledger == updated_ledger right after register.
     assert_eq!(r.created_ledger, r.updated_ledger);
@@ -132,6 +130,166 @@ fn test_get_nonexistent() {
     assert!(client.get(&other).is_none());
 }
 
+// --- register_sponsored ----------------------------------------------------
+
+#[test]
+fn test_register_sponsored_basic() {
+    let (env, controller, did_id, _id, client) = setup();
+    let sponsor = Address::generate(&env);
+
+    client.register_sponsored(&sponsor, &did_id, &minimal_record(&env, &controller));
+
+    let r = client.get(&did_id).unwrap();
+    assert_eq!(r.controller, controller);
+    assert_eq!(r.version, 1);
+    assert!(!r.deactivated);
+    assert_eq!(r.created_ledger, r.updated_ledger);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #22)")] // SponsorIsController
+fn test_register_sponsored_rejects_sponsor_as_controller() {
+    let (env, controller, did_id, _id, client) = setup();
+    client.register_sponsored(&controller, &did_id, &minimal_record(&env, &controller));
+}
+
+#[test]
+fn test_register_sponsored_grants_sponsor_no_control() {
+    // The security model: paying for a DID buys zero authority over it.
+    use soroban_sdk::testutils::{MockAuth, MockAuthInvoke};
+
+    let env = Env::default();
+    env.mock_all_auths();
+    let sponsor = Address::generate(&env);
+    let controller = Address::generate(&env);
+    let did_id = BytesN::<16>::random(&env);
+    let contract_id = env.register(DidStellarRegistry, (Address::generate(&env),));
+    let client = DidStellarRegistryClient::new(&env, &contract_id);
+    client.register_sponsored(&sponsor, &did_id, &minimal_record(&env, &controller));
+
+    let next = minimal_record(&env, &controller);
+    let stranger = Address::generate(&env);
+
+    // Only the sponsor signs. Every mutation below must be rejected.
+    env.mock_auths(&[MockAuth {
+        address: &sponsor,
+        invoke: &MockAuthInvoke {
+            contract: &contract_id,
+            fn_name: "update",
+            args: (did_id.clone(), 1u32, next.clone()).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(client.try_update(&did_id, &1u32, &next).is_err());
+
+    env.mock_auths(&[MockAuth {
+        address: &sponsor,
+        invoke: &MockAuthInvoke {
+            contract: &contract_id,
+            fn_name: "transfer_controller",
+            args: (did_id.clone(), 1u32, stranger.clone()).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(client
+        .try_transfer_controller(&did_id, &1u32, &stranger)
+        .is_err());
+
+    env.mock_auths(&[MockAuth {
+        address: &sponsor,
+        invoke: &MockAuthInvoke {
+            contract: &contract_id,
+            fn_name: "deactivate",
+            args: (did_id.clone(), 1u32).into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(client.try_deactivate(&did_id, &1u32).is_err());
+
+    // The record is untouched.
+    let r = client.get(&did_id).unwrap();
+    assert_eq!(r.controller, controller);
+    assert_eq!(r.version, 1);
+    assert!(!r.deactivated);
+}
+
+#[test]
+fn test_register_sponsored_controller_keeps_full_control() {
+    // The controller can mutate a DID it never paid for.
+    let (env, controller, did_id, _id, client) = setup();
+    let sponsor = Address::generate(&env);
+    client.register_sponsored(&sponsor, &did_id, &minimal_record(&env, &controller));
+
+    let mut next = client.get(&did_id).unwrap();
+    let mut assert_keys = empty_keys(&env);
+    assert_keys.push_back(key(
+        &env,
+        "z6Mkff3F4VMDGbMbMtgRyXMrgr7qyxaKsPo7QEPQ2AkNrx2X",
+    ));
+    next.assertion_method = assert_keys;
+    client.update(&did_id, &1u32, &next);
+    assert_eq!(client.get(&did_id).unwrap().version, 2);
+
+    let new_controller = Address::generate(&env);
+    client.transfer_controller(&did_id, &2u32, &new_controller);
+    assert_eq!(client.get(&did_id).unwrap().controller, new_controller);
+
+    client.deactivate(&did_id, &3u32);
+    assert!(client.get(&did_id).unwrap().deactivated);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #1)")] // DidAlreadyExists
+fn test_register_sponsored_duplicate_did_id() {
+    let (env, controller, did_id, _id, client) = setup();
+    client.register_sponsored(
+        &Address::generate(&env),
+        &did_id,
+        &minimal_record(&env, &controller),
+    );
+    client.register_sponsored(
+        &Address::generate(&env),
+        &did_id,
+        &minimal_record(&env, &controller),
+    );
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #1)")] // DidAlreadyExists
+fn test_register_sponsored_cannot_overwrite_self_registered() {
+    let (env, controller, did_id, _id, client) = setup();
+    client.register(&did_id, &minimal_record(&env, &controller));
+    client.register_sponsored(
+        &Address::generate(&env),
+        &did_id,
+        &minimal_record(&env, &controller),
+    );
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")] // InvalidAuthKeyCount
+fn test_register_sponsored_validates_record() {
+    // Validation is identical to `register`.
+    let (env, controller, did_id, _id, client) = setup();
+    let mut r = minimal_record(&env, &controller);
+    r.authentication = empty_keys(&env);
+    client.register_sponsored(&Address::generate(&env), &did_id, &r);
+}
+
+#[test]
+#[should_panic]
+fn test_auth_register_sponsored_requires_sponsor() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let controller = Address::generate(&env);
+    let sponsor = Address::generate(&env);
+    let did_id = BytesN::<16>::random(&env);
+    let contract_id = env.register(DidStellarRegistry, (Address::generate(&env),));
+    let client = DidStellarRegistryClient::new(&env, &contract_id);
+    env.set_auths(&[]);
+    client.register_sponsored(&sponsor, &did_id, &minimal_record(&env, &controller));
+}
+
 // --- update ----------------------------------------------------------------
 
 #[test]
@@ -143,7 +301,10 @@ fn test_update_success() {
     // Add an assertion key.
     let mut next = v1.clone();
     let mut assert_keys = empty_keys(&env);
-    assert_keys.push_back(key(&env, "z6Mkff3F4VMDGbMbMtgRyXMrgr7qyxaKsPo7QEPQ2AkNrx2X"));
+    assert_keys.push_back(key(
+        &env,
+        "z6Mkff3F4VMDGbMbMtgRyXMrgr7qyxaKsPo7QEPQ2AkNrx2X",
+    ));
     next.assertion_method = assert_keys;
 
     client.update(&did_id, &v1.version, &next);
@@ -265,7 +426,7 @@ fn test_auth_update_requires_controller() {
     let contract_id = env.register(DidStellarRegistry, (Address::generate(&env),));
     let client = DidStellarRegistryClient::new(&env, &contract_id);
     client.register(&did_id, &minimal_record(&env, &controller));
-    // Strip auths — update must fail.
+    // Strip auths - update must fail.
     env.set_auths(&[]);
     client.update(&did_id, &1u32, &minimal_record(&env, &controller));
 }
@@ -379,7 +540,7 @@ fn test_boundary_key_too_long() {
     let (env, controller, did_id, _id, client) = setup();
     let mut r = minimal_record(&env, &controller);
     // 129 chars > MAX_KEY_MULTIBASE_LEN (128).
-    let long: std::string::String = core::iter::repeat('x').take(129).collect();
+    let long: std::string::String = core::iter::repeat_n('x', 129).collect();
     let mut auth = empty_keys(&env);
     auth.push_back(DidKey {
         public_key_multibase: String::from_str(&env, &long),
@@ -445,12 +606,52 @@ fn test_boundary_service_id_underscore() {
 }
 
 #[test]
+#[should_panic(expected = "Error(Contract, #21)")] // DuplicateServiceId
+fn test_boundary_duplicate_service_id() {
+    let (env, controller, did_id, _id, client) = setup();
+    let mut r = minimal_record(&env, &controller);
+    let mut svcs = empty_services(&env);
+    svcs.push_back(DidService {
+        id_suffix: s(&env, "issuer"),
+        service_type: s(&env, "LinkedDomains"),
+        service_endpoint: s(&env, "https://a.example.com"),
+    });
+    svcs.push_back(DidService {
+        id_suffix: s(&env, "issuer"),
+        service_type: s(&env, "LinkedDomains"),
+        service_endpoint: s(&env, "https://b.example.com"),
+    });
+    r.services = svcs;
+    client.register(&did_id, &r);
+}
+
+#[test]
+fn test_distinct_service_ids_ok() {
+    let (env, controller, did_id, _id, client) = setup();
+    let mut r = minimal_record(&env, &controller);
+    let mut svcs = empty_services(&env);
+    svcs.push_back(DidService {
+        id_suffix: s(&env, "issuer"),
+        service_type: s(&env, "LinkedDomains"),
+        service_endpoint: s(&env, "https://a.example.com"),
+    });
+    svcs.push_back(DidService {
+        id_suffix: s(&env, "status"),
+        service_type: s(&env, "LinkedDomains"),
+        service_endpoint: s(&env, "https://b.example.com"),
+    });
+    r.services = svcs;
+    client.register(&did_id, &r);
+    assert_eq!(client.get(&did_id).unwrap().services.len(), 2);
+}
+
+#[test]
 #[should_panic(expected = "Error(Contract, #12)")] // ServiceTypeTooLong
 fn test_boundary_service_type_too_long() {
     let (env, controller, did_id, _id, client) = setup();
     let mut r = minimal_record(&env, &controller);
     // 65 chars > MAX_SERVICE_TYPE_LEN (64).
-    let long: std::string::String = core::iter::repeat('x').take(65).collect();
+    let long: std::string::String = core::iter::repeat_n('x', 65).collect();
     let mut svcs = empty_services(&env);
     svcs.push_back(DidService {
         id_suffix: s(&env, "issuer"),
@@ -468,7 +669,7 @@ fn test_boundary_service_id_too_long() {
     let mut r = minimal_record(&env, &controller);
     // 33 chars > MAX_SERVICE_ID_LEN (32). Use only valid `[a-z]` so the
     // length check fires before the format check.
-    let long: std::string::String = core::iter::repeat('a').take(33).collect();
+    let long: std::string::String = core::iter::repeat_n('a', 33).collect();
     let mut svcs = empty_services(&env);
     svcs.push_back(DidService {
         id_suffix: String::from_str(&env, &long),
@@ -504,7 +705,7 @@ fn test_duplicate_keys_same_relation() {
 // --- events ---------------------------------------------------------------
 // These tests verify the full event payload (topics + data), not just that
 // "something" was emitted. `env.events().all()` returns events from the
-// last contract invocation only — each test executes a single mutation
+// last contract invocation only - each test executes a single mutation
 // after setup so the event under inspection is unambiguous.
 
 #[test]
@@ -518,12 +719,41 @@ fn test_events_register_emits_payload() {
         version: 1,
     };
     // `ContractEvents` impls `PartialEq<Vec<(Address, Vec<Val>, Val)>>` via
-    // XDR comparison — the only structural way to assert event payloads.
+    // XDR comparison - the only structural way to assert event payloads.
     assert_eq!(
         env.events().all(),
         vec![
             &env,
-            (contract_id.clone(), expected.topics(&env), expected.data(&env))
+            (
+                contract_id.clone(),
+                expected.topics(&env),
+                expected.data(&env)
+            )
+        ]
+    );
+}
+
+#[test]
+fn test_events_register_sponsored_emits_payload() {
+    let (env, controller, did_id, contract_id, client) = setup();
+    let sponsor = Address::generate(&env);
+    client.register_sponsored(&sponsor, &did_id, &minimal_record(&env, &controller));
+
+    let expected = DidRegisteredSponsored {
+        did_id: did_id.clone(),
+        sponsor: sponsor.clone(),
+        controller: controller.clone(),
+        version: 1,
+    };
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                contract_id.clone(),
+                expected.topics(&env),
+                expected.data(&env)
+            )
         ]
     );
 }
@@ -544,7 +774,11 @@ fn test_events_update_emits_payload() {
         env.events().all(),
         vec![
             &env,
-            (contract_id.clone(), expected.topics(&env), expected.data(&env))
+            (
+                contract_id.clone(),
+                expected.topics(&env),
+                expected.data(&env)
+            )
         ]
     );
 }
@@ -566,7 +800,11 @@ fn test_events_transfer_emits_payload() {
         env.events().all(),
         vec![
             &env,
-            (contract_id.clone(), expected.topics(&env), expected.data(&env))
+            (
+                contract_id.clone(),
+                expected.topics(&env),
+                expected.data(&env)
+            )
         ]
     );
 }
@@ -585,7 +823,11 @@ fn test_events_deactivate_emits_payload() {
         env.events().all(),
         vec![
             &env,
-            (contract_id.clone(), expected.topics(&env), expected.data(&env))
+            (
+                contract_id.clone(),
+                expected.topics(&env),
+                expected.data(&env)
+            )
         ]
     );
 }
@@ -605,7 +847,10 @@ fn test_update_ignores_controller_field() {
     client.update(&did_id, &1u32, &next);
 
     let r = client.get(&did_id).unwrap();
-    assert_eq!(r.controller, controller, "update must not change the controller");
+    assert_eq!(
+        r.controller, controller,
+        "update must not change the controller"
+    );
     assert_ne!(r.controller, intruder);
 }
 
@@ -631,7 +876,10 @@ fn test_vector_1_minimal_did() {
     let client = DidStellarRegistryClient::new(&env, &contract_id);
 
     let mut auth = empty_keys(&env);
-    auth.push_back(key(&env, "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY"));
+    auth.push_back(key(
+        &env,
+        "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY",
+    ));
     let r = DidRecord {
         controller: controller.clone(),
         authentication: auth,
@@ -649,7 +897,7 @@ fn test_vector_1_minimal_did() {
 
     let stored = client.get(&did_id).unwrap();
     assert_eq!(stored.version, 1);
-    assert_eq!(stored.deactivated, false);
+    assert!(!stored.deactivated);
     assert_eq!(stored.authentication.len(), 1);
     assert_eq!(stored.assertion_method.len(), 0);
     assert_eq!(stored.key_agreement.len(), 0);
@@ -671,11 +919,20 @@ fn test_vector_2_full_did() {
     let client = DidStellarRegistryClient::new(&env, &contract_id);
 
     let mut auth = empty_keys(&env);
-    auth.push_back(key(&env, "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY"));
+    auth.push_back(key(
+        &env,
+        "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY",
+    ));
     let mut assert_keys = empty_keys(&env);
-    assert_keys.push_back(key(&env, "z6Mkff3F4VMDGbMbMtgRyXMrgr7qyxaKsPo7QEPQ2AkNrx2X"));
+    assert_keys.push_back(key(
+        &env,
+        "z6Mkff3F4VMDGbMbMtgRyXMrgr7qyxaKsPo7QEPQ2AkNrx2X",
+    ));
     let mut ka = empty_keys(&env);
-    ka.push_back(key(&env, "z6LSnGSQaEk7SBZMmMLHTCqz6YUuiVVCmBNdAqSVdepqYAW1"));
+    ka.push_back(key(
+        &env,
+        "z6LSnGSQaEk7SBZMmMLHTCqz6YUuiVVCmBNdAqSVdepqYAW1",
+    ));
     let mut svcs = empty_services(&env);
     svcs.push_back(DidService {
         id_suffix: s(&env, "issuer"),
@@ -723,7 +980,7 @@ fn test_vector_3_deactivated_tombstone() {
 
     let r = client.get(&did_id).unwrap();
     // Tombstone state per spec §6.6.
-    assert_eq!(r.deactivated, true);
+    assert!(r.deactivated);
     assert_eq!(r.version, 2);
     assert_eq!(r.authentication.len(), 0);
     assert_eq!(r.assertion_method.len(), 0);
@@ -747,8 +1004,7 @@ fn test_vector_4_concurrent_update_conflict() {
     assert_eq!(client.get(&did_id).unwrap().version, 2);
 
     // Caller B tries with the stale version.
-    let result =
-        client.try_update(&did_id, &1u32, &minimal_record(&env, &controller));
+    let result = client.try_update(&did_id, &1u32, &minimal_record(&env, &controller));
     assert!(result.is_err());
     let err = result.err().unwrap().unwrap();
     assert_eq!(err, RegistryError::VersionMismatch.into());
@@ -762,7 +1018,7 @@ fn test_record_round_trip_via_intoval() {
     let env = Env::default();
     let controller = Address::generate(&env);
     let r = minimal_record(&env, &controller);
-    let _val: soroban_sdk::Val = (&r).into_val(&env);
+    let _val: soroban_sdk::Val = r.into_val(&env);
 }
 
 // --- contract admin (constructor + two-step transfer) ----------------------
@@ -777,7 +1033,7 @@ fn test_constructor_emits_initialized_event() {
     let admin = Address::generate(&env);
     let contract_id = env.register(DidStellarRegistry, (admin.clone(),));
 
-    // Inspect events BEFORE any further client call — `env.events().all()`
+    // Inspect events BEFORE any further client call - `env.events().all()`
     // returns events from the last contract invocation only.
     let expected = ContractInitialized {
         admin: admin.clone(),
@@ -786,7 +1042,11 @@ fn test_constructor_emits_initialized_event() {
         env.events().all(),
         vec![
             &env,
-            (contract_id.clone(), expected.topics(&env), expected.data(&env))
+            (
+                contract_id.clone(),
+                expected.topics(&env),
+                expected.data(&env)
+            )
         ]
     );
 }
@@ -807,7 +1067,7 @@ fn test_propose_admin_records_pending_nominee() {
     let nominee = Address::generate(&env);
     client.propose_admin(&nominee);
     // Until accepted, the current admin is unchanged.
-    // (We can't directly read proposed_admin via the public ABI — covered
+    // (We can't directly read proposed_admin via the public ABI - covered
     // indirectly by the accept tests below.)
     assert_ne!(client.get_admin(), nominee);
 }
@@ -820,7 +1080,7 @@ fn test_accept_admin_completes_two_step_transfer() {
     client.propose_admin(&nominee);
     client.accept_admin();
 
-    // Inspect events BEFORE `get_admin` — events from a read overwrite the
+    // Inspect events BEFORE `get_admin` - events from a read overwrite the
     // accept_admin invocation in `env.events().all()`.
     let expected = AdminTransferred {
         old_admin: admin.clone(),
@@ -830,7 +1090,11 @@ fn test_accept_admin_completes_two_step_transfer() {
         env.events().all(),
         vec![
             &env,
-            (contract_id.clone(), expected.topics(&env), expected.data(&env))
+            (
+                contract_id.clone(),
+                expected.topics(&env),
+                expected.data(&env)
+            )
         ]
     );
 
@@ -853,7 +1117,7 @@ fn test_propose_admin_requires_current_admin_auth() {
     let contract_id = env.register(DidStellarRegistry, (admin,));
     let client = DidStellarRegistryClient::new(&env, &contract_id);
     let nominee = Address::generate(&env);
-    // Strip auths after construction — propose must fail.
+    // Strip auths after construction - propose must fail.
     env.set_auths(&[]);
     client.propose_admin(&nominee);
 }
@@ -868,7 +1132,7 @@ fn test_accept_admin_requires_nominee_auth() {
     let client = DidStellarRegistryClient::new(&env, &contract_id);
     let nominee = Address::generate(&env);
     client.propose_admin(&nominee);
-    // Strip auths — accept must fail because nominee can't sign.
+    // Strip auths - accept must fail because nominee can't sign.
     env.set_auths(&[]);
     client.accept_admin();
 }
@@ -913,7 +1177,7 @@ fn test_admin_does_not_bypass_did_controller_auth() {
         },
     }]);
 
-    // Admin auth alone is not enough — update must be rejected.
+    // Admin auth alone is not enough - update must be rejected.
     let result = client.try_update(&did_id, &1u32, &minimal_record(&env, &controller));
     assert!(result.is_err());
 }
@@ -962,7 +1226,7 @@ fn test_boundary_metadata_uri_no_host() {
 #[test]
 #[should_panic(expected = "Error(Contract, #19)")] // VersionOverflow
 fn test_version_overflow() {
-    // A DID at u32::MAX must not panic arithmetically — it must return a
+    // A DID at u32::MAX must not panic arithmetically - it must return a
     // clean VersionOverflow error so the DID remains inspectable.
     let (env, controller, did_id, contract_id, client) = setup();
     client.register(&did_id, &minimal_record(&env, &controller));
@@ -978,9 +1242,7 @@ fn test_version_overflow() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #9)")] // DuplicateKey
-fn test_duplicate_keys_cross_relationship() {
-    // Same multibase key in authentication AND assertion_method must be rejected.
+fn test_same_key_across_relations_allowed() {
     let (env, controller, did_id, _id, client) = setup();
     let mut r = minimal_record(&env, &controller);
     let same = "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doY";
@@ -989,6 +1251,14 @@ fn test_duplicate_keys_cross_relationship() {
     r.assertion_method = assert_keys;
     // r.authentication already contains `same` from minimal_record.
     client.register(&did_id, &r);
+
+    let got = client.get(&did_id).unwrap();
+    assert_eq!(got.authentication.len(), 1);
+    assert_eq!(got.assertion_method.len(), 1);
+    assert_eq!(
+        got.authentication.get_unchecked(0).public_key_multibase,
+        got.assertion_method.get_unchecked(0).public_key_multibase
+    );
 }
 
 #[test]
@@ -1024,7 +1294,7 @@ fn test_boundary_service_id_trailing_hyphen() {
 #[test]
 #[should_panic(expected = "Error(Contract, #20)")] // MetadataInconsistent
 fn test_boundary_metadata_hash_without_uri() {
-    // A metadata_hash with no metadata_uri is orphaned — must be rejected.
+    // A metadata_hash with no metadata_uri is orphaned - must be rejected.
     let (env, controller, did_id, _id, client) = setup();
     let mut r = minimal_record(&env, &controller);
     r.metadata_hash = Some(BytesN::<32>::from_array(&env, &[0u8; 32]));

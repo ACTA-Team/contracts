@@ -6,11 +6,11 @@ use soroban_sdk::contracterror;
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum ContractError {
-    /// Vault already exists for this owner.
-    VaultAlreadyExists = 1,
-    /// Issuer not in vault's authorized list.
+    /// Deprecated: retained for ABI stability (was the issuer-whitelist model,
+    /// replaced by open issuance + denylist). No longer raised.
     IssuerNotAuthorized = 2,
-    /// Issuer already authorized.
+    /// Deprecated: retained for ABI stability (was the issuer-whitelist model).
+    /// No longer raised.
     IssuerAlreadyAuthorized = 3,
     /// Vault is revoked; writes blocked.
     VaultRevoked = 4,
@@ -24,14 +24,10 @@ pub enum ContractError {
     NotInitialized = 9,
     /// vault_contract param is not this contract.
     InvalidVaultContract = 10,
-    /// Signer is not the contract admin nor an authorized sponsor.
-    NotAuthorizedSponsor = 11,
     /// vc_id already exists in this vault; re-issuance is not allowed.
     VCAlreadyExists = 12,
     /// accept_contract_admin called but no admin nomination is pending.
     NoPendingAdmin = 13,
-    /// The parent VC does not exist or has been revoked.
-    ParentVCInvalid = 14,
     /// Vault has reached the maximum number of active VCs.
     VaultFull = 15,
     /// Pagination `limit` exceeds `MAX_LIST_LIMIT`.
@@ -43,10 +39,15 @@ pub enum ContractError {
     /// String input exceeds its per-field maximum length (vc_id, vc_data,
     /// did_uri, issuer_did, or date).
     InputTooLong = 19,
-    /// `authorize_issuers` called with a list larger than `MAX_ISSUERS_LIST`.
+    /// Deprecated: retained for ABI stability (was the bulk authorize-issuers
+    /// list cap). No longer raised.
     IssuerListTooLong = 20,
-    /// Fee amount is negative.
-    InvalidFeeAmount = 22,
-    /// Fee amount exceeds `MAX_FEE_AMOUNT`.
+    /// Batch fee total (per-credential fee × batch size) overflowed `i128`.
     FeeOutOfBounds = 23,
+    /// Source vault is not registered in the factory.
+    SourceNotAVault = 24,
+    /// Issuer is in this vault's denied list.
+    IssuerDenied = 25,
+    /// receive_push source vault has a different owner than this vault.
+    PushOwnerMismatch = 26,
 }

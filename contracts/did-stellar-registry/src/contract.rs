@@ -35,6 +35,15 @@ pub trait DidStellarRegistryInterface {
     /// `initial_record.controller` MUST authorize.
     fn register(e: Env, did_id: BytesN<16>, initial_record: DidRecord);
 
+    /// Register a new DID paid for by `sponsor`. Only `sponsor` MUST
+    /// authorize; the controller does not sign and owns the DID from version
+    /// 1. Fails with `SponsorIsController` if the two addresses match.
+    ///
+    /// The controller address is never proved here, and a wrong one yields a
+    /// permanently immutable record. Callers MUST validate it off-chain; see
+    /// spec §4.4.2.
+    fn register_sponsored(e: Env, sponsor: Address, did_id: BytesN<16>, initial_record: DidRecord);
+
     /// Replace the current `DidRecord` with `next_record`. Fails with
     /// `VersionMismatch` if the on-chain version does not match
     /// `expected_version`. Fails with `DidDeactivated` if the DID is already
@@ -63,7 +72,7 @@ pub trait DidStellarRegistryInterface {
     // --- Contract-level admin -----------------------------------------------
     // The admin governs future contract-wide operations (none today; reserved
     // for emergency pause, parameter updates, etc.). Per-DID mutations are
-    // NOT admin-gated — they remain authorized exclusively by the DID
+    // NOT admin-gated - they remain authorized exclusively by the DID
     // controller.
 
     /// Propose a new contract admin. The current admin MUST authorize. The
@@ -84,7 +93,7 @@ pub struct DidStellarRegistry;
 
 #[contractimpl]
 impl DidStellarRegistry {
-    /// Soroban constructor — runs exactly once at deployment time. Sets the
+    /// Soroban constructor - runs exactly once at deployment time. Sets the
     /// initial admin. The deployer MUST sign as `admin`.
     pub fn __constructor(e: Env, admin: Address) {
         admin.require_auth();
@@ -104,7 +113,7 @@ impl DidStellarRegistryInterface for DidStellarRegistry {
         // Authorization: the caller is asserting they control this address.
         initial_record.controller.require_auth();
 
-        // Validate the payload — bounds, formats, no duplicates.
+        // Validate the payload - bounds, formats, no duplicates.
         validate_record(&e, &initial_record);
 
         // Override creation/update bookkeeping. Whatever the caller passed in
@@ -129,6 +138,41 @@ impl DidStellarRegistryInterface for DidStellarRegistry {
         events::did_registered(&e, &did_id, &record.controller, record.version);
     }
 
+    fn register_sponsored(e: Env, sponsor: Address, did_id: BytesN<16>, initial_record: DidRecord) {
+        if storage::has_record(&e, &did_id) {
+            panic_with_error!(&e, RegistryError::DidAlreadyExists);
+        }
+
+        // Only the sponsor signs. That is the point of this entrypoint, and
+        // its risk.
+        sponsor.require_auth();
+
+        // Sponsoring yourself is `register` plus a custody window.
+        if sponsor == initial_record.controller {
+            panic_with_error!(&e, RegistryError::SponsorIsController);
+        }
+
+        validate_record(&e, &initial_record);
+
+        let current_ledger = e.ledger().sequence();
+        let record = DidRecord {
+            controller: initial_record.controller.clone(),
+            authentication: initial_record.authentication,
+            assertion_method: initial_record.assertion_method,
+            key_agreement: initial_record.key_agreement,
+            services: initial_record.services,
+            metadata_uri: initial_record.metadata_uri,
+            metadata_hash: initial_record.metadata_hash,
+            version: 1,
+            created_ledger: current_ledger,
+            updated_ledger: current_ledger,
+            deactivated: false,
+        };
+
+        storage::write_record(&e, &did_id, &record);
+        events::did_registered_sponsored(&e, &did_id, &sponsor, &record.controller, record.version);
+    }
+
     fn update(e: Env, did_id: BytesN<16>, expected_version: u32, next_record: DidRecord) {
         let current = require_record(&e, &did_id);
         require_active(&e, &current);
@@ -148,7 +192,7 @@ impl DidStellarRegistryInterface for DidStellarRegistry {
         }
         let new_version = current.version + 1;
         let updated = DidRecord {
-            // Controller is pinned to the current value — next_record.controller
+            // Controller is pinned to the current value - next_record.controller
             // is intentionally ignored here.
             controller: current.controller.clone(),
             authentication: next_record.authentication,
@@ -292,12 +336,12 @@ fn require_version(e: &Env, expected: u32, current: u32) {
 
 /// Full record validation. Enforces every bound declared in `model.rs`.
 /// Called from `register` and `update`. Does NOT inspect or modify the
-/// version/ledger/deactivated bookkeeping fields — those are owned by the
+/// version/ledger/deactivated bookkeeping fields - those are owned by the
 /// contract.
 fn validate_record(e: &Env, record: &DidRecord) {
     // --- Key counts ---
     let auth_len = record.authentication.len();
-    if auth_len < MIN_KEY_COUNT_AUTH || auth_len > MAX_KEY_COUNT_AUTH {
+    if !(MIN_KEY_COUNT_AUTH..=MAX_KEY_COUNT_AUTH).contains(&auth_len) {
         panic_with_error!(e, RegistryError::InvalidAuthKeyCount);
     }
     if record.assertion_method.len() > MAX_KEY_COUNT_ASSERT {
@@ -315,18 +359,20 @@ fn validate_record(e: &Env, record: &DidRecord) {
     validate_keys_no_duplicates(e, &record.assertion_method);
     validate_keys_no_duplicates(e, &record.key_agreement);
 
-    // --- Cross-relationship duplicate detection ---
-    // The DID Core spec requires key IDs to be unique across the entire
-    // document; the same multibase key must not appear in two different
-    // verification relationships.
-    validate_keys_cross_duplicates(e, &record.authentication, &record.assertion_method);
-    validate_keys_cross_duplicates(e, &record.authentication, &record.key_agreement);
-    validate_keys_cross_duplicates(e, &record.assertion_method, &record.key_agreement);
-
     // --- Services ---
+    // Each service is validated individually, and `id_suffix` must be unique
+    // across all services - duplicates would resolve to the same
+    // `{did}#service-{id_suffix}` fragment, making the DID Document ambiguous.
+    // Pairwise comparison is bounded because `services.len() <= MAX_SERVICE_COUNT` (3).
     for i in 0..record.services.len() {
         let s: DidService = record.services.get_unchecked(i);
         validate_service(e, &s);
+        for j in (i + 1)..record.services.len() {
+            let other: DidService = record.services.get_unchecked(j);
+            if s.id_suffix == other.id_suffix {
+                panic_with_error!(e, RegistryError::DuplicateServiceId);
+            }
+        }
     }
 
     // --- Optional metadata URI ---
@@ -344,31 +390,12 @@ fn validate_record(e: &Env, record: &DidRecord) {
     }
 }
 
-/// Checks that no key in `a` appears in `b`. Both lists must already have
-/// passed `validate_keys_no_duplicates` individually. Bounded by
-/// `MAX_KEY_COUNT_AUTH × MAX_KEY_COUNT_ASSERT` = 3 × 3 = 9 iterations worst case.
-fn validate_keys_cross_duplicates(
-    e: &Env,
-    a: &soroban_sdk::Vec<DidKey>,
-    b: &soroban_sdk::Vec<DidKey>,
-) {
-    for i in 0..a.len() {
-        let ka: DidKey = a.get_unchecked(i);
-        for j in 0..b.len() {
-            let kb: DidKey = b.get_unchecked(j);
-            if ka.public_key_multibase == kb.public_key_multibase {
-                panic_with_error!(e, RegistryError::DuplicateKey);
-            }
-        }
-    }
-}
-
 fn validate_keys_no_duplicates(e: &Env, keys: &soroban_sdk::Vec<DidKey>) {
     let n = keys.len();
     for i in 0..n {
         let k: DidKey = keys.get_unchecked(i);
         validate_key(e, &k);
-        // Compare against later entries — pairwise comparison is bounded
+        // Compare against later entries - pairwise comparison is bounded
         // because `n <= 3`.
         for j in (i + 1)..n {
             let other: DidKey = keys.get_unchecked(j);
@@ -393,13 +420,13 @@ fn validate_service(e: &Env, s: &DidService) {
     if s.id_suffix.len() > MAX_SERVICE_ID_LEN {
         panic_with_error!(e, RegistryError::ServiceIdTooLong);
     }
-    if s.id_suffix.len() == 0 {
+    if s.id_suffix.is_empty() {
         panic_with_error!(e, RegistryError::ServiceIdInvalidFormat);
     }
     if !is_valid_id_suffix(&s.id_suffix) {
         panic_with_error!(e, RegistryError::ServiceIdInvalidFormat);
     }
-    if s.service_type.len() == 0 {
+    if s.service_type.is_empty() {
         panic_with_error!(e, RegistryError::ServiceTypeEmpty);
     }
     if s.service_type.len() > MAX_SERVICE_TYPE_LEN {

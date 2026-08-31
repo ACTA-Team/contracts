@@ -50,4 +50,10 @@ pub enum RegistryError {
     /// `metadata_hash` is `Some` but `metadata_uri` is `None`. An integrity
     /// hash without a corresponding URI is orphaned and meaningless.
     MetadataInconsistent = 20,
+    /// Two services share the same `id_suffix`, which would produce duplicate
+    /// `{did}#service-{id_suffix}` fragments in the resolved DID Document.
+    DuplicateServiceId = 21,
+    /// `register_sponsored` called with `sponsor == initial_record.controller`.
+    /// Use `register` instead.
+    SponsorIsController = 22,
 }

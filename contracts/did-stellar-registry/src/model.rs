@@ -1,6 +1,6 @@
 //! Data model for the `did-stellar-registry` contract.
 //!
-//! Defines the on-chain types — `DidKey`, `DidService`, `DidRecord` — and the
+//! Defines the on-chain types - `DidKey`, `DidService`, `DidRecord` - and the
 //! validation bounds. Bounds are enforced in `contract::validate_record` and
 //! kept here so they are co-located with the types they constrain.
 

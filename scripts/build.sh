@@ -35,16 +35,30 @@ build_did_registry() {
     echo "Built: target/wasm32v1-none/release/did_stellar_registry.optimized.wasm"
 }
 
+# vc-vault-factory already declares cdylib so a standard cargo build suffices.
+build_factory() {
+    cargo build \
+        -p vc-vault-factory-contract \
+        --target wasm32v1-none \
+        --release
+    stellar contract optimize \
+        --wasm target/wasm32v1-none/release/vc_vault_factory_contract.wasm
+    echo "Built: target/wasm32v1-none/release/vc_vault_factory_contract.optimized.wasm"
+}
+
 case "$PACKAGE" in
     vc-vault)
         build_vc_vault ;;
     did-stellar-registry)
         build_did_registry ;;
+    vc-vault-factory)
+        build_factory ;;
     all)
         build_vc_vault
-        build_did_registry ;;
+        build_did_registry
+        build_factory ;;
     *)
         echo "Unknown package: $PACKAGE" >&2
-        echo "Usage: $0 [vc-vault|did-stellar-registry|all]" >&2
+        echo "Usage: $0 [vc-vault|did-stellar-registry|vc-vault-factory|all]" >&2
         exit 1 ;;
 esac

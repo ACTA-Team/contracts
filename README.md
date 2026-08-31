@@ -2,7 +2,7 @@
 
 Soroban smart contracts for the ACTA identity and Verifiable Credential infrastructure on Stellar.
 
-**Latest release:** [vc-vault v0.3.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/vc-vault-v0.3.0)
+**Live on mainnet:** [mainnet-v1.0.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/mainnet-v1.0.0) · **Latest contract release:** [vc-vault v0.4.0](https://github.com/ACTA-Team/contracts-acta/releases/tag/vc-vault-v0.4.0)
 
 ---
 
@@ -15,6 +15,7 @@ On-chain registry for the [`did:stellar`](docs/did-spec/did-stellar-v0.1.md) dec
 | Function | Description |
 |---|---|
 | `register` | Create a new DID |
+| `register_sponsored` | Create a new DID paid for and signed by a sponsor, controlled by someone else (0.3.0+, testnet only) |
 | `update` | Replace the full DID record (optimistic concurrency) |
 | `transfer_controller` | Transfer control to a different Stellar account |
 | `deactivate` | Permanently deactivate a DID |
@@ -24,26 +25,53 @@ See [`contracts/did-stellar-registry/README.md`](contracts/did-stellar-registry/
 
 ---
 
-### `vc-vault`
+### `vc-vault-factory`
 
-Per-holder vault for Verifiable Credentials on Stellar. Manages VC storage, issuance status, revocation, issuer authorization, and fee collection in USDC. Contract admin is set at deploy time via `__constructor`.
+Deploys and tracks **single-tenant `vc-vault` instances**, one vault contract per holder, rather than a shared multi-tenant contract. Derives deterministic vault addresses from `(owner, salt)`, centralizes fee configuration, and maintains the `is_vault` registry that vaults use to validate cross-vault transfers.
 
 | Category | Functions |
 |---|---|
-| Admin | `nominate_admin`, `accept_contract_admin`, `upgrade`, `version`, `fee_*` |
-| Vault | `create_vault`, `create_sponsored_vault`, `set_vault_admin`, `authorize_issuer`, `authorize_issuers`, `revoke_issuer`, `revoke_vault`, `list_authorized_issuers`, `list_denied_issuers`, `authorized_issuer_count`, `denied_issuer_count` |
-| Credentials | `issue`, `batch_issue`, `issue_linked`, `revoke`, `verify_vc`, `get_vc`, `list_vc_ids`, `vc_count`, `push` |
+| Deploy | `deploy`, `deploy_sponsored`, `is_vault` |
+| Fees | `set_fee_config`, `set_fee_enabled`, `set_fee_standard`, `set_fee_custom`, `remove_fee_custom`, `set_min_fee`, `quote_fee` |
+| Admin | `nominate_admin`, `accept_admin`, `get_admin` |
 
-See [`contracts/vc-vault/README.md`](contracts/vc-vault/README.md) for the full ABI, authorization model, and error codes.
+See [`contracts/vc-vault-factory/README.md`](contracts/vc-vault-factory/README.md) for the full ABI.
+
+---
+
+### `vc-vault`
+
+**Single-tenant** Verifiable Credential vault, each holder owns their own instance, deployed by the factory. Manages VC storage, issuance status, revocation, and cross-vault migration. Issuance is **open** (anyone may issue unless denylisted); fees are quoted by the factory at issuance time.
+
+| Category | Functions |
+|---|---|
+| Admin | `nominate_admin`, `accept_contract_admin`, `version` |
+| Vault | `set_vault_admin`, `set_vault_did`, `vault_did`, `vault_owner`, `deny_issuer`, `allow_issuer`, `revoke_vault`, `list_denied_issuers`, `denied_issuer_count` |
+| Credentials | `issue`, `batch_issue`, `revoke`, `push`, `receive_push`, `verify_vc`, `get_vc`, `list_vc_ids`, `vc_count` |
+
+---
+
+## Mainnet Deployments
+
+| Contract | Version | Contract ID / WASM hash |
+|---|---|---|
+| `did-stellar-registry` | 0.2.0 | `CD6LSWW5ZSXOO5WAIHKQLQ262TW7BPI37PNEVMMA273BAPC65NN2AYXQ` |
+| `vc-vault-factory` | 0.1.0 | `CCWNZ6UMUXCDOVP2TWOPVLI4KP4VY4YF7VKPN6XLYVHNFAT24NDB33CX` |
+| `vc-vault` | 0.4.0 | template WASM hash `2bd0323a98acb8469606808368da6c79824f2dd8391494b94ddbeb3d22c1a957` (instances deployed via the factory) |
+
+Network: Stellar Mainnet (`Public Global Stellar Network ; September 2015`)  
+Factory fee: **1 USDC per credential** issued (paid by the issuer).  
+Full deployment record: [`docs/deployments/mainnet.md`](docs/deployments/mainnet.md)
 
 ---
 
 ## Testnet Deployments
 
-| Contract | Contract ID |
-|---|---|
-| `did-stellar-registry` | `CB7ATU7SF5QUKJMSULJDJVWJZVDXC23HTZX6NFUDTSFPVT6MA575NNZJ` |
-| `vc-vault` | `CATL4IDH7XXPDC2UHSEX2GP45PPBVDFSKUDTKCSQICDOJVDLYNKISXFH` |
+| Contract | Version | Contract ID / WASM hash |
+|---|---|---|
+| `did-stellar-registry` | 0.3.0 | `CAJQFHGAJR5Q2NMGM7IYGM2KK6FLQXT634XZMGEYKKOYN2E2ONCFRSQK` |
+| `vc-vault-factory` | 0.1.0 | `CB23E4GXNRJ367BVPDRMGLADKBQLCWMAWP6SZVGFJPMR2D6I3KBA3B4H` |
+| `vc-vault` | 0.4.0 | template WASM hash `2bd0323a98acb8469606808368da6c79824f2dd8391494b94ddbeb3d22c1a957` (instances deployed via the factory) |
 
 Network: Stellar Testnet (`Test SDF Network ; September 2015`)  
 Full deployment record: [`docs/deployments/testnet.md`](docs/deployments/testnet.md)
@@ -53,8 +81,9 @@ Full deployment record: [`docs/deployments/testnet.md`](docs/deployments/testnet
 ## Build
 
 ```bash
-# Build a specific contract
+# Build a specific contract (or `all`)
 ./scripts/build.sh vc-vault
+./scripts/build.sh vc-vault-factory
 ./scripts/build.sh did-stellar-registry
 ```
 
@@ -71,11 +100,12 @@ Output files:
 ./scripts/deploy.sh <package> <network> <source-account>
 
 # Examples
-./scripts/deploy.sh did-stellar-registry testnet acta_deployer
-./scripts/deploy.sh vc-vault testnet acta_deployer
+./scripts/deploy.sh did-stellar-registry testnet acta_deployer   # deploy
+./scripts/deploy.sh vc-vault             testnet acta_deployer   # install template, prints WASM hash
+./scripts/deploy.sh vc-vault-factory     testnet acta_deployer   # installs vault + deploys factory
 ```
 
-Record the resulting contract ID in [`docs/deployments/<network>.md`](docs/deployments/).
+`vc-vault` is not deployed standalone - the factory instantiates per-holder vaults via `factory.deploy(...)`. Record the resulting IDs in [`docs/deployments/<network>.md`](docs/deployments/).
 
 ---
 
@@ -83,20 +113,24 @@ Record the resulting contract ID in [`docs/deployments/<network>.md`](docs/deplo
 
 The `did:stellar` v0.1 method specification lives at [`docs/did-spec/did-stellar-v0.1.md`](docs/did-spec/did-stellar-v0.1.md). It covers:
 
+- Goals and design decisions
 - DID syntax and identifier generation
-- On-chain data model (`DidRecord`)
-- Contract operations and mutation semantics
+- On-chain registry data model (`DidRecord`) and contract operations
 - DID Document construction rules
 - Proof of control protocol
-- Normative test vectors
+- Security, privacy, and cost considerations
+- Acceptance criteria and normative test vectors
+- Integrator notes and a worked end-to-end example
 
 ---
 
 ## Tests
 
 ```bash
-cargo test -p vc-vault-contract          # 127 tests
-cargo test -p did-stellar-registry       # 56 tests
+cargo test                               # whole workspace (146 tests)
+cargo test -p vc-vault-contract          # 61 tests
+cargo test -p vc-vault-factory-contract  # 27 tests
+cargo test -p did-stellar-registry       # 58 tests
 ```
 
 ---
